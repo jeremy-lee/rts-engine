@@ -33,6 +33,14 @@ inline ScreenPos ProjectCell(CellCoord c, uint8_t height = 0) {
 	};
 }
 
+// ---- 正投影（子格精度）：SubCoord → 屏幕像素（平滑移动必须用它，ToCell 取整会导致跳格）----
+inline ScreenPos ProjectSub(SubCoord pos, uint8_t height = 0) {
+	return ScreenPos{
+		(pos.x - pos.y) * (kTileW / 2) / kSubPerCell,
+		(pos.x + pos.y) * (kTileH / 2) / kSubPerCell - static_cast<int32_t>(height) * kHeightStep
+	};
+}
+
 // ---- 正投影（子格精度）→ Q16.16 屏幕像素 ----
 inline Fixed ProjectCellXFixed(SubCoord s) {
 	// sx = (subX - subY) * (kTileW/2) / kSubPerCell

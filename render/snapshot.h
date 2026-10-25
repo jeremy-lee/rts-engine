@@ -114,7 +114,7 @@ struct RenderSnapshot {
 			const CellCoord ac = a.pos.ToCell();
 			const uint8_t fog = map.Fog(ac);
 			if (a.playerId != 0 && fog != 2 && !ignoreFog) continue; // 敌方在迷雾中隐藏
-			const ScreenPos p = ProjectCell(ac, 0);
+			const ScreenPos p = ProjectSub(a.pos, 0); // 子格精度（不平滑会跳格）
 			RenderSprite s;
 			// GL 模式：白色 tint（保留 C&C 原色）；软件模式按 player 着色
 			s.color = 0xFFFFFFFF;
@@ -134,7 +134,7 @@ struct RenderSnapshot {
 			// 插值起点（上一 tick 位置；未初始化时用当前）
 			const SubCoord prev = (a.movable.prevPos.x == 0 && a.movable.prevPos.y == 0 &&
 				(a.pos.x != 0 || a.pos.y != 0)) ? a.pos : a.movable.prevPos;
-			const ScreenPos pp = ProjectCell(prev.ToCell(), 0);
+			const ScreenPos pp = ProjectSub(prev, 0); // 子格精度
 			s.prevX = static_cast<float>(pp.x) - s.w * 0.5f;
 			s.prevY = static_cast<float>(pp.y) - s.h * 0.5f;
 			s.cncSprite = static_cast<int>(cid);
