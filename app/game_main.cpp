@@ -1,16 +1,13 @@
 // RTS Engine — app/game_main.cpp
-// M9 可玩 Demo：玩家（P0）vs AI（P1）
+// M10 可玩 Demo：玩家（P0）vs AI（P1），完整 HUD + 命令面板。
 // 操作：
-//   左键点选/拖拽框选己方单位
-//   右键：移动 / 攻击（指向敌方单位时）
-//   B：在相机中心建造兵营（需 300 资源）
-//   P：让所有兵营生产步兵（需 50/个）
-//   数字 1/2/3：按类型全选（1=步兵 2=坦克 3=采矿车）
-//   方向键/WASD 平移，滚轮缩放
-//   右下角小地图
+//   左键点选/拖拽框选己方单位；右键移动/攻击
+//   底部命令面板按钮：建造兵营 / 生产步兵 / 生产坦克
+//   1/2/3 按类型全选；WASD/方向键平移；滚轮缩放
 #include <cstdio>
 #include <cstdint>
 #include <chrono>
+#include <string>
 #include <vector>
 #include <algorithm>
 
@@ -21,6 +18,9 @@
 #include "render/sprite_batch.h"
 #include "render/camera.h"
 #include "render/gl_renderer.h"
+#include "render/font.h"
+#include "render/text.h"
+#include "render/ui.h"
 #include "platform/win32_window.h"
 
 using namespace rts;
@@ -79,36 +79,38 @@ Map MakeMap() {
 	return map;
 }
 
-// 屏幕 → 世界（米）
-struct WorldPoint {
-	float x = 0, y = 0;
-};
+struct WorldPoint { float x = 0, y = 0; };
 
 } // namespace
 
 int main() {
 	Win32Window window;
-	if (!window.Create("RTS Engine — M9 Playable Demo (You vs AI)", 1280, 720)) return 1;
+	if (!window.Create("RTS Engine — M10 HUD (You vs AI)", 1280, 720)) return 1;
 
 	GLRenderer renderer;
 	if (!renderer.Initialize(window.DeviceContext())) return 1;
 
+	// 字体纹理
+	int fontW = 0, fontH = 0;
+	const auto fontPixels = BitmapFont::BuildTextureData(fontW, fontH);
+	const uint32_t fontTex = renderer.UploadTexture(fontPixels, fontW, fontH);
+
 	Simulation sim(MakeMap(), 0x2024, kRules);
-	sim.AddAI(1, 99); // AI 玩家 1
+	sim.AddAI(1, 99);
 	sim.GetWorld().AddCredits(0, 2000);
 	sim.GetWorld().AddCredits(1, 1500);
 
-	// 玩家初始单位：1 采矿车 + 2 步兵
+	// 玩家初始单位
 	{
 		Command c;
 		c.type = CommandType::Spawn;
 		c.playerId = 0;
 		c.x = 60 * kSubPerCell;
 		c.y = 60 * kSubPerCell;
-		c.targetId = 0; // harvester
+		c.targetId = 0;
 		sim.Commands().Push(c);
 		sim.Step();
-		c.targetId = 1; // infantry
+		c.targetId = 1;
 		c.x = 62 * kSubPerCell;
 		sim.Commands().Push(c);
 		c.x = 60 * kSubPerCell;
@@ -128,11 +130,15 @@ int main() {
 
 	std::vector<EntityId> selection;
 
+	// UI 按钮（屏幕坐标，随窗口尺寸更新）
+	ui::Button btnBuild;
+	ui::Button btnInfantry;
+	ui::Button btnTank;
+
 	// 输入状态
 	bool prevLeft = false;
 	int dragStartX = 0, dragStartY = 0;
 	bool dragging = false;
-	bool prevB = false, prevP = false;
 	int prevNum[3] = {0, 0, 0};
 
 	auto last = std::chrono::steady_clock::now();
@@ -140,12 +146,18 @@ int main() {
 	constexpr double tickDt = 1.0 / 30.0;
 	double fpsTimer = 0.0;
 	int fpsFrames = 0;
+	double fps = 0.0;
 
 	while (window.PumpMessages()) {
 		const auto now = std::chrono::steady_clock::now();
 		double dt = std::chrono::duration<double>(now - last).count();
 		last = now;
 		if (dt > 0.1) dt = 0.1;
+
+		const int W = window.Width();
+		const int H = window.Height();
+		const float mx = static_cast<float>(window.MouseX());
+		const float my = static_cast<float>(window.MouseY());
 
 		// ---- 相机 ----
 		const float panSpeed = 500.0f * static_cast<float>(dt) / camera.zoom;
@@ -156,49 +168,59 @@ int main() {
 
 		const int wheel = window.ConsumeWheel();
 		if (wheel != 0) {
-			camera.ZoomAt((wheel > 0) ? 1.1f : 1.0f / 1.1f,
-				static_cast<float>(window.MouseX()), static_cast<float>(window.MouseY()));
+			camera.ZoomAt((wheel > 0) ? 1.1f : 1.0f / 1.1f, mx, my);
 		}
-		camera.viewW = window.Width();
-		camera.viewH = window.Height();
+		camera.viewW = W;
+		camera.viewH = H;
 
-		// ---- 鼠标屏幕 → 世界 ----
-		WorldPoint mouseWorld;
-		camera.ScreenToWorld(static_cast<float>(window.MouseX()),
-			static_cast<float>(window.MouseY()), mouseWorld.x, mouseWorld.y);
+		// ---- 布局 ----
+		const float topBarH = 36.0f;
+		const float bottomH = 90.0f;
+		btnBuild.rect = ui::Rect{10.0f, static_cast<float>(H) - bottomH + 14.0f, 170.0f, 62.0f};
+		btnBuild.label = "BUILD (300)";
+		btnInfantry.rect = ui::Rect{192.0f, static_cast<float>(H) - bottomH + 14.0f, 170.0f, 62.0f};
+		btnInfantry.label = "INFANTRY (50)";
+		btnTank.rect = ui::Rect{374.0f, static_cast<float>(H) - bottomH + 14.0f, 170.0f, 62.0f};
+		btnTank.label = "TANK (150)";
 
-		// ---- 左键：选择（点选/框选）----
+		const int credits = sim.GetWorld().Credits(0);
+		int myUnits = 0, myBuildings = 0, enemyUnits = 0;
+		EntityId idleBarracks = 0;
+		for (const auto& a : sim.GetWorld().Entities().All()) {
+			if (!a.alive) continue;
+			if (a.playerId == 0) {
+				if (a.Has(kCompBuilding)) {
+					++myBuildings;
+					if (idleBarracks == 0 && a.producer.queued == 0) idleBarracks = a.id;
+				} else ++myUnits;
+			} else ++enemyUnits;
+		}
+		btnBuild.enabled = (credits >= 300);
+		btnInfantry.enabled = (idleBarracks != 0 && credits >= 50);
+		btnTank.enabled = (idleBarracks != 0 && credits >= 150);
+
+		// ---- 左键 ----
 		const bool left = window.IsMouseDown(0);
-		if (left && !prevLeft) {
-			dragStartX = window.MouseX();
-			dragStartY = window.MouseY();
-			dragging = true;
-		}
 		if (!left && prevLeft && dragging) {
 			dragging = false;
 			const int dx = window.MouseX() - dragStartX;
 			const int dy = window.MouseY() - dragStartY;
-			const int dragDist = dx * dx + dy * dy;
-
-			if (dragDist < 36) {
-				// 点选：选择最近的己方单位
-				const SubCoord clickSub(static_cast<int32_t>(mouseWorld.x) * kSubPerCell / kTileW * 2,
-					0); // 仅用于距离比较的粗略值
-				(void)clickSub;
+			if (dx * dx + dy * dy < 36) {
+				WorldPoint mp;
+				camera.ScreenToWorld(mx, my, mp.x, mp.y);
 				EntityId best = 0;
 				int64_t bestDist = INT64_MAX;
 				for (const auto& a : sim.GetWorld().Entities().All()) {
 					if (!a.alive || a.playerId != 0) continue;
 					const ScreenPos p = ProjectCell(a.pos.ToCell(), 0);
-					const int64_t ddx = static_cast<int64_t>(p.x) - static_cast<int64_t>(mouseWorld.x);
-					const int64_t ddy = static_cast<int64_t>(p.y) - static_cast<int64_t>(mouseWorld.y);
+					const int64_t ddx = static_cast<int64_t>(p.x) - static_cast<int64_t>(mp.x);
+					const int64_t ddy = static_cast<int64_t>(p.y) - static_cast<int64_t>(mp.y);
 					const int64_t d2 = ddx * ddx + ddy * ddy;
-					if (d2 < bestDist && d2 < 32 * 32) { bestDist = d2; best = a.id; }
+					if (d2 < bestDist && d2 < 36 * 36) { bestDist = d2; best = a.id; }
 				}
 				if (best != 0) selection.assign(1, best);
 				else selection.clear();
 			} else {
-				// 框选
 				selection.clear();
 				const int x0 = std::min(dragStartX, window.MouseX());
 				const int x1 = std::max(dragStartX, window.MouseX());
@@ -209,10 +231,41 @@ int main() {
 					const ScreenPos p = ProjectCell(a.pos.ToCell(), 0);
 					float sx = 0, sy = 0;
 					camera.WorldToScreen(static_cast<float>(p.x), static_cast<float>(p.y), sx, sy);
-					if (sx >= x0 && sx <= x1 && sy >= y0 && sy <= y1) {
-						selection.push_back(a.id);
-					}
+					if (sx >= x0 && sx <= x1 && sy >= y0 && sy <= y1) selection.push_back(a.id);
 				}
+			}
+		}
+
+		// 左键按下：UI 按钮 or 开始框选
+		if (left && !prevLeft) {
+			if (my < topBarH || my > static_cast<float>(H) - bottomH) {
+				if (btnBuild.Hit(mx, my) && myBuildings == 0) {
+					const CellCoord center = ScreenToCell(ScreenPos{static_cast<int32_t>(camera.centerX),
+						static_cast<int32_t>(camera.centerY)});
+					Command cmd;
+					cmd.type = CommandType::Build;
+					cmd.playerId = 0;
+					cmd.x = center.x * kSubPerCell;
+					cmd.y = center.y * kSubPerCell;
+					cmd.targetId = 0;
+					sim.Commands().Push(cmd);
+				} else if (btnTank.Hit(mx, my) && idleBarracks != 0) {
+					Command cmd;
+					cmd.type = CommandType::Produce;
+					cmd.entityId = idleBarracks;
+					cmd.targetId = 2;
+					sim.Commands().Push(cmd);
+				} else if (btnInfantry.Hit(mx, my) && idleBarracks != 0) {
+					Command cmd;
+					cmd.type = CommandType::Produce;
+					cmd.entityId = idleBarracks;
+					cmd.targetId = 1;
+					sim.Commands().Push(cmd);
+				}
+			} else {
+				dragStartX = window.MouseX();
+				dragStartY = window.MouseY();
+				dragging = true;
 			}
 		}
 		prevLeft = left;
@@ -222,16 +275,17 @@ int main() {
 			static bool prevRight = false;
 			const bool right = window.IsMouseDown(1);
 			if (right && !prevRight && !selection.empty()) {
-				// 找点击位置最近的敌方单位
+				WorldPoint mp;
+				camera.ScreenToWorld(mx, my, mp.x, mp.y);
 				EntityId enemy = 0;
 				int64_t bestDist = INT64_MAX;
 				for (const auto& a : sim.GetWorld().Entities().All()) {
 					if (!a.alive || a.playerId == 0) continue;
 					const ScreenPos p = ProjectCell(a.pos.ToCell(), 0);
-					const int64_t ddx = static_cast<int64_t>(p.x) - static_cast<int64_t>(mouseWorld.x);
-					const int64_t ddy = static_cast<int64_t>(p.y) - static_cast<int64_t>(mouseWorld.y);
+					const int64_t ddx = static_cast<int64_t>(p.x) - static_cast<int64_t>(mp.x);
+					const int64_t ddy = static_cast<int64_t>(p.y) - static_cast<int64_t>(mp.y);
 					const int64_t d2 = ddx * ddx + ddy * ddy;
-					if (d2 < bestDist && d2 < 32 * 32) { bestDist = d2; enemy = a.id; }
+					if (d2 < bestDist && d2 < 36 * 36) { bestDist = d2; enemy = a.id; }
 				}
 				for (EntityId id : selection) {
 					Command cmd;
@@ -242,8 +296,8 @@ int main() {
 					} else {
 						cmd.type = CommandType::Move;
 						cmd.entityId = id;
-						cmd.x = static_cast<int32_t>(mouseWorld.x / kTileW * 2) * kSubPerCell / 2;
-						cmd.y = static_cast<int32_t>(mouseWorld.y / kTileH * 2) * kSubPerCell / 2;
+						cmd.x = static_cast<int32_t>(mp.x / kTileW * 2) * kSubPerCell / 2;
+						cmd.y = static_cast<int32_t>(mp.y / kTileH * 2) * kSubPerCell / 2;
 					}
 					sim.Commands().Push(cmd);
 				}
@@ -251,41 +305,7 @@ int main() {
 			prevRight = right;
 		}
 
-		// ---- 建造（B）：在相机中心建兵营 ----
-		{
-			const bool b = window.IsKeyDown('B');
-			if (b && !prevB) {
-				float wx = camera.centerX, wy = camera.centerY;
-				const CellCoord center = ScreenToCell(ScreenPos{static_cast<int32_t>(wx), static_cast<int32_t>(wy)});
-				Command cmd;
-				cmd.type = CommandType::Build;
-				cmd.playerId = 0;
-				cmd.x = center.x * kSubPerCell;
-				cmd.y = center.y * kSubPerCell;
-				cmd.targetId = 0; // barracks
-				sim.Commands().Push(cmd);
-			}
-			prevB = b;
-		}
-
-		// ---- 生产（P）：所有空闲兵营生产步兵 ----
-		{
-			const bool p = window.IsKeyDown('P');
-			if (p && !prevP) {
-				for (const auto& a : sim.GetWorld().Entities().All()) {
-					if (!a.alive || a.playerId != 0 || !a.Has(kCompBuilding)) continue;
-					if (a.producer.queued > 0) continue;
-					Command cmd;
-					cmd.type = CommandType::Produce;
-					cmd.entityId = a.id;
-					cmd.targetId = 1; // infantry
-					sim.Commands().Push(cmd);
-				}
-			}
-			prevP = p;
-		}
-
-		// ---- 快速选择（1/2/3）----
+		// ---- 快速选择 1/2/3 ----
 		{
 			const char keys[3] = {'1', '2', '3'};
 			for (int i = 0; i < 3; ++i) {
@@ -310,63 +330,116 @@ int main() {
 			accumulator -= tickDt;
 		}
 
-		// ---- 渲染 ----
+		// ---- 渲染：世界 ----
 		const RenderSnapshot snapshot = RenderSnapshot::FromWorld(sim.GetWorld());
-		SpriteBatch batch;
-		batch.Begin();
+		SpriteBatch worldBatch;
+		worldBatch.Begin();
 		for (const auto& s : snapshot.sprites) {
-			batch.AddSolid(s.worldX, s.worldY, s.w, s.h, s.color);
+			worldBatch.AddSolid(s.worldX, s.worldY, s.w, s.h, s.color);
 		}
-		// 选中高亮
 		for (EntityId id : selection) {
 			const Actor* a = sim.GetWorld().Entities().Get(id);
 			if (a == nullptr || !a->alive) continue;
 			const ScreenPos p = ProjectCell(a->pos.ToCell(), 0);
-			batch.AddSolid(static_cast<float>(p.x) - 12.0f, static_cast<float>(p.y) - 12.0f,
+			// 选中高亮
+			worldBatch.AddSolid(static_cast<float>(p.x) - 12.0f, static_cast<float>(p.y) - 12.0f,
 				24.0f, 24.0f, 0x8000FF00);
+			// 生命条（单位上方）
+			if (a->health.maxHp > 0) {
+				const float barW = 28.0f;
+				const float barH = 4.0f;
+				const float bx = static_cast<float>(p.x) - barW * 0.5f;
+				const float by = static_cast<float>(p.y) - 20.0f;
+				const float ratio = static_cast<float>(a->health.hp) / static_cast<float>(a->health.maxHp);
+				worldBatch.AddSolid(bx, by, barW, barH, 0xFF202020);
+				worldBatch.AddSolid(bx, by, barW * ratio, barH, 0xFF40E040);
+			}
 		}
-		// 右键目标位置标记（简单：不绘制）
+		worldBatch.End();
 
-		// 小地图（右下角）
+		// ---- 渲染：UI ----
+		std::vector<SpriteVertex> uiVerts;
+		ui::BuildPanel(uiVerts, ui::Rect{0, 0, static_cast<float>(W), topBarH}, 0xE6202020);
+		ui::BuildPanel(uiVerts, ui::Rect{0, static_cast<float>(H) - bottomH,
+			static_cast<float>(W), bottomH}, 0xE6202020);
+
+		const uint32_t btnFill = 0xFF2E4A2E;
+		const uint32_t btnFillDisabled = 0xFF3A3A3A;
+		const uint32_t btnBorder = 0xFF889988;
+		ui::BuildButton(uiVerts, btnBuild, btnBuild.enabled ? btnFill : btnFillDisabled, btnBorder);
+		ui::BuildButton(uiVerts, btnInfantry, btnInfantry.enabled ? btnFill : btnFillDisabled, btnBorder);
+		ui::BuildButton(uiVerts, btnTank, btnTank.enabled ? btnFill : btnFillDisabled, btnBorder);
+
+		// 小地图
 		{
-			const float mmSize = 200.0f;
-			const float mmX = static_cast<float>(window.Width()) - mmSize - 10.0f;
-			const float mmY = static_cast<float>(window.Height()) - mmSize - 10.0f;
-			const float scale = mmSize / static_cast<float>(std::max(sim.GetWorld().Width(), sim.GetWorld().Height()));
-			// 背景
-			batch.AddSolid(mmX, mmY, mmSize, mmSize, 0xCC000000);
-			// 单位点
+			const float mmSize = 150.0f;
+			const float mmX = static_cast<float>(W) - mmSize - 10.0f;
+			const float mmY = static_cast<float>(H) - bottomH - mmSize - 10.0f;
+			ui::BuildPanel(uiVerts, ui::Rect{mmX, mmY, mmSize, mmSize}, 0xCC000000);
+			const float scale = mmSize / static_cast<float>(std::max(sim.GetWorld().Width(),
+				sim.GetWorld().Height()));
 			for (const auto& a : sim.GetWorld().Entities().All()) {
 				if (!a.alive) continue;
-				const float mx = mmX + static_cast<float>(a.pos.ToCell().x) * scale;
-				const float my = mmY + static_cast<float>(a.pos.ToCell().y) * scale;
+				const float px = mmX + static_cast<float>(a.pos.ToCell().x) * scale;
+				const float py = mmY + static_cast<float>(a.pos.ToCell().y) * scale;
 				const uint32_t color = (a.playerId == 0) ? 0xFF00C8FF : 0xFFFF4040;
-				batch.AddSolid(mx - 1.0f, my - 1.0f, 2.0f, 2.0f, color);
+				ui::BuildPanel(uiVerts, ui::Rect{px - 1, py - 1, 2, 2}, color);
 			}
-			(void)mmX; (void)mmY;
 		}
-		batch.End();
 
-		renderer.BeginFrame(window.Width(), window.Height());
-		renderer.DrawBatch(batch.Vertices(), camera);
+		renderer.BeginFrame(W, H);
+		renderer.DrawBatch(worldBatch.Vertices(), camera);
+		renderer.DrawScreenBatch(uiVerts);
+
+		// 文字
+		std::vector<SpriteVertex> textVerts;
+		{
+			char line[160];
+			std::snprintf(line, sizeof(line), "CREDITS %d   UNITS %d   BUILDINGS %d   ENEMY %d   FPS %.0f",
+				credits, myUnits, myBuildings, enemyUnits, fps);
+			text::Build(textVerts, line, 12.0f, 8.0f, 1.5f, 0xFFE0E0E0);
+
+			text::Build(textVerts, btnBuild.label,
+				btnBuild.rect.x + 10.0f, btnBuild.rect.y + 18.0f, 1.6f,
+				btnBuild.enabled ? 0xFFFFFFFF : 0xFF888888);
+			text::Build(textVerts, btnInfantry.label,
+				btnInfantry.rect.x + 10.0f, btnInfantry.rect.y + 18.0f, 1.6f,
+				btnInfantry.enabled ? 0xFFFFFFFF : 0xFF888888);
+			text::Build(textVerts, btnTank.label,
+				btnTank.rect.x + 10.0f, btnTank.rect.y + 18.0f, 1.6f,
+				btnTank.enabled ? 0xFFFFFFFF : 0xFF888888);
+
+			char info[160];
+			std::snprintf(info, sizeof(info), "SELECTED %zu", selection.size());
+			text::Build(textVerts, info, btnTank.rect.x + btnTank.rect.w + 30.0f,
+				static_cast<float>(H) - bottomH + 20.0f, 1.5f, 0xFFC0C0C0);
+
+			// 生产进度
+			const Actor* producing = nullptr;
+			for (const auto& a : sim.GetWorld().Entities().All()) {
+				if (!a.alive || a.playerId != 0 || !a.Has(kCompBuilding)) continue;
+				if (a.producer.queued > 0) { producing = &a; break; }
+			}
+			if (producing != nullptr && producing->producer.total > 0) {
+				const float px = btnTank.rect.x + btnTank.rect.w + 30.0f;
+				const float py = static_cast<float>(H) - bottomH + 52.0f;
+				const float ratio = static_cast<float>(producing->producer.total - producing->producer.remaining)
+					/ static_cast<float>(producing->producer.total);
+				ui::BuildPanel(uiVerts, ui::Rect{px, py, 140.0f, 14.0f}, 0xFF202020);
+				ui::BuildPanel(uiVerts, ui::Rect{px, py, 140.0f * ratio, 14.0f}, 0xFF40A0FF);
+				char prodText[64];
+				std::snprintf(prodText, sizeof(prodText), "PRODUCING %d%%", static_cast<int>(ratio * 100.0f));
+				text::Build(textVerts, prodText, px, py + 18.0f, 1.2f, 0xFFA0C0FF);
+			}
+		}
+		renderer.DrawScreenTextured(textVerts, fontTex);
 		renderer.EndFrame();
 
-		// ---- 标题（HUD）----
+		// ---- FPS ----
 		fpsTimer += dt;
 		++fpsFrames;
 		if (fpsTimer >= 0.4) {
-			const double fps = fpsFrames / fpsTimer;
-			char title[256];
-			int p0Units = 0, p1Units = 0, buildings = 0;
-			for (const auto& a : sim.GetWorld().Entities().All()) {
-				if (!a.alive) continue;
-				if (a.playerId == 0) { if (a.Has(kCompBuilding)) ++buildings; else ++p0Units; }
-				else ++p1Units;
-			}
-			std::snprintf(title, sizeof(title),
-				"M9 Demo | FPS %.0f | Credits %d | My units %d | Buildings %d | Enemy %d | Selected %zu",
-				fps, sim.GetWorld().Credits(0), p0Units, buildings, p1Units, selection.size());
-			SetWindowTextA(window.Handle(), title);
+			fps = fpsFrames / fpsTimer;
 			fpsTimer = 0.0;
 			fpsFrames = 0;
 		}

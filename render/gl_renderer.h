@@ -1,5 +1,5 @@
 // RTS Engine — render/gl_renderer.h
-// OpenGL 1.1 渲染器：精灵批处理 + 相机变换。
+// OpenGL 1.1 渲染器：精灵批处理 + 纹理（字体/UI）+ 相机变换。
 // 零第三方依赖（系统 opengl32），M3 的"首个后端"。接口与 render/renderer.h 契约一致。
 #pragma once
 
@@ -8,6 +8,7 @@
 #include <windows.h>
 #include <GL/gl.h>
 #include <vector>
+#include <cstdint>
 #include "sprite_batch.h"
 #include "camera.h"
 
@@ -19,9 +20,16 @@ public:
 	void Shutdown();
 
 	void BeginFrame(int width, int height);
-	// 顶点为世界坐标，内部做相机变换
+	// 顶点为世界坐标，内部做相机变换（纯色）
 	void DrawBatch(const std::vector<SpriteVertex>& verts, const Camera& camera);
+	// 顶点为屏幕坐标（UI），不做相机变换（纯色）
+	void DrawScreenBatch(const std::vector<SpriteVertex>& verts);
+	// 顶点为屏幕坐标 + 纹理（文字/图标）
+	void DrawScreenTextured(const std::vector<SpriteVertex>& verts, uint32_t textureId);
 	void EndFrame();
+
+	// 上传 RGBA 纹理，返回纹理 id（0=失败）
+	uint32_t UploadTexture(const std::vector<uint8_t>& rgba, int width, int height);
 
 	void SetClearColor(float r, float g, float b) {
 		m_clearR = r; m_clearG = g; m_clearB = b;
@@ -30,8 +38,11 @@ public:
 private:
 	struct GLVertex {
 		float x, y;
+		float u, v;
 		unsigned char r, g, b, a;
 	};
+
+	void FillScreenVerts(const std::vector<SpriteVertex>& verts, bool useCamera, const Camera* camera);
 
 	HDC m_hdc = nullptr;
 	std::vector<GLVertex> m_screenVerts;
