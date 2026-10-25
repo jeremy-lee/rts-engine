@@ -21,6 +21,7 @@ struct RenderSprite {
 	uint32_t entityId = 0; // 0 = 地形/装饰
 	int spriteIndex = -1;  // AssetAtlas 图集索引；-1 = 纯色
 	int cncSprite = -1;    // C&C 图集索引；-1 = 无
+	uint8_t player = 255;  // 所属玩家（255 = 无，用于软件后端着色）
 };
 
 struct RenderSnapshot {
@@ -76,7 +77,9 @@ struct RenderSnapshot {
 			if (a.playerId != 0 && fog != 2) continue; // 敌方在迷雾中隐藏
 			const ScreenPos p = ProjectCell(ac, 0);
 			RenderSprite s;
-			s.color = (a.playerId == 0) ? 0xFF00C8FF : 0xFFFF4040;
+			// GL 模式：白色 tint（保留 C&C 原色）；软件模式按 player 着色
+			s.color = 0xFFFFFFFF;
+			s.player = a.playerId;
 			s.entityId = a.id;
 			// M16：单位映射到 C&C 图集精灵
 			CncSpriteId cid = CncSpriteId::Infantry;

@@ -42,17 +42,17 @@ public:
 		v1 = static_cast<float>((row + 1) * kCellH) / texH;
 	}
 
-	// 绘制尺寸（素材原始像素尺寸）——内联（纯查表）
+	// 绘制尺寸：C&C 原版单位很小（14x14），按内容尺寸放大以在 1280x720 下清晰
 	static void GetSize(CncSpriteId id, int& w, int& h) {
 		switch (id) {
-			case CncSpriteId::Infantry:  w = 50; h = 39; break;
-			case CncSpriteId::Rocket:    w = 50; h = 39; break;
-			case CncSpriteId::Tank:      w = 36; h = 36; break;
-			case CncSpriteId::LightTank: w = 24; h = 24; break;
-			case CncSpriteId::Harvester: w = 48; h = 48; break;
-			case CncSpriteId::Barracks:  w = 48; h = 48; break;
-			case CncSpriteId::Factory:   w = 72; h = 48; break;
-			default: w = 32; h = 32; break;
+			case CncSpriteId::Infantry:  w = 14 * 4; h = 14 * 4; break; // 56x56
+			case CncSpriteId::Rocket:    w = 12 * 4; h = 14 * 4; break; // 48x56
+			case CncSpriteId::Tank:      w = 16 * 4; h = 20 * 4; break; // 64x80
+			case CncSpriteId::LightTank: w = 14 * 4; h = 18 * 4; break; // 56x72
+			case CncSpriteId::Harvester: w = 24 * 3; h = 26 * 3; break; // 72x78
+			case CncSpriteId::Barracks:  w = 48 * 2; h = 40 * 2; break; // 96x80
+			case CncSpriteId::Factory:   w = 72 * 2; h = 48 * 2; break; // 144x96
+			default: w = 48; h = 48; break;
 		}
 	}
 };
