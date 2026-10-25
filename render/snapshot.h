@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <vector>
+#include <algorithm>
 #include "sim/world.h"
 #include "projection.h"
 #include "assets.h"
@@ -98,7 +99,8 @@ struct RenderSnapshot {
 			snap.effects.push_back(e);
 		}
 
-		// 单位：己方始终可见；敌方仅在"可见"格显示
+		// 单位：己方始终可见；敌方仅在"可见"格显示（按世界 y 排序，远的先画）
+		std::vector<RenderSprite> units;
 		for (const auto& a : world.Entities().All()) {
 			if (!a.alive) continue;
 			const CellCoord ac = a.pos.ToCell();
@@ -131,11 +133,19 @@ struct RenderSnapshot {
 			// 朝向：单位取 Movable.facing，建筑固定 0
 			s.facing = a.Has(kCompBuilding) ? 0 : a.movable.facing;
 			// 动画帧：移动时循环 run 帧
-			s.animFrame = (a.Has(kCompBuilding) || !a.movable.moving)
-				? 0
-				: static_cast<uint8_t>(1 + (world.CurrentTick() / 3) % 6); // 10 FPS，6 帧完整循环
-			snap.sprites.push_back(s);
+			// 动画：停止后保持 run 帧约 0.27 秒（10 tick），避免走/站快速切换导致闪烁
+			const Tick sinceMove = world.CurrentTick() - a.movable.lastMoveTick;
+			if (a.Has(kCompBuilding) || (!a.movable.moving && sinceMove > 10)) {
+				s.animFrame = 0; // stand
+			} else {
+				s.animFrame = static_cast<uint8_t>(1 + (world.CurrentTick() / 3) % 6); // 10 FPS，6 帧循环
+			}
+			units.push_back(s);
 		}
+		std::sort(units.begin(), units.end(), [](const RenderSprite& a, const RenderSprite& b) {
+			return a.worldY < b.worldY;
+		});
+		snap.sprites.insert(snap.sprites.end(), units.begin(), units.end());
 
 		// 尸体（死亡单位/建筑）：暗色精灵
 		for (const auto& a : world.Entities().All()) {
