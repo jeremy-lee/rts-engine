@@ -92,11 +92,25 @@ void Update(World& world, Actor& actor) {
 			break;
 
 		case ActivityType::MoveTo: {
+			// M4：优先沿 A* 路径移动
+			UnitPath* path = world.GetPath(actor.id);
+			if (path != nullptr && path->index < path->cells.size()) {
+				const CellCoord cell = path->cells[path->index];
+				const SubCoord center = SubCoord::FromCell(cell) + SubCoord(kSubPerCell / 2, kSubPerCell / 2);
+				if (MoveTowards(world, actor, center)) {
+					++path->index;
+					if (path->index >= path->cells.size()) {
+						world.ClearPath(actor.id);
+						SetIdle(actor, world.CurrentTick());
+					}
+				}
+				break;
+			}
+			// 无路径：直线移动（fallback）
 			const bool arrived = MoveTowards(world, actor, actor.activity.targetPos);
 			if (arrived) {
 				SetIdle(actor, world.CurrentTick());
 			} else {
-				// 检查是否卡住（连续无位移）→ 简化：若目标格不可通行则放弃
 				const CellCoord tc = actor.activity.targetPos.ToCell();
 				if (!world.GetMap().InBounds(tc) || !world.GetMap().Walkable(tc)) {
 					SetIdle(actor, world.CurrentTick());

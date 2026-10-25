@@ -64,6 +64,21 @@ public:
 	// ---- 测试地图生成（确定性，给定 seed 可复现）----
 	static Map GenerateTestMap(int32_t width, int32_t height, uint64_t seed);
 
+	// ---- 工具：找最近可通行格（螺旋搜索，确定性）----
+	static CellCoord FindNearestWalkable(const Map& map, CellCoord c, int32_t maxRadius = 16) {
+		if (map.Walkable(c)) return c;
+		for (int32_t r = 1; r <= maxRadius; ++r) {
+			for (int32_t dy = -r; dy <= r; ++dy) {
+				for (int32_t dx = -r; dx <= r; ++dx) {
+					if ((dx > -r && dx < r) && (dy > -r && dy < r)) continue;
+					const CellCoord n(c.x + dx, c.y + dy);
+					if (map.Walkable(n)) return n;
+				}
+			}
+		}
+		return c;
+	}
+
 	// ---- 确定性哈希 ----
 	uint64_t Hash() const;
 
