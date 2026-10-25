@@ -10,6 +10,8 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <fstream>
+#include <sstream>
 
 #include "core/core.h"
 #include "sim/simulation.h"
@@ -436,6 +438,35 @@ int main() {
 				}
 			}
 			prevRight = right;
+		}
+
+		// ---- 存档 / 读档（F5 / F9）----
+		{
+			static bool prevF5 = false, prevF9 = false;
+			const bool f5 = window.IsKeyDown(VK_F5);
+			if (f5 && !prevF5) {
+				std::ofstream out("save.rts");
+				if (out) {
+					out << sim.GetWorld().SaveToText();
+					out.close();
+					audio.Play(Sfx::Produce);
+				}
+			}
+			prevF5 = f5;
+			const bool f9 = window.IsKeyDown(VK_F9);
+			if (f9 && !prevF9) {
+				std::ifstream in("save.rts");
+				if (in) {
+					std::stringstream ss;
+					ss << in.rdbuf();
+					in.close();
+					if (sim.GetWorld().LoadFromText(ss.str())) {
+						selection.clear();
+						audio.Play(Sfx::Build);
+					}
+				}
+			}
+			prevF9 = f9;
 		}
 
 		// ---- 科技升级（U）----

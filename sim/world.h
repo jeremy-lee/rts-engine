@@ -74,6 +74,10 @@ public:
 	// ---- 确定性状态哈希 ----
 	uint64_t StateHash() const;
 
+	// ---- 存档（M21）----
+	std::string SaveToText() const;
+	bool LoadFromText(const std::string& text);
+
 private:
 	void TickActors();
 	void TickEconomy();

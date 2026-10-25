@@ -66,6 +66,7 @@ set(RTS_TEST_SOURCES
     tests/test_backend.cpp
     tests/test_turret.cpp
     tests/test_upgrade.cpp
+    tests/test_save.cpp
 )
 if(WIN32)
     list(APPEND RTS_TEST_SOURCES tests/test_net.cpp)

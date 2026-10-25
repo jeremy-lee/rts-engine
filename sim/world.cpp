@@ -1,5 +1,6 @@
 // RTS Engine — sim/world.cpp
 #include "world.h"
+#include <sstream>
 #include "activity.h"
 #include "fog.h"
 
@@ -391,6 +392,138 @@ uint64_t World::StateHash() const {
 		}
 	}
 	return h;
+}
+
+// ============================================================
+// 存档 / 读档（M21）
+// ============================================================
+
+std::string World::SaveToText() const {
+	std::stringstream ss;
+	ss << "RTSAVE 1\n";
+	ss << m_tick << "\n";
+	ss << m_credits[0] << " " << m_credits[1] << "\n";
+	ss << m_map.Width() << " " << m_map.Height() << "\n";
+	for (int32_t y = 0; y < m_map.Height(); ++y) {
+		for (int32_t x = 0; x < m_map.Width(); ++x) {
+			const CellCoord c(x, y);
+			ss << static_cast<int>(m_map.TerrainHeight(c)) << " "
+				<< static_cast<int>(m_map.Flags(c)) << " "
+				<< static_cast<int>(m_map.Fog(c)) << " "
+				<< m_map.ResourceAmount(c) << " "
+				<< m_map.Occupancy(c) << "\n";
+		}
+	}
+	ss << m_entities.Count() << "\n";
+	for (const auto& a : m_entities.All()) {
+		ss << a.id << " " << static_cast<int>(a.playerId) << " "
+			<< a.pos.x << " " << a.pos.y << " "
+			<< static_cast<int>(a.components) << " "
+			<< static_cast<int>(a.footprintW) << " " << static_cast<int>(a.footprintH) << " "
+			<< a.health.hp << " " << a.health.maxHp << " "
+			<< a.movable.speed << " " << static_cast<int>(a.movable.facing) << " "
+			<< (a.movable.moving ? 1 : 0) << " "
+			<< a.armament.range << " " << a.armament.damage << " "
+			<< a.armament.cooldown << " " << a.armament.lastFire << " "
+			<< a.vision.range << " "
+			<< static_cast<int>(a.activity.type) << " "
+			<< a.activity.targetPos.x << " " << a.activity.targetPos.y << " "
+			<< a.activity.targetEntity << " " << a.activity.started << " "
+			<< (a.alive ? 1 : 0) << " "
+			<< (a.producer.queued > 0 ? 1 : 0) << " "
+			<< a.producer.remaining << " " << a.producer.total << "\n";
+	}
+	return ss.str();
+}
+
+bool World::LoadFromText(const std::string& text) {
+	std::stringstream ss(text);
+	std::string tag;
+	int version = 0;
+	ss >> tag >> version;
+	if (tag != "RTSAVE" || version != 1) return false;
+
+	int64_t tick = 0;
+	ss >> tick;
+	m_tick = static_cast<Tick>(tick);
+	int32_t c0 = 0, c1 = 0;
+	ss >> c0 >> c1;
+	m_credits[0] = c0;
+	m_credits[1] = c1;
+
+	int32_t w = 0, h = 0;
+	ss >> w >> h;
+	if (w <= 0 || h <= 0) return false;
+	m_map = Map(w, h, 0, kWalkable | kBuildable);
+	for (int32_t y = 0; y < h; ++y) {
+		for (int32_t x = 0; x < w; ++x) {
+			const CellCoord c(x, y);
+			int terrain = 0, flags = 0, fog = 0, res = 0;
+			uint32_t occ = 0;
+			ss >> terrain >> flags >> fog >> res >> occ;
+			m_map.SetTerrainHeight(c, static_cast<uint8_t>(terrain));
+			m_map.SetFlags(c, static_cast<uint8_t>(flags));
+			m_map.SetFog(c, static_cast<uint8_t>(fog));
+			m_map.SetResourceAmount(c, res);
+			m_map.SetOccupancy(c, occ);
+		}
+	}
+
+	m_entities.Clear();
+	m_paths.clear();
+	size_t count = 0;
+	ss >> count;
+	for (size_t i = 0; i < count; ++i) {
+		EntityId id = 0;
+		int player = 0;
+		int32_t px = 0, py = 0;
+		int comps = 0, fw = 1, fh = 1;
+		int32_t hp = 0, maxHp = 0;
+		int32_t speed = 0;
+		int facing = 0, moving = 0;
+		int32_t arange = 0, adamage = 0, acooldown = 0, alastFire = 0;
+		int32_t vrange = 0;
+		int activityType = 0;
+		int32_t tx = 0, ty = 0;
+		EntityId targetEntity = 0;
+		Tick started = 0;
+		int alive = 0;
+		int producing = 0;
+		int32_t remaining = 0, total = 0;
+		ss >> id >> player >> px >> py >> comps >> fw >> fh
+			>> hp >> maxHp >> speed >> facing >> moving
+			>> arange >> adamage >> acooldown >> alastFire
+			>> vrange >> activityType >> tx >> ty >> targetEntity >> started >> alive
+			>> producing >> remaining >> total;
+		if (!ss) return false;
+
+		const EntityId newId = m_entities.Create(static_cast<uint8_t>(player),
+			SubCoord(px, py), static_cast<uint8_t>(comps));
+		Actor* a = m_entities.Get(newId);
+		if (a == nullptr) continue;
+		a->id = id;
+		a->footprintW = static_cast<uint8_t>(fw);
+		a->footprintH = static_cast<uint8_t>(fh);
+		a->health.hp = hp;
+		a->health.maxHp = maxHp;
+		a->movable.speed = speed;
+		a->movable.facing = static_cast<uint8_t>(facing);
+		a->movable.moving = (moving != 0);
+		a->armament.range = arange;
+		a->armament.damage = adamage;
+		a->armament.cooldown = static_cast<Tick>(acooldown);
+		a->armament.lastFire = static_cast<Tick>(alastFire);
+		a->vision.range = vrange;
+		a->activity.type = static_cast<ActivityType>(activityType);
+		a->activity.targetPos = SubCoord(tx, ty);
+		a->activity.targetEntity = targetEntity;
+		a->activity.started = started;
+		a->alive = (alive != 0);
+		a->producer.queued = (producing != 0) ? 1 : 0;
+		a->producer.remaining = remaining;
+		a->producer.total = total;
+	}
+	return true;
 }
 
 } // namespace rts
