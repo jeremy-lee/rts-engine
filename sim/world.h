@@ -17,6 +17,12 @@
 
 namespace rts {
 
+// 攻击特效（渲染层消费，不属于模拟状态）
+struct AttackFx {
+	SubCoord from;
+	SubCoord to;
+};
+
 // 单位路径：格子序列 + 当前索引
 struct UnitPath {
 	std::vector<CellCoord> cells;
@@ -64,6 +70,15 @@ private:
 	void TickActors();
 	void TickEconomy();
 	void ApplySeparation();
+
+public:
+	// 攻击特效
+	void AddAttackFx(const SubCoord& from, const SubCoord& to) { m_attackFx.push_back(AttackFx{from, to}); }
+	const std::vector<AttackFx>& AttackFxList() const { return m_attackFx; }
+	void ClearAttackFx() { m_attackFx.clear(); }
+
+private:
+	std::vector<AttackFx> m_attackFx;
 
 	Map m_map;
 	EntityStore m_entities;

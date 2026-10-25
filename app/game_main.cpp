@@ -175,6 +175,8 @@ int main() {
 	// M14：渲染后端切换（F1 = GL / 软件渲染）
 	bool softwareMode = false; // TEMP: GL 验证
 	bool revealAll = true;    // TEMP: 全揭示验证
+	float markerX = 0.0f, markerY = 0.0f; // 命令目标标记（世界坐标）
+	float markerTimer = 0.0f;
 	uint32_t swTex = 0;
 	SoftwareRenderer swRenderer;
 	double swFrameMs = 0.0;
@@ -232,6 +234,11 @@ int main() {
 		btnTank.rect = ui::Rect{374.0f, static_cast<float>(H) - bottomH + 14.0f, 170.0f, 62.0f};
 		btnTank.label = "TANK (150)";
 
+		// 小地图布局
+		const float mmSize = 150.0f;
+		const float mmX = static_cast<float>(W) - mmSize - 10.0f;
+		const float mmY = static_cast<float>(H) - bottomH - mmSize - 10.0f;
+
 		const int credits = sim.GetWorld().Credits(0);
 		int myUnits = 0, myBuildings = 0, enemyUnits = 0;
 		EntityId idleBarracks = 0;
@@ -288,7 +295,16 @@ int main() {
 		// 左键按下：UI 按钮 or 开始框选
 		if (left && !prevLeft) {
 			if (my < topBarH || my > static_cast<float>(H) - bottomH) {
-				if (btnBuild.Hit(mx, my) && myBuildings == 0) {
+				// 小地图点击：移动相机
+				if (mx >= mmX && mx <= mmX + mmSize && my >= mmY && my <= mmY + mmSize) {
+					const float fx = (mx - mmX) / mmSize;
+					const float fy = (my - mmY) / mmSize;
+					const CellCoord target(static_cast<int32_t>(fx * sim.GetWorld().Width()),
+						static_cast<int32_t>(fy * sim.GetWorld().Height()));
+					const ScreenPos p = ProjectCell(target, 0);
+					camera.centerX = static_cast<float>(p.x);
+					camera.centerY = static_cast<float>(p.y);
+				} else if (btnBuild.Hit(mx, my) && myBuildings == 0) {
 					const CellCoord center = ScreenToCell(ScreenPos{static_cast<int32_t>(camera.centerX),
 						static_cast<int32_t>(camera.centerY)});
 					Command cmd;
@@ -338,6 +354,11 @@ int main() {
 					const int64_t ddy = static_cast<int64_t>(p.y) - static_cast<int64_t>(mp.y);
 					const int64_t d2 = ddx * ddx + ddy * ddy;
 					if (d2 < bestDist && d2 < 36 * 36) { bestDist = d2; enemy = a.id; }
+				}
+				if (enemy == 0) {
+					markerX = mp.x;
+					markerY = mp.y;
+					markerTimer = 0.6f;
 				}
 				for (EntityId id : selection) {
 					Command cmd;
@@ -489,9 +510,6 @@ int main() {
 
 		// 小地图
 		{
-			const float mmSize = 150.0f;
-			const float mmX = static_cast<float>(W) - mmSize - 10.0f;
-			const float mmY = static_cast<float>(H) - bottomH - mmSize - 10.0f;
 			ui::BuildPanel(uiVerts, ui::Rect{mmX, mmY, mmSize, mmSize}, 0xCC000000);
 			const float scale = mmSize / static_cast<float>(std::max(sim.GetWorld().Width(),
 				sim.GetWorld().Height()));

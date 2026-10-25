@@ -334,6 +334,7 @@ void World::Advance(CommandQueue& queue) {
 	for (const auto& c : cmds) {
 		ApplyCommand(c);
 	}
+	ClearAttackFx();
 	TickActors();
 	TickEconomy();
 	ApplySeparation();

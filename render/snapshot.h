@@ -25,8 +25,14 @@ struct RenderSprite {
 	uint8_t facing = 0;    // 朝向 0-7（0=北，顺时针）
 };
 
+struct RenderEffect {
+	float fromX = 0, fromY = 0; // 世界坐标
+	float toX = 0, toY = 0;
+};
+
 struct RenderSnapshot {
 	std::vector<RenderSprite> sprites;
+	std::vector<RenderEffect> effects; // 攻击线
 	int32_t mapW = 0;
 	int32_t mapH = 0;
 
@@ -73,6 +79,18 @@ struct RenderSnapshot {
 			}
 		}
 
+		// 攻击特效（世界坐标）
+		for (const auto& fx : world.AttackFxList()) {
+			const ScreenPos f = ProjectCell(fx.from.ToCell(), 0);
+			const ScreenPos t = ProjectCell(fx.to.ToCell(), 0);
+			RenderEffect e;
+			e.fromX = static_cast<float>(f.x);
+			e.fromY = static_cast<float>(f.y);
+			e.toX = static_cast<float>(t.x);
+			e.toY = static_cast<float>(t.y);
+			snap.effects.push_back(e);
+		}
+
 		// 单位：己方始终可见；敌方仅在"可见"格显示
 		for (const auto& a : world.Entities().All()) {
 			if (!a.alive) continue;
@@ -99,6 +117,29 @@ struct RenderSnapshot {
 			s.cncSprite = static_cast<int>(cid);
 			// 朝向：单位取 Movable.facing，建筑固定 0
 			s.facing = a.Has(kCompBuilding) ? 0 : a.movable.facing;
+			snap.sprites.push_back(s);
+		}
+
+		// 尸体（死亡单位/建筑）：暗色精灵
+		for (const auto& a : world.Entities().All()) {
+			if (a.alive) continue;
+			const CellCoord ac = a.pos.ToCell();
+			const ScreenPos p = ProjectCell(ac, 0);
+			CncSpriteId cid = CncSpriteId::Infantry;
+			if (a.Has(kCompBuilding)) cid = CncSpriteId::Barracks;
+			else if (a.Has(kCompHarvester)) cid = CncSpriteId::Harvester;
+			else if (a.health.maxHp >= 200) cid = CncSpriteId::Tank;
+			int sw = 32, sh = 32;
+			CncAtlas::GetSize(cid, sw, sh);
+			RenderSprite s;
+			s.w = static_cast<float>(sw);
+			s.h = static_cast<float>(sh);
+			s.worldX = static_cast<float>(p.x) - s.w * 0.5f;
+			s.worldY = static_cast<float>(p.y) - s.h * 0.5f;
+			s.color = 0xA0000000u; // 暗黑半透明
+			s.player = a.playerId;
+			s.cncSprite = static_cast<int>(cid);
+			s.facing = 0;
 			snap.sprites.push_back(s);
 		}
 		return snap;

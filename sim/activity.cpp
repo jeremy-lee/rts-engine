@@ -97,6 +97,7 @@ bool InAttackRange(const Actor& a, const Actor& target) {
 }
 
 void TryFire(World& world, Actor& a, Actor& target) {
+	world.AddAttackFx(a.pos, target.pos); // 攻击特效（渲染层）
 	if (world.CurrentTick() - a.armament.lastFire < a.armament.cooldown) return;
 	a.armament.lastFire = world.CurrentTick();
 	target.health.hp -= a.armament.damage;
