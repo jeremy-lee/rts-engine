@@ -1,0 +1,20 @@
+# 统一换行符：源码 LF，Windows 脚本 CRLF
+* text=auto eol=lf
+
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+
+# 二进制/生成物
+*.png binary
+*.bmp binary
+*.jpg binary
+*.zip binary
+*.shp binary
+*.pal binary
+*.mix binary
+*.exe binary
+*.dll binary
+*.lib binary
+*.pdb binary
+*.obj binary
