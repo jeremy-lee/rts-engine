@@ -7,6 +7,7 @@
 #include <vector>
 #include "sim/world.h"
 #include "projection.h"
+#include "assets.h"
 
 namespace rts {
 
@@ -17,6 +18,7 @@ struct RenderSprite {
 	float h = 0.0f;
 	uint32_t color = 0xFFFFFFFF;
 	uint32_t entityId = 0; // 0 = 地形/装饰
+	int spriteIndex = -1;  // AssetAtlas 图集索引；-1 = 纯色
 };
 
 struct RenderSnapshot {
@@ -45,15 +47,13 @@ struct RenderSnapshot {
 				s.worldY = static_cast<float>(p.y) - kTileH * 0.5f;
 				s.w = static_cast<float>(kTileW);
 				s.h = static_cast<float>(kTileH);
-				if (map.Water(c)) {
-					s.color = 0xFF1A3A6B;
-				} else if (!map.Walkable(c)) {
-					s.color = 0xFF555555;
-				} else if (map.TerrainHeight(c) > 0) {
-					s.color = 0xFF4A7A3A;
-				} else {
-					s.color = 0xFF3A5A2A;
-				}
+				// M16：地形映射到图集精灵
+				SpriteId tid = SpriteId::Grass;
+				if (map.Water(c)) tid = SpriteId::Water;
+				else if (!map.Walkable(c)) tid = SpriteId::Rock;
+				else if (map.TerrainHeight(c) > 0) tid = SpriteId::Highland;
+				s.spriteIndex = static_cast<int>(tid);
+				s.color = 0xFFFFFFFF; // 原色 tint
 				// 已探索但不可见：变暗
 				if (fog == 1) {
 					const uint32_t a = s.color & 0xFF000000u;
@@ -76,10 +76,16 @@ struct RenderSnapshot {
 			RenderSprite s;
 			s.worldX = static_cast<float>(p.x) - 8.0f;
 			s.worldY = static_cast<float>(p.y) - 8.0f;
-			s.w = 16.0f;
-			s.h = 16.0f;
+			s.w = 32.0f;
+			s.h = 32.0f;
 			s.color = (a.playerId == 0) ? 0xFF00C8FF : 0xFFFF4040;
 			s.entityId = a.id;
+			// M16：单位映射到图集精灵
+			SpriteId uid = SpriteId::Infantry;
+			if (a.Has(kCompBuilding)) uid = SpriteId::Barracks;
+			else if (a.Has(kCompHarvester)) uid = SpriteId::Harvester;
+			else if (a.health.maxHp >= 200) uid = SpriteId::Tank;
+			s.spriteIndex = static_cast<int>(uid);
 			snap.sprites.push_back(s);
 		}
 		return snap;

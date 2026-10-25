@@ -22,6 +22,7 @@
 #include "render/text.h"
 #include "render/ui.h"
 #include "render/software_renderer.h"
+#include "render/assets.h"
 #include "platform/win32_window.h"
 #include "audio/audio.h"
 #include "sim/campaign.h"
@@ -97,6 +98,25 @@ int main() {
 	int fontW = 0, fontH = 0;
 	const auto fontPixels = BitmapFont::BuildTextureData(fontW, fontH);
 	const uint32_t fontTex = renderer.UploadTexture(fontPixels, fontW, fontH);
+
+	// M16：美术图集纹理
+	int atlasW = 0, atlasH = 0;
+	const auto atlasPixels = AssetAtlas::Build(atlasW, atlasH);
+	const uint32_t atlasTex = renderer.UploadTexture(atlasPixels, atlasW, atlasH);
+
+	// 软件渲染用：精灵代表色（无纹理时）
+	auto spriteRepColor = [](int idx) -> uint32_t {
+		switch (static_cast<SpriteId>(idx)) {
+			case SpriteId::Grass: return 0xFF3A5A2A;
+			case SpriteId::Water: return 0xFF1A3A6B;
+			case SpriteId::Sand: return 0xFFA68C5A;
+			case SpriteId::Rock: return 0xFF555555;
+			case SpriteId::Highland: return 0xFF4A7A3A;
+			case SpriteId::Barracks: return 0xFFB0A080;
+			case SpriteId::Tank: return 0xFF708060;
+			default: return 0xFFC0C0C0;
+		}
+	};
 
 	// 音频
 	AudioSystem audio;
@@ -399,7 +419,17 @@ int main() {
 		SpriteBatch worldBatch;
 		worldBatch.Begin();
 		for (const auto& s : snapshot.sprites) {
-			worldBatch.AddSolid(s.worldX, s.worldY, s.w, s.h, s.color);
+			if (!softwareMode && s.spriteIndex >= 0) {
+				// GL 模式：纹理精灵（图集 UV）
+				float u0 = 0.0f, v0 = 0.0f, u1 = 1.0f, v1 = 1.0f;
+				AssetAtlas::GetUV(static_cast<SpriteId>(s.spriteIndex), u0, v0, u1, v1);
+				worldBatch.AddSprite(s.worldX, s.worldY, s.w, s.h, u0, v0, u1, v1, s.color);
+			} else {
+				// 软件模式：代表色纯色
+				uint32_t color = s.color;
+				if (s.spriteIndex >= 0 && s.color == 0xFFFFFFFF) color = spriteRepColor(s.spriteIndex);
+				worldBatch.AddSolid(s.worldX, s.worldY, s.w, s.h, color);
+			}
 		}
 		for (EntityId id : selection) {
 			const Actor* a = sim.GetWorld().Entities().Get(id);
@@ -459,7 +489,9 @@ int main() {
 			for (const auto& s : snapshot.sprites) {
 				float sx = 0.0f, sy = 0.0f;
 				camera.WorldToScreen(s.worldX + s.w * 0.5f, s.worldY + s.h * 0.5f, sx, sy);
-				swRenderer.FillRect(sx - s.w * 0.5f, sy - s.h * 0.5f, s.w, s.h, s.color);
+				uint32_t color = s.color;
+				if (s.spriteIndex >= 0 && s.color == 0xFFFFFFFF) color = spriteRepColor(s.spriteIndex);
+				swRenderer.FillRect(sx - s.w * 0.5f, sy - s.h * 0.5f, s.w, s.h, color);
 			}
 			swRenderer.SyncRgba();
 			if (swTex == 0) {
@@ -477,7 +509,7 @@ int main() {
 			renderer.DrawScreenTextured(worldQuad, swTex);
 		} else {
 			renderer.BeginFrame(W, H);
-			renderer.DrawBatch(worldBatch.Vertices(), camera);
+			renderer.DrawTexturedBatch(worldBatch.Vertices(), camera, atlasTex);
 		}
 		renderer.DrawScreenBatch(uiVerts);
 

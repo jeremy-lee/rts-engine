@@ -92,6 +92,7 @@ if(WIN32)
         platform/win32_window.cpp
         render/gl_renderer.cpp
         render/font.cpp
+        render/assets.cpp
     )
     target_include_directories(rts_render PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
     target_link_libraries(rts_render PUBLIC opengl32 gdi32 user32 rts_sim)

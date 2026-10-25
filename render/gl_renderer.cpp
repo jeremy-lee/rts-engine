@@ -95,6 +95,20 @@ void GLRenderer::DrawScreenTextured(const std::vector<SpriteVertex>& verts, uint
 	glDisable(GL_TEXTURE_2D);
 }
 
+void GLRenderer::DrawTexturedBatch(const std::vector<SpriteVertex>& verts, const Camera& camera, uint32_t textureId) {
+	if (verts.empty() || textureId == 0) return;
+	FillScreenVerts(verts, true, &camera);
+	glEnable(GL_TEXTURE_2D);
+	glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(textureId));
+	glTexCoordPointer(2, GL_FLOAT, sizeof(GLVertex), &m_screenVerts[0].u);
+	glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+	glVertexPointer(2, GL_FLOAT, sizeof(GLVertex), &m_screenVerts[0].x);
+	glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(GLVertex), &m_screenVerts[0].r);
+	glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(m_screenVerts.size()));
+	glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+	glDisable(GL_TEXTURE_2D);
+}
+
 void GLRenderer::UpdateTexture(uint32_t textureId, const std::vector<uint8_t>& rgba, int width, int height) {
 	if (textureId == 0 || width <= 0 || height <= 0) return;
 	glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(textureId));

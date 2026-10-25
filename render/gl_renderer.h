@@ -26,6 +26,8 @@ public:
 	void DrawScreenBatch(const std::vector<SpriteVertex>& verts);
 	// 顶点为屏幕坐标 + 纹理（文字/图标）
 	void DrawScreenTextured(const std::vector<SpriteVertex>& verts, uint32_t textureId);
+	// 顶点为世界坐标 + 纹理（精灵图集），内部做相机变换
+	void DrawTexturedBatch(const std::vector<SpriteVertex>& verts, const Camera& camera, uint32_t textureId);
 	void EndFrame();
 
 	// 上传 RGBA 纹理，返回纹理 id（0=失败）
