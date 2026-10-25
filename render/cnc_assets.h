@@ -4,6 +4,7 @@
 #pragma once
 
 #include "core/wangle.h"
+#include "render/sheet.h"
 
 #include <cstdint>
 #include <string>
@@ -36,6 +37,12 @@ public:
 
 	// 加载 PNG（stb_image），输出 RGBA 像素
 	static bool Load(const std::string& path, std::vector<uint8_t>& outPixels, int& outW, int& outH);
+
+	// OpenRA Sheet 语义：图集尺寸（Load 后设置，GetUV 用 MakeSpriteRect 计算 UV）
+	static Sheet& ImgSheet() {
+		static Sheet s;
+		return s;
+	}
 
 	static constexpr int kUnitFrames = 7; // 0 = stand，1-6 = run 动画（完整 6 帧循环）
 
@@ -78,16 +85,18 @@ public:
 			row += t;
 			col = 0;
 		}
-		const float texW = static_cast<float>(kCols * kCellW);
-		const float texH = static_cast<float>(kRows * kCellH);
+		// OpenRA Sheet/Sprite 语义：预计算 bounds 的 UV（含 1/128 像素 inset，避免采样越界）
 		int tw = 16, th = 16;
 		GetContentSize(id, tw, th);
 		const int ox = col * kCellW + (kCellW - tw) / 2;
 		const int oy = row * kCellH + (kCellH - th) / 2;
-		u0 = static_cast<float>(ox) / texW;
-		v0 = static_cast<float>(oy) / texH;
-		u1 = static_cast<float>(ox + tw) / texW;
-		v1 = static_cast<float>(oy + th) / texH;
+		Sheet& sheet = ImgSheet();
+		if (!sheet.Valid()) {
+			sheet.width = kCols * kCellW;
+			sheet.height = kRows * kCellH;
+		}
+		const SpriteRect r = MakeSpriteRect(sheet, ox, oy, tw, th);
+		u0 = r.u0; v0 = r.v0; u1 = r.u1; v1 = r.v1;
 	}
 
 	// 图集里精灵的尺寸 = 裁剪到内容的紧凑 bbox（OpenRA TrimmedFrame 语义）

@@ -59,6 +59,7 @@ set(RTS_TEST_SOURCES
     tests/test_camera.cpp
     tests/test_wangle.cpp
     tests/test_wdist.cpp
+    tests/test_sheet.cpp
     tests/test_sprite_batch.cpp
     tests/test_snapshot.cpp
     tests/test_pathfinder.cpp
