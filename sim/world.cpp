@@ -1,6 +1,7 @@
 // RTS Engine — sim/world.cpp
 #include "world.h"
 #include "activity.h"
+#include "fog.h"
 
 namespace rts {
 
@@ -336,6 +337,7 @@ void World::Advance(CommandQueue& queue) {
 	TickActors();
 	TickEconomy();
 	ApplySeparation();
+	fog::UpdateVisibility(*this, 0); // M12：玩家 0 视野
 	++m_tick;
 }
 

@@ -92,8 +92,8 @@ public:
 		return taken;
 	}
 
-	// ---- 迷雾（0=可见, 255=未探索）----
-	uint8_t Fog(CellCoord c) const { return m_fog.Get(c, 255); }
+	// ---- 战争迷雾（三态）：0=未探索, 1=已探索, 2=可见 ----
+	uint8_t Fog(CellCoord c) const { return m_fog.Get(c, 0); }
 	void SetFog(CellCoord c, uint8_t v) { m_fog.Set(c, v); }
 
 	// ---- 序列化：文本格式（可读、可 diff、便于测试）----

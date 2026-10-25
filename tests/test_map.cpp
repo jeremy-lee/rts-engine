@@ -13,7 +13,7 @@ TEST(map_creation_and_defaults) {
 	CHECK_EQ(static_cast<int>(m.TerrainHeight(CellCoord(0, 0))), 0);
 	CHECK(m.Walkable(CellCoord(0, 0)));
 	CHECK(m.Buildable(CellCoord(0, 0)));
-	CHECK_EQ(static_cast<int>(m.Fog(CellCoord(0, 0))), 255); // 默认未探索
+	CHECK_EQ(static_cast<int>(m.Fog(CellCoord(0, 0))), 0); // 默认未探索
 }
 
 TEST(map_set_get_terrain) {
@@ -38,7 +38,7 @@ TEST(map_out_of_bounds_safe) {
 	CHECK(!m.InBounds(CellCoord(-1, 0)));
 	CHECK(!m.InBounds(CellCoord(4, 0)));
 	CHECK_EQ(static_cast<int>(m.TerrainHeight(CellCoord(-1, -1))), 0);
-	CHECK_EQ(static_cast<int>(m.Fog(CellCoord(99, 99))), 255);
+	CHECK_EQ(static_cast<int>(m.Fog(CellCoord(99, 99))), 0);
 }
 
 TEST(map_generate_deterministic) {

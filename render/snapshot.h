@@ -24,51 +24,61 @@ struct RenderSnapshot {
 	int32_t mapW = 0;
 	int32_t mapH = 0;
 
-	// 从世界构建快照（地形格子 + 单位）
+	// 从世界构建快照（地形格子 + 单位），应用战争迷雾
 	static RenderSnapshot FromWorld(const World& world) {
 		RenderSnapshot snap;
 		snap.mapW = world.Width();
 		snap.mapH = world.Height();
 
 		const Map& map = world.GetMap();
-		// 地形：每个格子一个菱形（用 64x32 矩形近似，M3 不追求美术）
 		snap.sprites.reserve(static_cast<size_t>(map.Width()) * map.Height());
 		for (int32_t y = 0; y < map.Height(); ++y) {
 			for (int32_t x = 0; x < map.Width(); ++x) {
 				const CellCoord c(x, y);
-				if (!map.Walkable(c)) {
-					// 障碍/水域不绘制地形层（或绘深色）
-				}
+				const uint8_t fog = map.Fog(c); // 0=未探索 1=已探索 2=可见
+				// 未探索：不绘制地形（纯黑）
+				if (fog == 0) continue;
+
 				const ScreenPos p = ProjectCell(c, map.TerrainHeight(c));
 				RenderSprite s;
 				s.worldX = static_cast<float>(p.x) - kTileW * 0.5f;
 				s.worldY = static_cast<float>(p.y) - kTileH * 0.5f;
 				s.w = static_cast<float>(kTileW);
 				s.h = static_cast<float>(kTileH);
-				// 颜色：按地形
 				if (map.Water(c)) {
-					s.color = 0xFF1A3A6B; // 深蓝
+					s.color = 0xFF1A3A6B;
 				} else if (!map.Walkable(c)) {
-					s.color = 0xFF555555; // 灰（障碍）
+					s.color = 0xFF555555;
 				} else if (map.TerrainHeight(c) > 0) {
-					s.color = 0xFF4A7A3A; // 绿（高地）
+					s.color = 0xFF4A7A3A;
 				} else {
-					s.color = 0xFF3A5A2A; // 草绿
+					s.color = 0xFF3A5A2A;
+				}
+				// 已探索但不可见：变暗
+				if (fog == 1) {
+					const uint32_t a = s.color & 0xFF000000u;
+					const uint32_t r = (s.color >> 16) & 0xFF;
+					const uint32_t g = (s.color >> 8) & 0xFF;
+					const uint32_t b = s.color & 0xFF;
+					s.color = a | ((r * 2 / 5) << 16) | ((g * 2 / 5) << 8) | (b * 2 / 5);
 				}
 				snap.sprites.push_back(s);
 			}
 		}
 
-		// 单位：小方块（16x16），按阵营着色
+		// 单位：己方始终可见；敌方仅在"可见"格显示
 		for (const auto& a : world.Entities().All()) {
 			if (!a.alive) continue;
-			const ScreenPos p = ProjectCell(a.pos.ToCell(), 0);
+			const CellCoord ac = a.pos.ToCell();
+			const uint8_t fog = map.Fog(ac);
+			if (a.playerId != 0 && fog != 2) continue; // 敌方在迷雾中隐藏
+			const ScreenPos p = ProjectCell(ac, 0);
 			RenderSprite s;
 			s.worldX = static_cast<float>(p.x) - 8.0f;
 			s.worldY = static_cast<float>(p.y) - 8.0f;
 			s.w = 16.0f;
 			s.h = 16.0f;
-			s.color = (a.playerId == 0) ? 0xFF00C8FF : 0xFFFF4040; // 蓝/红阵营
+			s.color = (a.playerId == 0) ? 0xFF00C8FF : 0xFFFF4040;
 			s.entityId = a.id;
 			snap.sprites.push_back(s);
 		}

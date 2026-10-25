@@ -7,6 +7,9 @@ using namespace rts;
 TEST(snapshot_from_world_counts) {
 	Map map(8, 8, 0, kWalkable | kBuildable);
 	World world(map, 1);
+	// 全部可见（无迷雾）
+	for (int y = 0; y < 8; ++y)
+		for (int x = 0; x < 8; ++x) world.GetMap().SetFog(CellCoord(x, y), 2);
 	world.Entities().Create(0, SubCoord(2 * kSubPerCell, 2 * kSubPerCell), kCompMovable);
 	world.Entities().Create(1, SubCoord(3 * kSubPerCell, 3 * kSubPerCell), kCompMovable);
 
@@ -20,6 +23,8 @@ TEST(snapshot_from_world_counts) {
 TEST(snapshot_unit_colors_by_player) {
 	Map map(4, 4, 0, kWalkable | kBuildable);
 	World world(map, 1);
+	for (int y = 0; y < 4; ++y)
+		for (int x = 0; x < 4; ++x) world.GetMap().SetFog(CellCoord(x, y), 2);
 	const EntityId a = world.Entities().Create(0, SubCoord(1 * kSubPerCell, 1 * kSubPerCell), kCompMovable);
 	const EntityId b = world.Entities().Create(1, SubCoord(2 * kSubPerCell, 2 * kSubPerCell), kCompMovable);
 	(void)a; (void)b;

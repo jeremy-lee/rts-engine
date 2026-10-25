@@ -11,7 +11,7 @@ Map::Map(int32_t width, int32_t height, uint8_t fillHeight, uint8_t fillFlags)
 	, m_height(height)
 	, m_heightLayer(width, height, fillHeight)
 	, m_flags(width, height, fillFlags)
-	, m_fog(width, height, 255)
+	, m_fog(width, height, 0)
 	, m_resources(width, height, 0)
 	, m_occupancy(width, height, 0u) {}
 
