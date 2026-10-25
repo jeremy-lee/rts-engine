@@ -30,13 +30,12 @@ TEST(snapshot_unit_colors_by_player) {
 	(void)a; (void)b;
 
 	const RenderSnapshot snap = RenderSnapshot::FromWorld(world);
-	// 找到最后两个单位精灵
+	// 单位颜色为原色（白色 tint），阵营用 player 字段区分
 	bool foundP0 = false, foundP1 = false;
 	for (const auto& s : snap.sprites) {
 		if (s.entityId == 0) continue;
-		// 玩家0 蓝 (0xFF00C8FF)，玩家1 红 (0xFFFF4040)
-		if (s.color == 0xFF00C8FF) foundP0 = true;
-		if (s.color == 0xFFFF4040) foundP1 = true;
+		if (s.entityId == a) { CHECK_EQ(s.player, 0); foundP0 = true; }
+		if (s.entityId == b) { CHECK_EQ(s.player, 1); foundP1 = true; }
 	}
 	CHECK(foundP0);
 	CHECK(foundP1);

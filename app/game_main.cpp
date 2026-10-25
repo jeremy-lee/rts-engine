@@ -429,7 +429,8 @@ int main() {
 		for (const auto& s : snapshot.sprites) {
 			if (s.cncSprite >= 0 && cncOk) {
 				float u0 = 0.0f, v0 = 0.0f, u1 = 1.0f, v1 = 1.0f;
-				CncAtlas::GetUV(static_cast<CncSpriteId>(s.cncSprite), u0, v0, u1, v1);
+				const int team = (s.player == 1) ? 1 : 0;
+				CncAtlas::GetUV(static_cast<CncSpriteId>(s.cncSprite), team, u0, v0, u1, v1);
 				uint32_t tint = s.color;
 				if (softwareMode && s.player != 255) {
 					tint = (s.player == 0) ? 0xFF00C8FF : 0xFFFF4040;
