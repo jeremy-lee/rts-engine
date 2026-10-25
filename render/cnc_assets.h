@@ -79,26 +79,26 @@ public:
 		v1 = static_cast<float>(oy + th) / texH;
 	}
 
-	// 图集里精灵的尺寸 = SHP 画布尺寸（OpenRA ShpTDSprite.Size 语义：所有帧共用同一画布）
-	// 各朝向帧内容在画布内的位置由 SHP 数据决定，所以整画布渲染不会裁剪/跳动
+	// 图集里精灵的尺寸 = 裁剪到内容的紧凑 bbox（OpenRA TrimmedFrame 语义）
+	// 8 朝向的 stand 帧最大 bbox（去掉了 SHP 画布的 padding）
 	static void GetContentSize(CncSpriteId id, int& w, int& h) {
 		switch (id) {
-			case CncSpriteId::Infantry:  w = 50; h = 39; break;
-			case CncSpriteId::Rocket:    w = 50; h = 39; break;
-			case CncSpriteId::Tank:      w = 36; h = 36; break;
-			case CncSpriteId::LightTank: w = 24; h = 24; break;
-			case CncSpriteId::Harvester: w = 48; h = 48; break;
-			case CncSpriteId::Barracks:  w = 48; h = 48; break;
-			case CncSpriteId::Factory:   w = 72; h = 48; break;
-			default: w = 50; h = 39; break;
+			case CncSpriteId::Infantry:  w = 16; h = 17; break;
+			case CncSpriteId::Rocket:    w = 16; h = 17; break;
+			case CncSpriteId::Tank:      w = 24; h = 18; break;
+			case CncSpriteId::LightTank: w = 22; h = 16; break;
+			case CncSpriteId::Harvester: w = 40; h = 27; break;
+			case CncSpriteId::Barracks:  w = 48; h = 39; break;
+			case CncSpriteId::Factory:   w = 72; h = 24; break;
+			default: w = 16; h = 17; break;
 		}
 	}
 
-	// 绘制尺寸 = 画布尺寸 × 放大倍数
+	// 绘制尺寸 = 紧凑尺寸 × 放大倍数（小单位 5x 大建筑 2-3x，保证屏上视觉统一）
 	static void GetSize(CncSpriteId id, int& w, int& h) {
-		int cw = 50, ch = 39;
+		int cw = 16, ch = 17;
 		GetContentSize(id, cw, ch);
-		const int scale = (cw >= 60) ? 2 : 3; // 工厂/建筑 2x，其余 3x
+		const int scale = (cw >= 60) ? 2 : ((cw >= 30) ? 3 : 5);
 		w = cw * scale;
 		h = ch * scale;
 	}
