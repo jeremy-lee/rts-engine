@@ -40,6 +40,10 @@ endif()
 add_executable(rts_app app/main.cpp)
 target_link_libraries(rts_app PRIVATE rts_sim)
 
+# ---- 自动对战测试（跨平台）----
+add_executable(rts_autotest tools/autotest.cpp)
+target_link_libraries(rts_autotest PRIVATE rts_sim)
+
 # ---- 测试（仅 headless，不依赖 GL）----
 set(RTS_TEST_SOURCES
     tests/test_main.cpp
@@ -114,8 +118,7 @@ if(WIN32)
     add_executable(rts_lint tools/rules_lint.cpp)
     target_link_libraries(rts_lint PRIVATE rts_sim)
 
-    add_executable(rts_autotest tools/autotest.cpp)
-    target_link_libraries(rts_autotest PRIVATE rts_sim)
+
 
     add_executable(rts_editor tools/map_editor.cpp)
     target_link_libraries(rts_editor PRIVATE rts_render)

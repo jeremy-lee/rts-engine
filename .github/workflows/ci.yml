@@ -23,6 +23,12 @@ jobs:
       - name: Lint rules
         run: .\build\Release\rts_lint.exe data\rules.yaml
 
+      - name: AutoTest (AI vs AI)
+        run: .\build\Release\rts_autotest.exe --runs 2
+
+      - name: AutoTest (symmetric seeds)
+        run: .\build\Release\rts_autotest.exe --symmetric --runs 1
+
   build-linux:
     runs-on: ubuntu-latest
     steps:
@@ -42,3 +48,9 @@ jobs:
 
       - name: Lint rules
         run: ./build/rts_lint data/rules.yaml
+
+      - name: AutoTest (AI vs AI)
+        run: ./build/rts_autotest --runs 2
+
+      - name: AutoTest (symmetric seeds)
+        run: ./build/rts_autotest --symmetric --runs 1

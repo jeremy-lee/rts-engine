@@ -1,6 +1,9 @@
 // RTS Engine — tools/autotest.cpp
 // 自动对战测试：让两个 AI 完整打一局，统计结果并验证确定性。
-// 用法：rts_autotest [--runs N] [--ticks MAX] [--seed S]
+// 支持种子对称性测试（交换 AI 种子，验证公平性/阵营优势）。
+// 用法：
+//   rts_autotest [--runs N] [--ticks MAX] [--seed S]
+//   rts_autotest --symmetric [--runs N] [--ticks MAX] [--seed S]
 #include <cstdio>
 #include <cstdint>
 #include <cstring>
@@ -88,18 +91,18 @@ Map MakeMap(uint64_t seed) {
 
 struct RunResult {
 	uint64_t hash = 0;
-	int winner = -1;      // -1=超时/平局, 0/1=胜者
+	int winner = -1;      // -1=平局, 0/1=胜者
 	Tick endTick = 0;
 	int p0Units = 0, p1Units = 0;
 	int p0Kills = 0, p1Kills = 0;
 	int peakUnits = 0;
 };
 
-// 跑一局完整对战
-RunResult RunMatch(uint64_t seed, Tick maxTicks) {
-	Simulation sim(MakeMap(seed), seed, kRules);
-	sim.AddAI(0, seed + 1);
-	sim.AddAI(1, seed + 2);
+// 跑一局完整对战（可指定双方 AI 种子）
+RunResult RunMatch(uint64_t mapSeed, uint64_t ai0Seed, uint64_t ai1Seed, Tick maxTicks) {
+	Simulation sim(MakeMap(mapSeed), mapSeed, kRules);
+	sim.AddAI(0, ai0Seed);
+	sim.AddAI(1, ai1Seed);
 	sim.GetWorld().AddCredits(0, 2000);
 	sim.GetWorld().AddCredits(1, 2000);
 
@@ -121,10 +124,6 @@ RunResult RunMatch(uint64_t seed, Tick maxTicks) {
 	addStartingUnit(1, CellCoord(152, 96));
 
 	RunResult r;
-	int prevDead0 = 0, prevDead1 = 0;
-	(void)prevDead0;
-	(void)prevDead1;
-
 	for (Tick t = 0; t < maxTicks; ++t) {
 		sim.Step();
 		const Tick tick = sim.GetWorld().CurrentTick();
@@ -137,25 +136,19 @@ RunResult RunMatch(uint64_t seed, Tick maxTicks) {
 		}
 		r.peakUnits = std::max(r.peakUnits, alive0 + alive1);
 
-		// 一方全灭 → 结束
 		if (alive0 == 0 || alive1 == 0) {
 			r.winner = (alive0 == 0) ? 1 : 0;
 			r.endTick = tick;
 			break;
 		}
-		if (tick % 600 == 0 && tick > 0) {
-			// 无操作
-		}
 	}
 
-	// 统计
 	for (const auto& a : sim.GetWorld().Entities().All()) {
 		if (a.alive) {
 			if (a.playerId == 0) ++r.p0Units;
 			else ++r.p1Units;
 		} else {
-			// 死亡实体归属方
-			if (a.playerId == 0) ++r.p1Kills; // 玩家0 死亡 = 玩家1 的击杀
+			if (a.playerId == 0) ++r.p1Kills;
 			else ++r.p0Kills;
 		}
 	}
@@ -169,50 +162,100 @@ RunResult RunMatch(uint64_t seed, Tick maxTicks) {
 	return r;
 }
 
+const char* WinnerText(int winner, char* buf, size_t n) {
+	if (winner == 0) std::snprintf(buf, n, "P0 wins");
+	else if (winner == 1) std::snprintf(buf, n, "P1 wins");
+	else std::snprintf(buf, n, "draw");
+	return buf;
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
 	int runs = 3;
-	Tick maxTicks = 12000; // 400 秒模拟
+	Tick maxTicks = 12000;
 	uint64_t baseSeed = 101;
+	bool symmetric = false;
 
 	for (int i = 1; i < argc; ++i) {
 		const std::string arg = argv[i];
 		if (arg == "--runs" && i + 1 < argc) runs = std::atoi(argv[++i]);
 		else if (arg == "--ticks" && i + 1 < argc) maxTicks = std::atoi(argv[++i]);
 		else if (arg == "--seed" && i + 1 < argc) baseSeed = static_cast<uint64_t>(std::atoi(argv[++i]));
+		else if (arg == "--symmetric") symmetric = true;
 	}
 
 	std::printf("=== RTS Autotest: AI vs AI ===\n");
-	std::printf("rules: %zu units, %zu buildings | runs: %d | max ticks: %lld\n\n",
-		kRules.units.size(), kRules.buildings.size(), runs,
-		static_cast<long long>(maxTicks));
+	std::printf("rules: %zu units, %zu buildings | max ticks: %lld | mode: %s\n\n",
+		kRules.units.size(), kRules.buildings.size(), static_cast<long long>(maxTicks),
+		symmetric ? "symmetric" : "runs");
 
+	if (symmetric) {
+		// ---- 种子对称性测试 ----
+		// 每对：同一地图，交换 AI 种子（A 用 s1/B 用 s2，然后 A 用 s2/B 用 s1）。
+		// 若 AI 强度决定胜负 → 交换后胜负应反转（mirror）。
+		// 若总是同一侧胜利 → 阵营/位置优势（side advantage）。
+		int mirrorOk = 0;
+		int sideAdvantage = 0;
+		bool allDet = true;
+
+		for (int i = 0; i < runs; ++i) {
+			const uint64_t mapSeed = baseSeed + static_cast<uint64_t>(i) * 17;
+			const uint64_t s1 = baseSeed + 1;
+			const uint64_t s2 = baseSeed + 2;
+
+			const RunResult a = RunMatch(mapSeed, s1, s2, maxTicks);
+			const RunResult b = RunMatch(mapSeed, s2, s1, maxTicks);
+			const RunResult a2 = RunMatch(mapSeed, s1, s2, maxTicks);
+			const bool det = (a.hash == a2.hash);
+			if (!det) allDet = false;
+
+			char wa[16], wb[16];
+			WinnerText(a.winner, wa, sizeof(wa));
+			WinnerText(b.winner, wb, sizeof(wb));
+
+			const bool mirror = (a.winner >= 0 && b.winner >= 0 && a.winner != b.winner);
+			if (mirror) ++mirrorOk;
+			else ++sideAdvantage;
+
+			std::printf("pair %d: seed=%llu\n", i + 1, static_cast<unsigned long long>(mapSeed));
+			std::printf("  base : %s  kills %2d:%-2d  units %d:%d  tick=%lld  %s\n",
+				wa, a.p0Kills, a.p1Kills, a.p0Units, a.p1Units,
+				static_cast<long long>(a.endTick), det ? "hash-ok" : "HASH-MISMATCH");
+			std::printf("  swap : %s  kills %2d:%-2d  units %d:%d  tick=%lld  %s\n",
+				wb, b.p0Kills, b.p1Kills, b.p0Units, b.p1Units,
+				static_cast<long long>(b.endTick), mirror ? "mirror" : "side-adv");
+		}
+
+		std::printf("\n--- summary ---\n");
+		std::printf("mirror (AI strength decides): %d/%d\n", mirrorOk, runs);
+		std::printf("side advantage (position decides): %d/%d\n", sideAdvantage, runs);
+		std::printf("determinism: %s\n", allDet ? "PASS" : "FAIL");
+
+		const bool pass = allDet;
+		std::printf("\n[%s] symmetric autotest\n", pass ? "PASS" : "FAIL");
+		return pass ? 0 : 1;
+	}
+
+	// ---- 普通 runs 模式 ----
 	int completed = 0;
-	int decided = 0;
 	int fights = 0;
 	bool allDeterministic = true;
 
 	for (int i = 0; i < runs; ++i) {
 		const uint64_t seed = baseSeed + static_cast<uint64_t>(i) * 17;
-		const RunResult r = RunMatch(seed, maxTicks);
-
-		// 确定性：同种子跑第二遍
-		const RunResult r2 = RunMatch(seed, maxTicks);
+		const RunResult r = RunMatch(seed, seed + 1, seed + 2, maxTicks);
+		const RunResult r2 = RunMatch(seed, seed + 1, seed + 2, maxTicks);
 		const bool deterministic = (r.hash == r2.hash);
 		if (!deterministic) allDeterministic = false;
 
-		char winnerText[16];
-		if (r.winner == 0) std::snprintf(winnerText, sizeof(winnerText), "P0 wins");
-		else if (r.winner == 1) std::snprintf(winnerText, sizeof(winnerText), "P1 wins");
-		else std::snprintf(winnerText, sizeof(winnerText), "timeout");
-
+		char wt[16];
+		WinnerText(r.winner, wt, sizeof(wt));
 		std::printf("run %d: seed=%llu  %-8s  tick=%-6lld  P0=%d P1=%d  peak=%d  kills %d:%d  %s\n",
-			i + 1, static_cast<unsigned long long>(seed), winnerText,
+			i + 1, static_cast<unsigned long long>(seed), wt,
 			static_cast<long long>(r.endTick), r.p0Units, r.p1Units, r.peakUnits,
 			r.p0Kills, r.p1Kills, deterministic ? "hash-ok" : "HASH-MISMATCH");
 		if (deterministic) ++completed;
-		if (r.winner >= 0) ++decided;
 		if (r.p0Kills + r.p1Kills > 0) ++fights;
 	}
 
