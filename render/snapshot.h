@@ -133,7 +133,7 @@ struct RenderSnapshot {
 			// 动画帧：移动时循环 run 帧
 			s.animFrame = (a.Has(kCompBuilding) || !a.movable.moving)
 				? 0
-				: static_cast<uint8_t>(1 + (world.CurrentTick() / 3) % 4); // 10 FPS 行走动画
+				: static_cast<uint8_t>(1 + (world.CurrentTick() / 3) % 6); // 10 FPS，6 帧完整循环
 			snap.sprites.push_back(s);
 		}
 

@@ -30,12 +30,12 @@ public:
 	static constexpr int kCellW = 80;
 	static constexpr int kCellH = 64;
 	static constexpr int kCols = 16;
-	static constexpr int kRows = 44; // 单位 40 行（4 单位 × 5 帧 × 2 阵营）+ 建筑 4 行
+	static constexpr int kRows = 60; // 单位 56 行（4 单位 × 7 帧 × 2 阵营）+ 建筑 4 行
 
 	// 加载 PNG（stb_image），输出 RGBA 像素
 	static bool Load(const std::string& path, std::vector<uint8_t>& outPixels, int& outW, int& outH);
 
-	static constexpr int kUnitFrames = 5; // 0 = stand，1-4 = run 动画
+	static constexpr int kUnitFrames = 7; // 0 = stand，1-6 = run 动画（完整 6 帧循环）
 
 	// 精灵 UV（[0,1]）：team 0=蓝方, 1=红方；facing 0-7（0=北，顺时针）；frame 0=stand,1-4=run
 	// 图集布局：
@@ -48,13 +48,13 @@ public:
 		int col = 0;
 		bool isUnit = true;
 		switch (id) {
-			case CncSpriteId::Infantry:  row = 0 * 10; break;
-			case CncSpriteId::Rocket:    row = 0 * 10; break;
-			case CncSpriteId::Tank:      row = 1 * 10; break;
-			case CncSpriteId::LightTank: row = 2 * 10; break;
-			case CncSpriteId::Harvester: row = 3 * 10; break;
-			case CncSpriteId::Barracks:  row = 40; isUnit = false; break;
-			case CncSpriteId::Factory:   row = 42; isUnit = false; break;
+			case CncSpriteId::Infantry:  row = 0 * 14; break;
+			case CncSpriteId::Rocket:    row = 0 * 14; break;
+			case CncSpriteId::Tank:      row = 1 * 14; break;
+			case CncSpriteId::LightTank: row = 2 * 14; break;
+			case CncSpriteId::Harvester: row = 3 * 14; break;
+			case CncSpriteId::Barracks:  row = 56; isUnit = false; break;
+			case CncSpriteId::Factory:   row = 58; isUnit = false; break;
 			default: row = 0; break;
 		}
 		if (isUnit) {
