@@ -81,6 +81,7 @@ bool MoveTowards(World& world, Actor& actor, SubCoord target) {
 		// 更新朝向（移动方向）
 		const int f = FacingFromDelta(next.x - actor.pos.x, next.y - actor.pos.y);
 		if (f >= 0) actor.movable.facing = static_cast<uint8_t>(f);
+		actor.movable.moving = true; // 实际移动 → 播放行走动画
 		actor.pos = next;
 		return false;
 	}

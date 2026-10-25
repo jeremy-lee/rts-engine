@@ -313,6 +313,7 @@ void World::TickActors() {
 			}
 			continue;
 		}
+		a.movable.moving = false;  // 每 tick 重置；实际移动时由 MoveTowards 置位
 		a.movable.prevPos = a.pos; // 渲染插值：记录 tick 起始位置
 		activity::Update(*this, a);
 	}
