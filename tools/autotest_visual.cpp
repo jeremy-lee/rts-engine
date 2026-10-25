@@ -21,6 +21,7 @@
 #include "render/text.h"
 #include "render/ui.h"
 #include "render/cnc_assets.h"
+#include "render/screenshot.h"
 #include "platform/win32_window.h"
 
 using namespace rts;
@@ -90,9 +91,9 @@ buildings:
 )");
 
 Map MakeMap() {
-	Map map(192, 192, 0, kWalkable | kBuildable);
-	map.SetResourceAmount(CellCoord(30, 30), 12000);
-	map.SetResourceAmount(CellCoord(160, 160), 12000);
+	Map map(128, 128, 0, kWalkable | kBuildable);
+	map.SetResourceAmount(CellCoord(20, 20), 12000);
+	map.SetResourceAmount(CellCoord(108, 108), 12000);
 	return map;
 }
 
@@ -127,8 +128,8 @@ VisualState StartMatch(uint64_t seed) {
 		a->armament.cooldown = 15;
 		a->vision.range = 8 * kSubPerCell;
 	};
-	addUnit(0, CellCoord(40, 96));
-	addUnit(1, CellCoord(152, 96));
+	addUnit(0, CellCoord(26, 64));
+	addUnit(1, CellCoord(102, 64));
 	return vs;
 }
 
@@ -136,9 +137,11 @@ VisualState StartMatch(uint64_t seed) {
 
 int main(int argc, char** argv) {
 	uint64_t seed = 101;
+	bool autoshot = false;
 	for (int i = 1; i < argc; ++i) {
 		const std::string arg = argv[i];
 		if (arg == "--seed" && i + 1 < argc) seed = static_cast<uint64_t>(std::atoi(argv[++i]));
+		else if (arg == "--autoshot") autoshot = true;
 	}
 
 	Win32Window window;
@@ -172,10 +175,11 @@ int main(int argc, char** argv) {
 	camera.viewW = window.Width();
 	camera.viewH = window.Height();
 	{
-		const ScreenPos c = ProjectCell(CellCoord(96, 96), 0);
+		// 相机对准战场中心（192×192 地图，拉远以看到双方）
+		const ScreenPos c = ProjectCell(CellCoord(64, 64), 0);
 		camera.centerX = static_cast<float>(c.x);
 		camera.centerY = static_cast<float>(c.y);
-		camera.zoom = 0.9f;
+		camera.zoom = 0.8f;
 	}
 
 	auto last = std::chrono::steady_clock::now();
@@ -198,8 +202,33 @@ int main(int argc, char** argv) {
 		const float mx = static_cast<float>(window.MouseX());
 		const float my = static_cast<float>(window.MouseY());
 
-		// 相机：右键拖拽 + 滚轮
+		// 相机：自适应跟随（包围盒中心 + 自动缩放）+ 右键拖拽 + 滚轮
 		{
+			float minX = 1e9f, maxX = -1e9f, minY = 1e9f, maxY = -1e9f;
+			int n = 0;
+			for (const auto& a : vs.sim.GetWorld().Entities().All()) {
+				if (!a.alive) continue;
+				const ScreenPos p = ProjectCell(a.pos.ToCell(), 0);
+				const float px = static_cast<float>(p.x);
+				const float py = static_cast<float>(p.y);
+				minX = (px < minX) ? px : minX;
+				maxX = (px > maxX) ? px : maxX;
+				minY = (py < minY) ? py : minY;
+				maxY = (py > maxY) ? py : maxY;
+				++n;
+			}
+			if (n > 0) {
+				const float cx = (minX + maxX) * 0.5f;
+				const float cy = (minY + maxY) * 0.5f;
+				camera.centerX += (cx - camera.centerX) * 0.08f;
+				camera.centerY += (cy - camera.centerY) * 0.08f;
+				// 自动缩放：包围盒 + 边距
+				const float bw = (maxX - minX) + 300.0f;
+				const float bh = (maxY - minY) + 220.0f;
+				float z = std::min(static_cast<float>(W) / bw, static_cast<float>(H) / bh) * 0.95f;
+				z = std::max(0.3f, std::min(1.4f, z));
+				camera.zoom += (z - camera.zoom) * 0.05f;
+			}
 			static int lastX = -1, lastY = -1;
 			if (window.IsMouseDown(1)) {
 				if (lastX >= 0) camera.PanScreen(static_cast<float>(window.MouseX() - lastX),
@@ -340,6 +369,18 @@ int main(int argc, char** argv) {
 					static_cast<float>(H) * 0.4f + 60.0f, 1.6f, 0xFFC0C0C0);
 			}
 			renderer.DrawScreenTextured(tv, fontTex);
+		}
+		// 自动截图（调试/验证）
+		if (autoshot) {
+			static int frameCount = 0;
+			++frameCount;
+			if (frameCount == 90 || frameCount == 300 || frameCount == 600) {
+				char shot[64];
+				std::snprintf(shot, sizeof(shot), "shot_%04d.bmp", frameCount);
+				CaptureScreenshot(W, H, shot);
+				std::printf("[shot] %s\n", shot);
+				std::fflush(stdout);
+			}
 		}
 		renderer.EndFrame();
 
