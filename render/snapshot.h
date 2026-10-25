@@ -26,7 +26,7 @@ struct RenderSprite {
 	int spriteIndex = -1;  // AssetAtlas 图集索引；-1 = 纯色
 	int cncSprite = -1;    // C&C 图集索引；-1 = 无
 	uint8_t player = 255;  // 所属玩家（255 = 无，用于软件后端着色）
-	uint8_t facing = 0;    // 朝向 0-7（0=北，顺时针）
+	WAngle facing{};       // 朝向（OpenRA WAngle：1024 = 360°）
 	uint8_t animFrame = 0; // 动画帧：0=stand，1-4=run
 };
 
@@ -139,7 +139,7 @@ struct RenderSnapshot {
 			s.prevY = static_cast<float>(pp.y) - s.h * 0.5f;
 			s.cncSprite = static_cast<int>(cid);
 			// 朝向：单位取 Movable.facing，建筑固定 0
-			s.facing = a.Has(kCompBuilding) ? 0 : a.movable.facing;
+			s.facing = a.Has(kCompBuilding) ? WAngle(0) : a.movable.facing;
 			// 动画帧：移动时循环 run 帧
 			// 动画：战斗（Attack）或移动中保持 run 帧；静止 10 tick 后回 stand
 			// （Attack 期间单位会反复停/走，若切 stand 会造成 stand/run 帧跳变 = 闪烁）

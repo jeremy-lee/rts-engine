@@ -8,19 +8,21 @@ namespace activity {
 namespace {
 // 由位移增量计算 8 方向朝向（整数运算，确定性）
 // 0=北, 1=东北, 2=东, 3=东南, 4=南, 5=西南, 6=西, 7=西北（顺时针）
-int FacingFromDelta(int32_t dx, int32_t dy) {
-	if (dx == 0 && dy == 0) return -1;
+WAngle FacingFromDelta(int32_t dx, int32_t dy) {
+	// 8 方向 → WAngle（每档 128，1024 = 360°）；(0,0) 返回 0（调用方不会使用）
+	if (dx == 0 && dy == 0) return WAngle(0);
 	const int32_t adx = (dx < 0) ? -dx : dx;
 	const int32_t ady = (dy < 0) ? -dy : dy;
-	if (dy < 0 && adx * 2 <= ady) return 0;   // 北
-	if (dx > 0 && dy < 0) return 1;           // 东北
-	if (dx > 0 && ady * 2 <= adx) return 2;   // 东
-	if (dx > 0 && dy > 0) return 3;           // 东南
-	if (dy > 0 && adx * 2 <= ady) return 4;   // 南
-	if (dx < 0 && dy > 0) return 5;           // 西南
-	if (dx < 0 && ady * 2 <= adx) return 6;   // 西
-	if (dx < 0 && dy < 0) return 7;           // 西北
-	return -1;
+	int f = 0;
+	if (dy < 0 && adx * 2 <= ady) f = 0;          // 北
+	else if (dx > 0 && dy < 0) f = 1;             // 东北
+	else if (dx > 0 && ady * 2 <= adx) f = 2;     // 东
+	else if (dx > 0 && dy > 0) f = 3;             // 东南
+	else if (dy > 0 && adx * 2 <= ady) f = 4;     // 南
+	else if (dx < 0 && dy > 0) f = 5;             // 西南
+	else if (dx < 0 && ady * 2 <= adx) f = 6;     // 西
+	else f = 7;                                    // 西北
+	return WAngle(f * 128);
 }
 } // namespace
 
@@ -79,15 +81,15 @@ bool MoveTowards(World& world, Actor& actor, SubCoord target) {
 	if (world.GetMap().InBounds(nc) && world.GetMap().Walkable(nc) &&
 		!world.GetMap().Occupied(nc)) {
 		// OpenRA 风格：先转向（TurnSpeed 512 ≈ 180°/tick），对准后才移动
-		const int targetFacing = FacingFromDelta(dx, dy);
-		if (targetFacing >= 0 && actor.movable.facing != targetFacing) {
-			int diff = (targetFacing - static_cast<int>(actor.movable.facing) + 8) % 8;
-			if (diff > 4) diff -= 8; // 最短方向（正=顺时针，负=逆时针）
-			const int step = (diff > 0) ? std::min(diff, 4) : std::max(diff, -4);
-			actor.movable.facing = static_cast<uint8_t>(
-				(static_cast<int>(actor.movable.facing) + step + 8) % 8);
+		const WAngle targetFacing = FacingFromDelta(dx, dy);
+		if (actor.movable.facing != targetFacing) {
+			int32_t diff = (targetFacing.angle - actor.movable.facing.angle + 1024) % 1024;
+			if (diff > 512) diff -= 1024; // 最短方向（-512..512）
+			const int32_t step = (diff > 0) ? std::min(diff, static_cast<int32_t>(512))
+			                               : std::max(diff, static_cast<int32_t>(-512));
+			actor.movable.facing = WAngle(actor.movable.facing.angle + step);
 			if (actor.movable.facing != targetFacing) {
-				return false; // 180° 以内一 tick 转完；更大才需要第二 tick
+				return false; // 180° 以内一 tick 转完
 			}
 		}
 		actor.movable.moving = true;

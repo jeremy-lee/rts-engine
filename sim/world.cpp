@@ -423,7 +423,7 @@ std::string World::SaveToText() const {
 			<< static_cast<int>(a.components) << " "
 			<< static_cast<int>(a.footprintW) << " " << static_cast<int>(a.footprintH) << " "
 			<< a.health.hp << " " << a.health.maxHp << " "
-			<< a.movable.speed << " " << static_cast<int>(a.movable.facing) << " "
+			<< a.movable.speed << " " << a.movable.facing.angle << " "
 			<< (a.movable.moving ? 1 : 0) << " "
 			<< a.armament.range << " " << a.armament.damage << " "
 			<< a.armament.cooldown << " " << a.armament.lastFire << " "
@@ -509,7 +509,7 @@ bool World::LoadFromText(const std::string& text) {
 		a->health.hp = hp;
 		a->health.maxHp = maxHp;
 		a->movable.speed = speed;
-		a->movable.facing = static_cast<uint8_t>(facing);
+		a->movable.facing = WAngle(facing);
 		a->movable.moving = (moving != 0);
 		a->armament.range = arange;
 		a->armament.damage = adamage;

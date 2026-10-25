@@ -331,7 +331,7 @@ int main(int argc, char** argv) {
 						std::printf("[m] tick=%lld pos=(%d,%d) prev=(%d,%d) facing=%d\n",
 							static_cast<long long>(vs.sim.GetWorld().CurrentTick()),
 							a.pos.x, a.pos.y, a.movable.prevPos.x, a.movable.prevPos.y,
-							static_cast<int>(a.movable.facing));
+							a.movable.facing.angle);
 						fflush(stdout);
 						++dbgT;
 						break;

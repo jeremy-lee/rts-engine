@@ -7,6 +7,7 @@
 
 #include <cstdint>
 #include "core/core.h"
+#include "core/wangle.h"
 
 namespace rts {
 
@@ -44,7 +45,7 @@ struct Movable {
 	SubCoord target;
 	int32_t speed = 32;   // 子格/tick
 	bool moving = false;
-	uint8_t facing = 0;   // 朝向 0-7（0=北，顺时针）
+	WAngle facing{0};     // 朝向（OpenRA WAngle：1024 单位 = 360°，8 方向 = 128 间隔）
 	SubCoord prevPos;     // 上一 tick 起始位置（渲染插值用，不参与哈希）
 	Tick lastMoveTick = 0; // 最近一次实际移动的 tick（动画滞后用，不参与哈希）
 };

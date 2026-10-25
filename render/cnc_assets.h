@@ -3,6 +3,8 @@
 // 图集：8 列 × 1 行，每格 80×64（精灵居中）。
 #pragma once
 
+#include "core/wangle.h"
+
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -29,8 +31,8 @@ class CncAtlas {
 public:
 	static constexpr int kCellW = 80;
 	static constexpr int kCellH = 64;
-	static constexpr int kCols = 16;
-	static constexpr int kRows = 60; // 单位 56 行（4 单位 × 7 帧 × 2 阵营）+ 建筑 4 行
+	static constexpr int kCols = 64; // 32 朝向 × 2 阵营（坦克）
+	static constexpr int kRows = 34; // 2 坦克行 + 28 步兵/矿车行 + 4 建筑行
 
 	// 加载 PNG（stb_image），输出 RGBA 像素
 	static bool Load(const std::string& path, std::vector<uint8_t>& outPixels, int& outW, int& outH);
@@ -41,28 +43,37 @@ public:
 	// 图集布局：
 	//   行 0-39：单位（ui*10 + frame*2 + team，列 = facing + team*8）
 	//   行 40-43：建筑（Barracks 40/41、Factory 42/43，列 0）
-	static void GetUV(CncSpriteId id, int team, int facing, int frame, float& u0, float& v0, float& u1, float& v1) {
+	// 精灵 UV（[0,1]）：team 0=蓝方, 1=红方；facing 为 WAngle；frame 0=stand,1-6=run
+	// 图集布局（64 列 × 34 行，格子 80×64）：
+	//   行 0：Tank 32 朝向 × 2 阵营（车体+炮塔合成）
+	//   行 1：LightTank 32 朝向 × 2 阵营
+	//   行 2-15：Infantry 8 朝向 × 7 帧 × 2 阵营
+	//   行 16-29：Harvester 8 朝向 × 7 帧 × 2 阵营
+	//   行 30-33：Barracks / Factory × 2 阵营
+	static void GetUV(CncSpriteId id, int team, WAngle facing, int frame, float& u0, float& v0, float& u1, float& v1) {
 		const int t = (team == 1) ? 1 : 0;
 		const int k = (frame < 0) ? 0 : (frame >= kUnitFrames ? kUnitFrames - 1 : frame);
 		int row = 0;
 		int col = 0;
-		bool isUnit = true;
+		bool isTank = false;   // 32 朝向（无动画帧）
+		bool isUnit8 = false;  // 8 朝向 + 动画帧
 		switch (id) {
-			case CncSpriteId::Infantry:  row = 0 * 14; break;
-			case CncSpriteId::Rocket:    row = 0 * 14; break;
-			case CncSpriteId::Tank:      row = 1 * 14; break;
-			case CncSpriteId::LightTank: row = 2 * 14; break;
-			case CncSpriteId::Harvester: row = 3 * 14; break;
-			case CncSpriteId::Barracks:  row = 56; isUnit = false; break;
-			case CncSpriteId::Factory:   row = 58; isUnit = false; break;
-			default: row = 0; break;
+			case CncSpriteId::Tank:      row = 0;  isTank = true; break;
+			case CncSpriteId::LightTank: row = 1;  isTank = true; break;
+			case CncSpriteId::Infantry:  row = 2;  isUnit8 = true; break;
+			case CncSpriteId::Rocket:    row = 2;  isUnit8 = true; break;
+			case CncSpriteId::Harvester: row = 16; isUnit8 = true; break;
+			case CncSpriteId::Barracks:  row = 30; break;
+			case CncSpriteId::Factory:   row = 32; break;
+			default: row = 2; isUnit8 = true; break;
 		}
-		if (isUnit) {
-			// 朝向映射到 SHP 帧（C&C SHP 逆时针：0=N, 1=NW, ...）
-			const int f = ((facing % 8) + 8) % 8;
-			const int shpFrame = (8 - f) % 8;
+		if (isTank) {
+			const int f32 = facing.angle / 32; // 0-31
+			col = ((32 - f32) % 32) + t * 32;
+		} else if (isUnit8) {
+			const int f8 = facing.angle / 128; // 0-7（与 SHP 逆时针一致）
 			row += k * 2 + t;
-			col = shpFrame + t * 8;
+			col = ((8 - f8) % 8) + t * 8;
 		} else {
 			row += t;
 			col = 0;
@@ -81,18 +92,17 @@ public:
 
 	// 图集里精灵的尺寸 = 裁剪到内容的紧凑 bbox（OpenRA TrimmedFrame 语义）
 	// 8 朝向的 stand 帧最大 bbox（去掉了 SHP 画布的 padding）
-	// 完整 SHP 画布尺寸（OpenRA ShpTDSprite.Size 语义）：所有帧共用同一画布
-	// 内容在画布内的位置由 SHP 数据决定，整画布渲染不会裁剪/错位
+	// 图集内容是裁剪后的紧凑 bbox（OpenRA TrimmedFrame 语义）
 	static void GetContentSize(CncSpriteId id, int& w, int& h) {
 		switch (id) {
-			case CncSpriteId::Infantry:  w = 50; h = 39; break;
-			case CncSpriteId::Rocket:    w = 50; h = 39; break;
-			case CncSpriteId::Tank:      w = 36; h = 36; break;
-			case CncSpriteId::LightTank: w = 24; h = 24; break;
-			case CncSpriteId::Harvester: w = 48; h = 48; break;
-			case CncSpriteId::Barracks:  w = 48; h = 48; break;
-			case CncSpriteId::Factory:   w = 72; h = 48; break;
-			default: w = 50; h = 39; break;
+			case CncSpriteId::Infantry:  w = 14; h = 17; break;
+			case CncSpriteId::Rocket:    w = 14; h = 17; break;
+			case CncSpriteId::Tank:      w = 13; h = 21; break;
+			case CncSpriteId::LightTank: w = 12; h = 19; break;
+			case CncSpriteId::Harvester: w = 40; h = 27; break;
+			case CncSpriteId::Barracks:  w = 48; h = 39; break;
+			case CncSpriteId::Factory:   w = 72; h = 24; break;
+			default: w = 14; h = 17; break;
 		}
 	}
 
