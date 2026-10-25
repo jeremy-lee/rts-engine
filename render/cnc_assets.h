@@ -81,16 +81,18 @@ public:
 
 	// 图集里精灵的尺寸 = 裁剪到内容的紧凑 bbox（OpenRA TrimmedFrame 语义）
 	// 8 朝向的 stand 帧最大 bbox（去掉了 SHP 画布的 padding）
+	// 完整 SHP 画布尺寸（OpenRA ShpTDSprite.Size 语义）：所有帧共用同一画布
+	// 内容在画布内的位置由 SHP 数据决定，整画布渲染不会裁剪/错位
 	static void GetContentSize(CncSpriteId id, int& w, int& h) {
 		switch (id) {
-			case CncSpriteId::Infantry:  w = 14; h = 17; break;
-			case CncSpriteId::Rocket:    w = 14; h = 17; break;
-			case CncSpriteId::Tank:      w = 13; h = 21; break; // 车体+炮塔合成
-			case CncSpriteId::LightTank: w = 12; h = 19; break; // 车体+炮塔合成
-			case CncSpriteId::Harvester: w = 40; h = 27; break;
-			case CncSpriteId::Barracks:  w = 48; h = 39; break;
-			case CncSpriteId::Factory:   w = 72; h = 24; break;
-			default: w = 14; h = 17; break;
+			case CncSpriteId::Infantry:  w = 50; h = 39; break;
+			case CncSpriteId::Rocket:    w = 50; h = 39; break;
+			case CncSpriteId::Tank:      w = 36; h = 36; break;
+			case CncSpriteId::LightTank: w = 24; h = 24; break;
+			case CncSpriteId::Harvester: w = 48; h = 48; break;
+			case CncSpriteId::Barracks:  w = 48; h = 48; break;
+			case CncSpriteId::Factory:   w = 72; h = 48; break;
+			default: w = 50; h = 39; break;
 		}
 	}
 
