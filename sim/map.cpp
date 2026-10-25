@@ -12,7 +12,8 @@ Map::Map(int32_t width, int32_t height, uint8_t fillHeight, uint8_t fillFlags)
 	, m_heightLayer(width, height, fillHeight)
 	, m_flags(width, height, fillFlags)
 	, m_fog(width, height, 255)
-	, m_resources(width, height, 0) {}
+	, m_resources(width, height, 0)
+	, m_occupancy(width, height, 0u) {}
 
 bool Map::LoadFromText(const std::string& path) {
 	std::ifstream in(path);
@@ -104,6 +105,7 @@ uint64_t Map::Hash() const {
 	mix(m_heightLayer.Hash(h));
 	mix(m_flags.Hash(h));
 	mix(m_fog.Hash(h));
+	mix(m_occupancy.Hash(h));
 	mix(static_cast<uint64_t>(m_width));
 	mix(static_cast<uint64_t>(m_height));
 	return h;

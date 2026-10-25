@@ -49,6 +49,38 @@ public:
 		SetFlags(c, f);
 	}
 
+	// ---- 建筑占用（0 = 空闲，否则为 EntityId）----
+	uint32_t Occupancy(CellCoord c) const { return m_occupancy.Get(c, 0); }
+	bool Occupied(CellCoord c) const { return Occupancy(c) != 0; }
+	void SetOccupancy(CellCoord c, uint32_t entityId) { m_occupancy.Set(c, entityId); }
+	// 区域是否可建造：范围内全部可建造且未被占用
+	bool CanBuildAt(CellCoord origin, int32_t w, int32_t h) const {
+		for (int32_t y = 0; y < h; ++y) {
+			for (int32_t x = 0; x < w; ++x) {
+				const CellCoord c(origin.x + x, origin.y + y);
+				if (!InBounds(c) || !Buildable(c) || Occupied(c)) return false;
+			}
+		}
+		return true;
+	}
+	// 占用/释放一个区域（entityId=0 表示释放）
+	void SetFootprint(CellCoord origin, int32_t w, int32_t h, uint32_t entityId) {
+		for (int32_t y = 0; y < h; ++y) {
+			for (int32_t x = 0; x < w; ++x) {
+				SetOccupancy(CellCoord(origin.x + x, origin.y + y), entityId);
+			}
+		}
+	}
+	// 清除某实体占用的全部格子（O(n) 修复，建筑销毁时调用）
+	void ClearFootprint(uint32_t entityId) {
+		for (int32_t y = 0; y < m_height; ++y) {
+			for (int32_t x = 0; x < m_width; ++x) {
+				const CellCoord c(x, y);
+				if (Occupancy(c) == entityId) SetOccupancy(c, 0);
+			}
+		}
+	}
+
 	// ---- 资源（矿点数量，0 = 无）----
 	int32_t ResourceAmount(CellCoord c) const { return m_resources.Get(c, 0); }
 	void SetResourceAmount(CellCoord c, int32_t v) { m_resources.Set(c, v); }
@@ -100,6 +132,7 @@ private:
 	CellLayer<uint8_t> m_flags;       // TerrainFlags 位集
 	CellLayer<uint8_t> m_fog;         // 迷雾 0..255
 	CellLayer<int32_t> m_resources;   // 矿点剩余量
+	CellLayer<uint32_t> m_occupancy;  // 建筑占用（EntityId）
 };
 
 } // namespace rts

@@ -37,9 +37,10 @@ bool MoveTowards(World& world, Actor& actor, SubCoord target) {
 	const int32_t speed = actor.movable.speed;
 	const int64_t stepSq = static_cast<int64_t>(speed) * speed;
 	if (distSq <= stepSq) {
-		// 到达前检查目标格可通行
+		// 到达前检查目标格可通行（M11：含建筑占格）
 		const CellCoord tc = target.ToCell();
-		if (!world.GetMap().InBounds(tc) || !world.GetMap().Walkable(tc)) {
+		if (!world.GetMap().InBounds(tc) || !world.GetMap().Walkable(tc) ||
+			world.GetMap().Occupied(tc)) {
 			return false;
 		}
 		actor.pos = target;
@@ -56,11 +57,12 @@ bool MoveTowards(World& world, Actor& actor, SubCoord target) {
 		actor.pos.y + static_cast<int32_t>(sy != 0 ? sy : (dy > 0 ? 1 : -1)));
 
 	const CellCoord nc = next.ToCell();
-	if (world.GetMap().InBounds(nc) && world.GetMap().Walkable(nc)) {
+	if (world.GetMap().InBounds(nc) && world.GetMap().Walkable(nc) &&
+		!world.GetMap().Occupied(nc)) {
 		actor.pos = next;
 		return false;
 	}
-	// 受阻：停止（M2 简单处理；M4 寻路会绕过障碍）
+	// 受阻：停止（M4 寻路会绕过障碍）
 	return false;
 }
 

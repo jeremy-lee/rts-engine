@@ -144,14 +144,26 @@ void World::ApplyCommand(const Command& cmd) {
 				def = m_rules.FindBuilding(m_rules.buildingIds[cmd.targetId]);
 			}
 			if (def == nullptr) break;
+			// M11：检查占地（宽高来自数据定义）
+			const int32_t fw = (def->width > 0) ? def->width : 1;
+			const int32_t fh = (def->height > 0) ? def->height : 1;
+			CellCoord origin = SubCoord(cmd.x, cmd.y).ToCell();
+			// 吸附到最近可建区域（简化：尝试原位置，失败则放弃）
+			if (!m_map.CanBuildAt(origin, fw, fh)) break;
 			if (!SpendCredits(cmd.playerId, def->cost)) break;
-			const CellCoord cell = Map::FindNearestWalkable(m_map, SubCoord(cmd.x, cmd.y).ToCell());
-			const SubCoord pos(cell.x * kSubPerCell + kSubPerCell / 2, cell.y * kSubPerCell + kSubPerCell / 2);
+
+			// 建筑中心 = 占格区域中心
+			const SubCoord pos(
+				(origin.x + fw / 2) * kSubPerCell + kSubPerCell / 2,
+				(origin.y + fh / 2) * kSubPerCell + kSubPerCell / 2);
 			const EntityId id = m_entities.Create(cmd.playerId, pos, kCompHealth | kCompBuilding);
 			if (Actor* a = m_entities.Get(id)) {
 				a->health.hp = def->hp;
 				a->health.maxHp = def->hp;
+				a->footprintW = static_cast<uint8_t>(fw);
+				a->footprintH = static_cast<uint8_t>(fh);
 			}
+			m_map.SetFootprint(origin, fw, fh, id);
 			break;
 		}
 		case CommandType::Produce: {
@@ -260,7 +272,15 @@ void World::TickEconomy() {
 
 void World::TickActors() {
 	for (auto& a : m_entities.All()) {
-		if (!a.alive) continue;
+		if (!a.alive) {
+			// M11：死亡建筑释放占格（footprintW=0 表示已释放）
+			if (a.Has(kCompBuilding) && a.footprintW > 0) {
+				m_map.ClearFootprint(a.id);
+				a.footprintW = 0;
+				a.footprintH = 0;
+			}
+			continue;
+		}
 		activity::Update(*this, a);
 	}
 }

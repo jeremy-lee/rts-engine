@@ -88,16 +88,37 @@ void AIPlayer::Update(World& world, CommandQueue& queue) {
 	// ---- 1. 建造：没有建筑且资源足够 ----
 	if (mainBuilding == kInvalidEntity) {
 		if (world.Credits(m_playerId) >= 300) {
-			Command b;
-			b.type = CommandType::Build;
-			b.playerId = m_playerId;
-			// 在基地附近（若还没有基地，用固定位置）
-			int32_t bx = 10, by = 10;
-			if (haveBase) { bx = basePos.ToCell().x + 4; by = basePos.ToCell().y + 4; }
-			b.x = bx * kSubPerCell;
-			b.y = by * kSubPerCell;
-			b.targetId = 0; // 第一个建筑定义
-			queue.Push(b);
+			// M11：建筑占格后需要找可建造区域
+			const BuildingDef* bdef = world.GetRules().FindBuilding(world.GetRules().buildingIds.empty()
+				? "" : world.GetRules().buildingIds[0]);
+			const int32_t fw = (bdef != nullptr && bdef->width > 0) ? bdef->width : 4;
+			const int32_t fh = (bdef != nullptr && bdef->height > 0) ? bdef->height : 4;
+
+			CellCoord baseCell = haveBase ? basePos.ToCell() : CellCoord(10, 10);
+			CellCoord origin;
+			bool found = false;
+			// 从基地附近螺旋扫描可建造区域
+			for (int32_t r = 0; r <= 24 && !found; ++r) {
+				for (int32_t dy = -r; dy <= r && !found; ++dy) {
+					for (int32_t dx = -r; dx <= r && !found; ++dx) {
+						if (r > 0 && (dx > -r && dx < r) && (dy > -r && dy < r)) continue;
+						const CellCoord cand(baseCell.x + dx + 2, baseCell.y + dy + 2);
+						if (world.GetMap().CanBuildAt(cand, fw, fh)) {
+							origin = cand;
+							found = true;
+						}
+					}
+				}
+			}
+			if (found) {
+				Command b;
+				b.type = CommandType::Build;
+				b.playerId = m_playerId;
+				b.x = origin.x * kSubPerCell;
+				b.y = origin.y * kSubPerCell;
+				b.targetId = 0;
+				queue.Push(b);
+			}
 		}
 		return;
 	}

@@ -87,6 +87,8 @@ struct Actor {
 	uint8_t playerId = 0;
 	bool alive = true;
 	uint8_t components = 0;
+	uint8_t footprintW = 1; // 建筑占格宽
+	uint8_t footprintH = 1; // 建筑占格高
 
 	SubCoord pos;
 	ActivityState activity;
@@ -113,6 +115,8 @@ inline uint64_t HashActor(const Actor& a) {
 	h = HashMix(h, a.playerId);
 	h = HashMix(h, a.alive ? 1u : 0u);
 	h = HashMix(h, a.components);
+	h = HashMix(h, a.footprintW);
+	h = HashMix(h, a.footprintH);
 	h = HashMix(h, static_cast<uint64_t>(static_cast<uint32_t>(a.pos.x)));
 	h = HashMix(h, static_cast<uint64_t>(static_cast<uint32_t>(a.pos.y)));
 	h = HashMix(h, static_cast<uint64_t>(a.activity.type));

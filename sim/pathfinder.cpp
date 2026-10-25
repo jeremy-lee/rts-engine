@@ -75,12 +75,17 @@ bool Pathfinder::FindPath(const Map& map, CellCoord from, CellCoord to, std::vec
 			const CellCoord nc(nx, ny);
 			if (!InBounds(nc)) continue;
 			if (!map.Walkable(nc)) continue;
+			if (map.Occupied(nc)) continue; // M11：建筑占格不可通行
 
 			const bool diagonal = (d >= 4);
 			if (diagonal) {
 				// 禁止对角穿墙：两侧直行格都必须可通行
 				if (!map.Walkable(CellCoord(cx + kDirs[d][0], cy)) ||
 					!map.Walkable(CellCoord(cx, cy + kDirs[d][1]))) {
+					continue;
+				}
+				if (map.Occupied(CellCoord(cx + kDirs[d][0], cy)) ||
+					map.Occupied(CellCoord(cx, cy + kDirs[d][1]))) {
 					continue;
 				}
 			}

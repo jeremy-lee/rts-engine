@@ -56,6 +56,7 @@ set(RTS_TEST_SOURCES
     tests/test_gamedefs.cpp
     tests/test_economy.cpp
     tests/test_ai.cpp
+    tests/test_building.cpp
 )
 if(WIN32)
     list(APPEND RTS_TEST_SOURCES tests/test_net.cpp)
