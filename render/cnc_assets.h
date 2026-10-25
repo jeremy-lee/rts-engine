@@ -83,14 +83,14 @@ public:
 	// 8 朝向的 stand 帧最大 bbox（去掉了 SHP 画布的 padding）
 	static void GetContentSize(CncSpriteId id, int& w, int& h) {
 		switch (id) {
-			case CncSpriteId::Infantry:  w = 16; h = 17; break;
-			case CncSpriteId::Rocket:    w = 16; h = 17; break;
-			case CncSpriteId::Tank:      w = 24; h = 18; break;
-			case CncSpriteId::LightTank: w = 22; h = 16; break;
+			case CncSpriteId::Infantry:  w = 14; h = 17; break;
+			case CncSpriteId::Rocket:    w = 14; h = 17; break;
+			case CncSpriteId::Tank:      w = 13; h = 21; break; // 车体+炮塔合成
+			case CncSpriteId::LightTank: w = 12; h = 19; break; // 车体+炮塔合成
 			case CncSpriteId::Harvester: w = 40; h = 27; break;
 			case CncSpriteId::Barracks:  w = 48; h = 39; break;
 			case CncSpriteId::Factory:   w = 72; h = 24; break;
-			default: w = 16; h = 17; break;
+			default: w = 14; h = 17; break;
 		}
 	}
 
