@@ -104,6 +104,12 @@ int main() {
 	const auto atlasPixels = AssetAtlas::Build(atlasW, atlasH);
 	const uint32_t atlasTex = renderer.UploadTexture(atlasPixels, atlasW, atlasH);
 
+	// M16：C&C 素材图集（占位美术，OpenRA 提取）
+	std::vector<uint8_t> cncPixels;
+	int cncW = 0, cncH = 0;
+	const bool cncOk = CncAtlas::Load("assets/cnc_atlas.png", cncPixels, cncW, cncH);
+	const uint32_t cncTex = cncOk ? renderer.UploadTexture(cncPixels, cncW, cncH) : 0;
+
 	// 软件渲染用：精灵代表色（无纹理时）
 	auto spriteRepColor = [](int idx) -> uint32_t {
 		switch (static_cast<SpriteId>(idx)) {
@@ -416,40 +422,43 @@ int main() {
 
 		// ---- 渲染：世界 ----
 		const RenderSnapshot snapshot = RenderSnapshot::FromWorld(sim.GetWorld());
-		SpriteBatch worldBatch;
-		worldBatch.Begin();
+		// 地形批次（程序化图集 or 纯色）与单位批次（C&C 图集）
+		SpriteBatch terrainBatch, unitBatch;
+		terrainBatch.Begin();
+		unitBatch.Begin();
 		for (const auto& s : snapshot.sprites) {
-			if (!softwareMode && s.spriteIndex >= 0) {
-				// GL 模式：纹理精灵（图集 UV）
+			if (s.cncSprite >= 0 && cncOk) {
+				float u0 = 0.0f, v0 = 0.0f, u1 = 1.0f, v1 = 1.0f;
+				CncAtlas::GetUV(static_cast<CncSpriteId>(s.cncSprite), u0, v0, u1, v1);
+				unitBatch.AddSprite(s.worldX, s.worldY, s.w, s.h, u0, v0, u1, v1, s.color);
+			} else if (!softwareMode && s.spriteIndex >= 0) {
 				float u0 = 0.0f, v0 = 0.0f, u1 = 1.0f, v1 = 1.0f;
 				AssetAtlas::GetUV(static_cast<SpriteId>(s.spriteIndex), u0, v0, u1, v1);
-				worldBatch.AddSprite(s.worldX, s.worldY, s.w, s.h, u0, v0, u1, v1, s.color);
+				terrainBatch.AddSprite(s.worldX, s.worldY, s.w, s.h, u0, v0, u1, v1, s.color);
 			} else {
-				// 软件模式：代表色纯色
 				uint32_t color = s.color;
 				if (s.spriteIndex >= 0 && s.color == 0xFFFFFFFF) color = spriteRepColor(s.spriteIndex);
-				worldBatch.AddSolid(s.worldX, s.worldY, s.w, s.h, color);
+				terrainBatch.AddSolid(s.worldX, s.worldY, s.w, s.h, color);
 			}
 		}
 		for (EntityId id : selection) {
 			const Actor* a = sim.GetWorld().Entities().Get(id);
 			if (a == nullptr || !a->alive) continue;
 			const ScreenPos p = ProjectCell(a->pos.ToCell(), 0);
-			// 选中高亮
-			worldBatch.AddSolid(static_cast<float>(p.x) - 12.0f, static_cast<float>(p.y) - 12.0f,
+			terrainBatch.AddSolid(static_cast<float>(p.x) - 12.0f, static_cast<float>(p.y) - 12.0f,
 				24.0f, 24.0f, 0x8000FF00);
-			// 生命条（单位上方）
 			if (a->health.maxHp > 0) {
 				const float barW = 28.0f;
 				const float barH = 4.0f;
 				const float bx = static_cast<float>(p.x) - barW * 0.5f;
 				const float by = static_cast<float>(p.y) - 20.0f;
 				const float ratio = static_cast<float>(a->health.hp) / static_cast<float>(a->health.maxHp);
-				worldBatch.AddSolid(bx, by, barW, barH, 0xFF202020);
-				worldBatch.AddSolid(bx, by, barW * ratio, barH, 0xFF40E040);
+				terrainBatch.AddSolid(bx, by, barW, barH, 0xFF202020);
+				terrainBatch.AddSolid(bx, by, barW * ratio, barH, 0xFF40E040);
 			}
 		}
-		worldBatch.End();
+		terrainBatch.End();
+		unitBatch.End();
 
 		// ---- 渲染：UI ----
 		std::vector<SpriteVertex> uiVerts;
@@ -509,7 +518,10 @@ int main() {
 			renderer.DrawScreenTextured(worldQuad, swTex);
 		} else {
 			renderer.BeginFrame(W, H);
-			renderer.DrawTexturedBatch(worldBatch.Vertices(), camera, atlasTex);
+			renderer.DrawTexturedBatch(terrainBatch.Vertices(), camera, atlasTex);
+			if (cncOk) {
+				renderer.DrawTexturedBatch(unitBatch.Vertices(), camera, cncTex);
+			}
 		}
 		renderer.DrawScreenBatch(uiVerts);
 

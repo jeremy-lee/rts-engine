@@ -8,6 +8,7 @@
 #include "sim/world.h"
 #include "projection.h"
 #include "assets.h"
+#include "cnc_assets.h"
 
 namespace rts {
 
@@ -19,6 +20,7 @@ struct RenderSprite {
 	uint32_t color = 0xFFFFFFFF;
 	uint32_t entityId = 0; // 0 = 地形/装饰
 	int spriteIndex = -1;  // AssetAtlas 图集索引；-1 = 纯色
+	int cncSprite = -1;    // C&C 图集索引；-1 = 无
 };
 
 struct RenderSnapshot {
@@ -74,18 +76,20 @@ struct RenderSnapshot {
 			if (a.playerId != 0 && fog != 2) continue; // 敌方在迷雾中隐藏
 			const ScreenPos p = ProjectCell(ac, 0);
 			RenderSprite s;
-			s.worldX = static_cast<float>(p.x) - 8.0f;
-			s.worldY = static_cast<float>(p.y) - 8.0f;
-			s.w = 32.0f;
-			s.h = 32.0f;
 			s.color = (a.playerId == 0) ? 0xFF00C8FF : 0xFFFF4040;
 			s.entityId = a.id;
-			// M16：单位映射到图集精灵
-			SpriteId uid = SpriteId::Infantry;
-			if (a.Has(kCompBuilding)) uid = SpriteId::Barracks;
-			else if (a.Has(kCompHarvester)) uid = SpriteId::Harvester;
-			else if (a.health.maxHp >= 200) uid = SpriteId::Tank;
-			s.spriteIndex = static_cast<int>(uid);
+			// M16：单位映射到 C&C 图集精灵
+			CncSpriteId cid = CncSpriteId::Infantry;
+			if (a.Has(kCompBuilding)) cid = CncSpriteId::Barracks;
+			else if (a.Has(kCompHarvester)) cid = CncSpriteId::Harvester;
+			else if (a.health.maxHp >= 200) cid = CncSpriteId::Tank;
+			int sw = 32, sh = 32;
+			CncAtlas::GetSize(cid, sw, sh);
+			s.w = static_cast<float>(sw);
+			s.h = static_cast<float>(sh);
+			s.worldX = static_cast<float>(p.x) - s.w * 0.5f;
+			s.worldY = static_cast<float>(p.y) - s.h * 0.5f;
+			s.cncSprite = static_cast<int>(cid);
 			snap.sprites.push_back(s);
 		}
 		return snap;
