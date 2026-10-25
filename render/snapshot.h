@@ -22,6 +22,7 @@ struct RenderSprite {
 	int spriteIndex = -1;  // AssetAtlas 图集索引；-1 = 纯色
 	int cncSprite = -1;    // C&C 图集索引；-1 = 无
 	uint8_t player = 255;  // 所属玩家（255 = 无，用于软件后端着色）
+	uint8_t facing = 0;    // 朝向 0-7（0=北，顺时针）
 };
 
 struct RenderSnapshot {
@@ -30,7 +31,8 @@ struct RenderSnapshot {
 	int32_t mapH = 0;
 
 	// 从世界构建快照（地形格子 + 单位），应用战争迷雾
-	static RenderSnapshot FromWorld(const World& world) {
+	// ignoreFog = true 时全揭示（调试/截图用）
+	static RenderSnapshot FromWorld(const World& world, bool ignoreFog = false) {
 		RenderSnapshot snap;
 		snap.mapW = world.Width();
 		snap.mapH = world.Height();
@@ -42,7 +44,7 @@ struct RenderSnapshot {
 				const CellCoord c(x, y);
 				const uint8_t fog = map.Fog(c); // 0=未探索 1=已探索 2=可见
 				// 未探索：不绘制地形（纯黑）
-				if (fog == 0) continue;
+				if (fog == 0 && !ignoreFog) continue;
 
 				const ScreenPos p = ProjectCell(c, map.TerrainHeight(c));
 				RenderSprite s;
@@ -50,15 +52,17 @@ struct RenderSnapshot {
 				s.worldY = static_cast<float>(p.y) - kTileH * 0.5f;
 				s.w = static_cast<float>(kTileW);
 				s.h = static_cast<float>(kTileH);
-				// M16：地形映射到图集精灵
-				SpriteId tid = SpriteId::Grass;
-				if (map.Water(c)) tid = SpriteId::Water;
-				else if (!map.Walkable(c)) tid = SpriteId::Rock;
-				else if (map.TerrainHeight(c) > 0) tid = SpriteId::Highland;
-				s.spriteIndex = static_cast<int>(tid);
+				// M16/M17：地形用 C&C TMP tile（行 5）
+				CncSpriteId tid = CncSpriteId::Grass;
+				if (map.Water(c)) tid = CncSpriteId::Water;
+				else if (!map.Walkable(c)) tid = CncSpriteId::Sand;
+				else if (map.TerrainHeight(c) > 0) tid = CncSpriteId::Highland;
+				s.cncSprite = static_cast<int>(tid);
+				s.w = static_cast<float>(kTileW);
+				s.h = static_cast<float>(kTileH);
 				s.color = 0xFFFFFFFF; // 原色 tint
 				// 已探索但不可见：变暗
-				if (fog == 1) {
+				if (fog == 1 && !ignoreFog) {
 					const uint32_t a = s.color & 0xFF000000u;
 					const uint32_t r = (s.color >> 16) & 0xFF;
 					const uint32_t g = (s.color >> 8) & 0xFF;
@@ -74,7 +78,7 @@ struct RenderSnapshot {
 			if (!a.alive) continue;
 			const CellCoord ac = a.pos.ToCell();
 			const uint8_t fog = map.Fog(ac);
-			if (a.playerId != 0 && fog != 2) continue; // 敌方在迷雾中隐藏
+			if (a.playerId != 0 && fog != 2 && !ignoreFog) continue; // 敌方在迷雾中隐藏
 			const ScreenPos p = ProjectCell(ac, 0);
 			RenderSprite s;
 			// GL 模式：白色 tint（保留 C&C 原色）；软件模式按 player 着色
@@ -93,6 +97,8 @@ struct RenderSnapshot {
 			s.worldX = static_cast<float>(p.x) - s.w * 0.5f;
 			s.worldY = static_cast<float>(p.y) - s.h * 0.5f;
 			s.cncSprite = static_cast<int>(cid);
+			// 朝向：单位取 Movable.facing，建筑固定 0
+			s.facing = a.Has(kCompBuilding) ? 0 : a.movable.facing;
 			snap.sprites.push_back(s);
 		}
 		return snap;

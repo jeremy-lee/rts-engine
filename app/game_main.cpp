@@ -173,7 +173,8 @@ int main() {
 	std::vector<EntityId> selection;
 
 	// M14：渲染后端切换（F1 = GL / 软件渲染）
-	bool softwareMode = true; // 默认软件渲染（M14）
+	bool softwareMode = false; // TEMP: GL 验证
+	bool revealAll = true;    // TEMP: 全揭示验证
 	uint32_t swTex = 0;
 	SoftwareRenderer swRenderer;
 	double swFrameMs = 0.0;
@@ -357,6 +358,14 @@ int main() {
 			prevRight = right;
 		}
 
+		// ---- 全揭示切换（F2）----
+		{
+			static bool prevF2 = false;
+			const bool f2 = window.IsKeyDown(VK_F2);
+			if (f2 && !prevF2) revealAll = !revealAll;
+			prevF2 = f2;
+		}
+
 		// ---- 后端切换（F1）----
 		{
 			static bool prevF1 = false;
@@ -421,7 +430,7 @@ int main() {
 		}
 
 		// ---- 渲染：世界 ----
-		const RenderSnapshot snapshot = RenderSnapshot::FromWorld(sim.GetWorld());
+		const RenderSnapshot snapshot = RenderSnapshot::FromWorld(sim.GetWorld(), revealAll);
 		// 地形批次（程序化图集 or 纯色）与单位批次（C&C 图集）
 		SpriteBatch terrainBatch, unitBatch;
 		terrainBatch.Begin();
@@ -430,7 +439,7 @@ int main() {
 			if (s.cncSprite >= 0 && cncOk) {
 				float u0 = 0.0f, v0 = 0.0f, u1 = 1.0f, v1 = 1.0f;
 				const int team = (s.player == 1) ? 1 : 0;
-				CncAtlas::GetUV(static_cast<CncSpriteId>(s.cncSprite), team, u0, v0, u1, v1);
+				CncAtlas::GetUV(static_cast<CncSpriteId>(s.cncSprite), team, s.facing, u0, v0, u1, v1);
 				uint32_t tint = s.color;
 				if (softwareMode && s.player != 255) {
 					tint = (s.player == 0) ? 0xFF00C8FF : 0xFFFF4040;
@@ -523,9 +532,12 @@ int main() {
 			renderer.DrawScreenTextured(worldQuad, swTex);
 		} else {
 			renderer.BeginFrame(W, H);
-			renderer.DrawTexturedBatch(terrainBatch.Vertices(), camera, atlasTex);
 			if (cncOk) {
+				// 地形与单位都来自 C&C 图集
+				renderer.DrawTexturedBatch(terrainBatch.Vertices(), camera, cncTex);
 				renderer.DrawTexturedBatch(unitBatch.Vertices(), camera, cncTex);
+			} else {
+				renderer.DrawTexturedBatch(terrainBatch.Vertices(), camera, atlasTex);
 			}
 		}
 		renderer.DrawScreenBatch(uiVerts);

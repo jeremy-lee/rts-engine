@@ -5,6 +5,25 @@
 namespace rts {
 namespace activity {
 
+namespace {
+// 由位移增量计算 8 方向朝向（整数运算，确定性）
+// 0=北, 1=东北, 2=东, 3=东南, 4=南, 5=西南, 6=西, 7=西北（顺时针）
+int FacingFromDelta(int32_t dx, int32_t dy) {
+	if (dx == 0 && dy == 0) return -1;
+	const int32_t adx = (dx < 0) ? -dx : dx;
+	const int32_t ady = (dy < 0) ? -dy : dy;
+	if (dy < 0 && adx * 2 <= ady) return 0;   // 北
+	if (dx > 0 && dy < 0) return 1;           // 东北
+	if (dx > 0 && ady * 2 <= adx) return 2;   // 东
+	if (dx > 0 && dy > 0) return 3;           // 东南
+	if (dy > 0 && adx * 2 <= ady) return 4;   // 南
+	if (dx < 0 && dy > 0) return 5;           // 西南
+	if (dx < 0 && ady * 2 <= adx) return 6;   // 西
+	if (dx < 0 && dy < 0) return 7;           // 西北
+	return -1;
+}
+} // namespace
+
 void SetMoveTo(Actor& a, SubCoord target, Tick now) {
 	a.activity.type = ActivityType::MoveTo;
 	a.activity.started = now;
@@ -59,6 +78,9 @@ bool MoveTowards(World& world, Actor& actor, SubCoord target) {
 	const CellCoord nc = next.ToCell();
 	if (world.GetMap().InBounds(nc) && world.GetMap().Walkable(nc) &&
 		!world.GetMap().Occupied(nc)) {
+		// 更新朝向（移动方向）
+		const int f = FacingFromDelta(next.x - actor.pos.x, next.y - actor.pos.y);
+		if (f >= 0) actor.movable.facing = static_cast<uint8_t>(f);
 		actor.pos = next;
 		return false;
 	}

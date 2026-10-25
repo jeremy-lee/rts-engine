@@ -44,6 +44,7 @@ struct Movable {
 	SubCoord target;
 	int32_t speed = 32;   // 子格/tick
 	bool moving = false;
+	uint8_t facing = 0;   // 朝向 0-7（0=北，顺时针）
 };
 
 struct Health {
