@@ -14,6 +14,11 @@ World::World(Map map, uint64_t seed)
 	m_pathfinder.Resize(m_map.Width(), m_map.Height());
 }
 
+World::World(Map map, uint64_t seed, Rules rules)
+	: m_map(std::move(map)), m_rules(std::move(rules)), m_rng(seed) {
+	m_pathfinder.Resize(m_map.Width(), m_map.Height());
+}
+
 bool World::ComputePath(EntityId id, CellCoord target) {
 	const Actor* a = m_entities.Get(id);
 	if (a == nullptr) return false;
@@ -42,6 +47,19 @@ void World::ClearPath(EntityId id) {
 	m_paths.erase(id);
 }
 
+bool World::SpendCredits(int player, int32_t amount) {
+	if (player < 0 || player >= 2) return false;
+	if (amount < 0) return false;
+	if (m_credits[player] < amount) return false;
+	m_credits[player] -= amount;
+	return true;
+}
+
+void World::AddCredits(int player, int32_t amount) {
+	if (player < 0 || player >= 2) return;
+	m_credits[player] += amount;
+}
+
 void World::ApplyCommand(const Command& cmd) {
 	switch (cmd.type) {
 		case CommandType::Spawn: {
@@ -52,7 +70,28 @@ void World::ApplyCommand(const Command& cmd) {
 			const SubCoord spawnPos(
 				spawnCell.x * kSubPerCell + kSubPerCell / 2,
 				spawnCell.y * kSubPerCell + kSubPerCell / 2);
-			m_entities.Create(cmd.playerId, spawnPos, components);
+			const EntityId id = m_entities.Create(cmd.playerId, spawnPos, components);
+			// M5：应用数据定义（targetId 存 unit numericId）
+			if (const UnitDef* def = m_rules.FindUnitByNumeric(static_cast<int32_t>(cmd.targetId))) {
+				Actor* a = m_entities.Get(id);
+				if (a != nullptr) {
+					a->health.hp = def->hp;
+					a->health.maxHp = def->hp;
+					a->movable.speed = def->speed;
+					a->armament.damage = def->weapon.damage;
+					a->armament.range = def->weapon.range;
+					a->armament.cooldown = def->weapon.cooldown;
+					if (def->isHarvester) {
+						a->components |= kCompHarvester;
+						a->harvester.basePos = spawnPos;
+						a->harvester.mine = spawnCell;
+						a->harvester.cargo = 0;
+						a->harvester.capacity = 100;
+						a->harvester.perTick = 10;
+						a->harvester.phase = HarvestPhase::ToMine;
+					}
+				}
+			}
 			break;
 		}
 		case CommandType::Move: {
@@ -88,8 +127,125 @@ void World::ApplyCommand(const Command& cmd) {
 			}
 			break;
 		}
+		case CommandType::Harvest: {
+			Actor* a = m_entities.Get(cmd.entityId);
+			if (a == nullptr || !a->Has(kCompHarvester)) break;
+			a->harvester.mine = SubCoord(cmd.x, cmd.y).ToCell();
+			a->harvester.phase = HarvestPhase::ToMine;
+			m_paths.erase(cmd.entityId);
+			activity::SetMoveTo(*a, SubCoord::FromCell(a->harvester.mine) + SubCoord(kSubPerCell / 2, kSubPerCell / 2), m_tick);
+			a->activity.type = ActivityType::Harvest;
+			break;
+		}
+		case CommandType::Build: {
+			const BuildingDef* def = m_rules.FindBuilding("barracks");
+			// targetId 为 building numericId
+			if (cmd.targetId < m_rules.buildingIds.size()) {
+				def = m_rules.FindBuilding(m_rules.buildingIds[cmd.targetId]);
+			}
+			if (def == nullptr) break;
+			if (!SpendCredits(cmd.playerId, def->cost)) break;
+			const CellCoord cell = Map::FindNearestWalkable(m_map, SubCoord(cmd.x, cmd.y).ToCell());
+			const SubCoord pos(cell.x * kSubPerCell + kSubPerCell / 2, cell.y * kSubPerCell + kSubPerCell / 2);
+			const EntityId id = m_entities.Create(cmd.playerId, pos, kCompHealth | kCompBuilding);
+			if (Actor* a = m_entities.Get(id)) {
+				a->health.hp = def->hp;
+				a->health.maxHp = def->hp;
+			}
+			break;
+		}
+		case CommandType::Produce: {
+			Actor* a = m_entities.Get(cmd.entityId);
+			if (a == nullptr || !a->Has(kCompBuilding)) break;
+			const UnitDef* def = m_rules.FindUnitByNumeric(static_cast<int32_t>(cmd.targetId));
+			if (def == nullptr) break;
+			if (!SpendCredits(a->playerId, def->cost)) break;
+			a->producer.unitNumericId = static_cast<int32_t>(cmd.targetId);
+			a->producer.total = def->buildTime;
+			a->producer.remaining = def->buildTime;
+			a->producer.queued = 1;
+			break;
+		}
 		default:
 			break;
+	}
+}
+
+void World::TickEconomy() {
+	std::vector<EntityId> pendingSpawns;
+
+	for (auto& a : m_entities.All()) {
+		if (!a.alive) continue;
+
+		// ---- 采矿者 ----
+		if (a.Has(kCompHarvester)) {
+			switch (a.harvester.phase) {
+				case HarvestPhase::ToMine:
+					if (a.pos.ToCell() == a.harvester.mine) {
+						a.harvester.phase = HarvestPhase::Mining;
+					}
+					break;
+				case HarvestPhase::Mining: {
+					const int32_t taken = m_map.TakeResource(a.harvester.mine, a.harvester.perTick);
+					if (taken > 0) a.harvester.cargo += taken;
+					if (a.harvester.cargo >= a.harvester.capacity || taken == 0) {
+						a.harvester.phase = HarvestPhase::ToBase;
+						activity::SetMoveTo(a, a.harvester.basePos, m_tick);
+						a.activity.type = ActivityType::Harvest;
+					}
+					break;
+				}
+				case HarvestPhase::ToBase:
+					if (a.pos.ToCell() == a.harvester.basePos.ToCell()) {
+						AddCredits(a.playerId, a.harvester.cargo);
+						a.harvester.cargo = 0;
+						a.harvester.phase = HarvestPhase::ToMine;
+						activity::SetMoveTo(a, SubCoord::FromCell(a.harvester.mine) + SubCoord(kSubPerCell / 2, kSubPerCell / 2), m_tick);
+						a.activity.type = ActivityType::Harvest;
+					}
+					break;
+			}
+		}
+
+		// ---- 建筑生产 ----
+		if (a.Has(kCompBuilding) && a.producer.queued > 0) {
+			if (a.producer.remaining > 0) --a.producer.remaining;
+			if (a.producer.remaining <= 0) {
+				pendingSpawns.push_back(a.id);
+			}
+		}
+	}
+
+	// 循环外生成单位（避免 vector 扩容使指针失效：先取数据，Create 后重新 Get）
+	for (EntityId buildingId : pendingSpawns) {
+		Actor* b = m_entities.Get(buildingId);
+		if (b == nullptr) continue;
+		const int32_t unitNumericId = b->producer.unitNumericId;
+		const uint8_t playerId = b->playerId;
+		const CellCoord base = b->pos.ToCell();
+
+		const UnitDef* def = m_rules.FindUnitByNumeric(unitNumericId);
+		if (def != nullptr) {
+			const CellCoord spawnCell = Map::FindNearestWalkable(m_map, CellCoord(base.x + 1, base.y));
+			const SubCoord pos(spawnCell.x * kSubPerCell + kSubPerCell / 2,
+				spawnCell.y * kSubPerCell + kSubPerCell / 2);
+			const EntityId id = m_entities.Create(playerId, pos,
+				kCompMovable | kCompHealth | kCompArmament);
+			if (Actor* u = m_entities.Get(id)) {
+				u->health.hp = def->hp;
+				u->health.maxHp = def->hp;
+				u->movable.speed = def->speed;
+				u->armament.damage = def->weapon.damage;
+				u->armament.range = def->weapon.range;
+				u->armament.cooldown = def->weapon.cooldown;
+			}
+		}
+		// 重新获取（Create 可能使旧指针失效）
+		if (Actor* b2 = m_entities.Get(buildingId)) {
+			b2->producer.queued = 0;
+			b2->producer.remaining = 0;
+			b2->producer.unitNumericId = -1;
+		}
 	}
 }
 
@@ -149,6 +305,7 @@ void World::Advance(CommandQueue& queue) {
 		ApplyCommand(c);
 	}
 	TickActors();
+	TickEconomy();
 	ApplySeparation();
 	++m_tick;
 }
@@ -159,6 +316,8 @@ uint64_t World::StateHash() const {
 	h = HashMix(h, m_map.Hash());
 	h = HashMix(h, m_entities.Hash());
 	h = HashMix(h, m_rng.StateHash());
+	h = HashMix(h, static_cast<uint64_t>(static_cast<uint32_t>(m_credits[0])));
+	h = HashMix(h, static_cast<uint64_t>(static_cast<uint32_t>(m_credits[1])));
 	// 路径数据也纳入哈希（顺序由 std::map 保证）
 	for (const auto& kv : m_paths) {
 		h = HashMix(h, static_cast<uint64_t>(kv.first));

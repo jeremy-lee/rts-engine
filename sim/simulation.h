@@ -14,6 +14,9 @@ public:
 	Simulation(Map map, uint64_t seed)
 		: m_world(std::move(map), seed) {}
 
+	Simulation(Map map, uint64_t seed, Rules rules)
+		: m_world(std::move(map), seed, std::move(rules)) {}
+
 	World& GetWorld() { return m_world; }
 	CommandQueue& Commands() { return m_commands; }
 

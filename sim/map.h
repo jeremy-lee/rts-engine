@@ -49,6 +49,17 @@ public:
 		SetFlags(c, f);
 	}
 
+	// ---- 资源（矿点数量，0 = 无）----
+	int32_t ResourceAmount(CellCoord c) const { return m_resources.Get(c, 0); }
+	void SetResourceAmount(CellCoord c, int32_t v) { m_resources.Set(c, v); }
+	int32_t TakeResource(CellCoord c, int32_t want) {
+		int32_t have = m_resources.Get(c, 0);
+		if (have <= 0) return 0;
+		const int32_t taken = (want < have) ? want : have;
+		m_resources.Set(c, have - taken);
+		return taken;
+	}
+
 	// ---- 迷雾（0=可见, 255=未探索）----
 	uint8_t Fog(CellCoord c) const { return m_fog.Get(c, 255); }
 	void SetFog(CellCoord c, uint8_t v) { m_fog.Set(c, v); }
@@ -88,6 +99,7 @@ private:
 	CellLayer<uint8_t> m_heightLayer; // 地形高度 0..255
 	CellLayer<uint8_t> m_flags;       // TerrainFlags 位集
 	CellLayer<uint8_t> m_fog;         // 迷雾 0..255
+	CellLayer<int32_t> m_resources;   // 矿点剩余量
 };
 
 } // namespace rts

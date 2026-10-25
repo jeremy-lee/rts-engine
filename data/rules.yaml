@@ -1,0 +1,71 @@
+# RTS Engine — 游戏规则数据（M5）
+# 单位与建筑定义。修改此文件即可调整玩法，无需改代码。
+
+units:
+  harvester:
+    name: "采矿车"
+    cost: 100
+    buildTime: 30
+    hp: 150
+    speed: 28
+    harvester: true
+    weapon:
+      damage: 0
+      range: 0
+      cooldown: 60
+
+  infantry:
+    name: "步兵"
+    cost: 50
+    buildTime: 30
+    hp: 100
+    speed: 32
+    weapon:
+      damage: 10
+      range: 8192
+      cooldown: 15
+
+  tank:
+    name: "坦克"
+    cost: 150
+    buildTime: 60
+    hp: 300
+    speed: 20
+    weapon:
+      damage: 25
+      range: 10240
+      cooldown: 30
+
+  rocket:
+    name: "火箭兵"
+    cost: 100
+    buildTime: 45
+    hp: 80
+    speed: 28
+    weapon:
+      damage: 40
+      range: 12288
+      cooldown: 45
+
+buildings:
+  barracks:
+    name: "兵营"
+    cost: 300
+    buildTime: 120
+    hp: 500
+    width: 4
+    height: 4
+    produces:
+      - infantry
+      - tank
+      - rocket
+
+  factory:
+    name: "重工厂"
+    cost: 600
+    buildTime: 180
+    hp: 800
+    width: 6
+    height: 6
+    produces:
+      - tank

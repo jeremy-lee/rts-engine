@@ -20,6 +20,8 @@ enum ComponentFlags : uint8_t {
 	kCompHealth = 1 << 1,
 	kCompArmament = 1 << 2,
 	kCompVision = 1 << 3,
+	kCompHarvester = 1 << 4,   // 采矿单位
+	kCompBuilding = 1 << 5,    // 建筑（可生产）
 };
 
 // 活动类型（行为状态机）
@@ -28,6 +30,7 @@ enum class ActivityType : uint8_t {
 	MoveTo = 1,
 	Attack = 2,
 	Guard = 3,
+	Harvest = 4,
 };
 
 struct ActivityState {
@@ -59,6 +62,26 @@ struct Vision {
 	int32_t range = 10 * kSubPerCell; // 子格
 };
 
+// 采矿者（M5）
+enum class HarvestPhase : uint8_t { ToMine = 0, Mining = 1, ToBase = 2 };
+
+struct Harvester {
+	SubCoord basePos;      // 卸货点
+	CellCoord mine;        // 采矿区
+	int32_t cargo = 0;     // 当前载货
+	int32_t capacity = 100;
+	int32_t perTick = 10;  // 每 tick 采集量
+	HarvestPhase phase = HarvestPhase::ToMine;
+};
+
+// 生产（建筑，M5）
+struct Producer {
+	int32_t unitNumericId = -1; // 生产中的单位
+	Tick remaining = 0;
+	Tick total = 0;
+	int32_t queued = 0;         // 排队数量
+};
+
 struct Actor {
 	EntityId id = kInvalidEntity;
 	uint8_t playerId = 0;
@@ -71,6 +94,8 @@ struct Actor {
 	Health health;
 	Armament armament;
 	Vision vision;
+	Harvester harvester;
+	Producer producer;
 
 	bool Has(uint8_t comp) const { return (components & comp) != 0; }
 };
@@ -105,6 +130,18 @@ inline uint64_t HashActor(const Actor& a) {
 	h = HashMix(h, static_cast<uint64_t>(static_cast<uint32_t>(a.armament.damage)));
 	h = HashMix(h, static_cast<uint64_t>(a.armament.cooldown));
 	h = HashMix(h, static_cast<uint64_t>(a.armament.lastFire));
+	h = HashMix(h, static_cast<uint64_t>(static_cast<uint32_t>(a.harvester.basePos.x)));
+	h = HashMix(h, static_cast<uint64_t>(static_cast<uint32_t>(a.harvester.basePos.y)));
+	h = HashMix(h, static_cast<uint64_t>(static_cast<uint32_t>(a.harvester.mine.x)));
+	h = HashMix(h, static_cast<uint64_t>(static_cast<uint32_t>(a.harvester.mine.y)));
+	h = HashMix(h, static_cast<uint64_t>(static_cast<uint32_t>(a.harvester.cargo)));
+	h = HashMix(h, static_cast<uint64_t>(static_cast<uint32_t>(a.harvester.capacity)));
+	h = HashMix(h, static_cast<uint64_t>(static_cast<uint32_t>(a.harvester.perTick)));
+	h = HashMix(h, static_cast<uint64_t>(a.harvester.phase));
+	h = HashMix(h, static_cast<uint64_t>(static_cast<uint32_t>(a.producer.unitNumericId)));
+	h = HashMix(h, static_cast<uint64_t>(a.producer.remaining));
+	h = HashMix(h, static_cast<uint64_t>(a.producer.total));
+	h = HashMix(h, static_cast<uint64_t>(static_cast<uint32_t>(a.producer.queued)));
 	return h;
 }
 

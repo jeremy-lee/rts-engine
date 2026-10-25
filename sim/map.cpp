@@ -11,7 +11,8 @@ Map::Map(int32_t width, int32_t height, uint8_t fillHeight, uint8_t fillFlags)
 	, m_height(height)
 	, m_heightLayer(width, height, fillHeight)
 	, m_flags(width, height, fillFlags)
-	, m_fog(width, height, 255) {}
+	, m_fog(width, height, 255)
+	, m_resources(width, height, 0) {}
 
 bool Map::LoadFromText(const std::string& path) {
 	std::ifstream in(path);
@@ -75,6 +76,9 @@ Map Map::GenerateTestMap(int32_t width, int32_t height, uint64_t seed) {
 			} else if (r < 15) {
 				// 岩石障碍（不可通行但可建造）
 				map.SetFlags(c, kBuildable);
+			} else if (r < 18) {
+				// 矿点
+				map.SetResourceAmount(c, 500 + static_cast<int32_t>(rng.Range(500)));
 			}
 		}
 	}

@@ -137,6 +137,18 @@ void Update(World& world, Actor& actor) {
 			break;
 		}
 
+		case ActivityType::Harvest: {
+			// 阶段驱动由 TickEconomy 负责；这里处理移动
+			if (actor.harvester.phase == HarvestPhase::ToMine) {
+				const SubCoord target = SubCoord::FromCell(actor.harvester.mine) +
+					SubCoord(kSubPerCell / 2, kSubPerCell / 2);
+				MoveTowards(world, actor, target);
+			} else if (actor.harvester.phase == HarvestPhase::ToBase) {
+				MoveTowards(world, actor, actor.harvester.basePos);
+			}
+			break;
+		}
+
 		case ActivityType::Guard:
 			// M2 占位：与 Idle 相同
 			break;

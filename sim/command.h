@@ -14,6 +14,9 @@ enum class CommandType : uint8_t {
 	Move = 2,    // 移动到目标子格坐标
 	Stop = 3,    // 停止当前活动
 	Attack = 4,  // 攻击目标实体
+	Harvest = 5, // 采集：entityId=采矿单位, x/y=矿点
+	Build = 6,   // 建造：x/y=位置, targetId=建筑 numericId
+	Produce = 7, // 生产：entityId=建筑, targetId=单位 numericId
 };
 
 #pragma pack(push, 1)

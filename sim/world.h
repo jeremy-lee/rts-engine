@@ -13,6 +13,7 @@
 #include "entity.h"
 #include "entity_store.h"
 #include "pathfinder.h"
+#include "gamedefs.h"
 
 namespace rts {
 
@@ -26,6 +27,7 @@ class World {
 public:
 	World(int32_t width, int32_t height, uint64_t seed);
 	World(Map map, uint64_t seed);
+	World(Map map, uint64_t seed, Rules rules);
 
 	// ---- 查询 ----
 	int32_t Width() const { return m_map.Width(); }
@@ -36,6 +38,12 @@ public:
 	EntityStore& Entities() { return m_entities; }
 	const EntityStore& Entities() const { return m_entities; }
 	Rng& Random() { return m_rng; }
+	const Rules& GetRules() const { return m_rules; }
+
+	// ---- 经济（M5）----
+	int32_t Credits(int player) const { return (player < 2) ? m_credits[player] : 0; }
+	bool SpendCredits(int player, int32_t amount);
+	void AddCredits(int player, int32_t amount);
 
 	// ---- 路径管理 ----
 	bool ComputePath(EntityId id, CellCoord target);
@@ -54,14 +62,17 @@ public:
 
 private:
 	void TickActors();
+	void TickEconomy();
 	void ApplySeparation();
 
 	Map m_map;
 	EntityStore m_entities;
+	Rules m_rules;
 	std::map<EntityId, UnitPath> m_paths;
 	Pathfinder m_pathfinder;
 	Tick m_tick = 0;
 	Rng m_rng;
+	int32_t m_credits[2] = {1000, 1000};
 };
 
 } // namespace rts
