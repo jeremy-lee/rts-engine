@@ -23,6 +23,7 @@ add_library(rts_sim STATIC
     sim/gamedefs.cpp
     sim/ai.cpp
     sim/fog.cpp
+    sim/campaign.cpp
 )
 target_include_directories(rts_sim PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
@@ -60,6 +61,7 @@ set(RTS_TEST_SOURCES
     tests/test_building.cpp
     tests/test_fog.cpp
     tests/test_audio.cpp
+    tests/test_campaign.cpp
 )
 if(WIN32)
     list(APPEND RTS_TEST_SOURCES tests/test_net.cpp)

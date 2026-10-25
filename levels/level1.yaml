@@ -1,0 +1,18 @@
+# 关卡 1：第一步
+# 目标：消灭所有敌军
+name: "第一步：侦察"
+description: "消灭所有敌军，建立你的基地"
+goal: destroy_all
+playerStart: [40, 40]
+
+waves:
+  - tick: 0
+    units:
+      - type: infantry
+        count: 3
+        pos: [100, 100]
+  - tick: 600
+    units:
+      - type: infantry
+        count: 2
+        pos: [110, 90]

@@ -119,10 +119,32 @@ bool IsListLine(const std::string& t) {
 
 DataNode ParseBlock(const std::vector<Line>& lines, size_t& idx, int indent);
 
+// 解析 flow 列表 `[a, b, c]`
+bool TryParseFlowList(const std::string& value, DataNode& out) {
+	if (value.size() < 2 || value.front() != '[' || value.back() != ']') return false;
+	out.type = DataNode::Type::List;
+	const std::string inner = value.substr(1, value.size() - 2);
+	size_t start = 0;
+	for (;;) {
+		const size_t comma = inner.find(',', start);
+		const std::string item = Trim(inner.substr(start, (comma == std::string::npos) ? std::string::npos : comma - start));
+		if (!item.empty()) {
+			DataNode n;
+			n.type = DataNode::Type::Scalar;
+			n.scalar = Unquote(item);
+			out.list.push_back(std::move(n));
+		}
+		if (comma == std::string::npos) break;
+		start = comma + 1;
+	}
+	return true;
+}
+
 // 解析一个 map 值（key: value | key: 嵌套）
 DataNode ParseMapValue(const std::vector<Line>& lines, size_t& idx, int indent, const std::string& value) {
 	DataNode node;
 	if (!value.empty()) {
+		if (TryParseFlowList(value, node)) return node;
 		node.type = DataNode::Type::Scalar;
 		node.scalar = Unquote(value);
 		return node;

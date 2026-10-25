@@ -1,0 +1,14 @@
+# 关卡 3：经济胜利
+# 目标：资源达到 2000
+name: "繁荣经济"
+description: "采集资源达到 2000，同时抵御骚扰"
+goal: collect
+collectTarget: 2000
+playerStart: [40, 40]
+
+waves:
+  - tick: 1200
+    units:
+      - type: infantry
+        count: 2
+        pos: [110, 110]

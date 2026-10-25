@@ -1,0 +1,27 @@
+# 关卡 2：坚守
+# 目标：存活 60 秒（1800 tick）
+name: "坚守阵地"
+description: "在敌军波次中存活 60 秒"
+goal: survive
+surviveTicks: 1800
+playerStart: [64, 64]
+
+waves:
+  - tick: 0
+    units:
+      - type: infantry
+        count: 2
+        pos: [120, 120]
+  - tick: 900
+    units:
+      - type: infantry
+        count: 3
+        pos: [120, 120]
+      - type: tank
+        count: 1
+        pos: [115, 115]
+  - tick: 1500
+    units:
+      - type: tank
+        count: 2
+        pos: [120, 120]

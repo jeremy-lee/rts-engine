@@ -23,6 +23,7 @@
 #include "render/ui.h"
 #include "platform/win32_window.h"
 #include "audio/audio.h"
+#include "sim/campaign.h"
 
 using namespace rts;
 
@@ -108,6 +109,11 @@ int main() {
 	sim.AddAI(1, 99);
 	sim.GetWorld().AddCredits(0, 2000);
 	sim.GetWorld().AddCredits(1, 1500);
+
+	// M15：加载关卡
+	LevelDef levelDef;
+	LoadLevel("levels/level1.yaml", levelDef);
+	Campaign campaign(levelDef, 0, 1);
 
 	// 玩家初始单位
 	{
@@ -350,6 +356,25 @@ int main() {
 		// ---- 逻辑 tick ----
 		accumulator += dt;
 		while (accumulator >= tickDt) {
+			// 关卡：生成波次 + 判定胜负
+			if (!campaign.Finished()) {
+				campaign.Update(sim.GetWorld(), sim.Commands(), sim.GetWorld().CurrentTick());
+			}
+			// 重新开始（R 键）
+			{
+				static bool prevR = false;
+				const bool rDown = window.IsKeyDown('R');
+				if (rDown && !prevR && campaign.Finished()) {
+					// 重建世界与关卡
+					sim = Simulation(MakeMap(), 0x2024, kRules);
+					sim.AddAI(1, 99);
+					sim.GetWorld().AddCredits(0, 2000);
+					sim.GetWorld().AddCredits(1, 1500);
+					campaign = Campaign(levelDef, 0, 1);
+					selection.clear();
+				}
+				prevR = rDown;
+			}
 			sim.Step();
 			accumulator -= tickDt;
 		}
