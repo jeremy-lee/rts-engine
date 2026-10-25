@@ -45,6 +45,7 @@ struct Movable {
 	int32_t speed = 32;   // 子格/tick
 	bool moving = false;
 	uint8_t facing = 0;   // 朝向 0-7（0=北，顺时针）
+	SubCoord prevPos;     // 上一 tick 起始位置（渲染插值用，不参与哈希）
 };
 
 struct Health {

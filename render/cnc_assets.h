@@ -94,7 +94,7 @@ public:
 	static void GetSize(CncSpriteId id, int& w, int& h) {
 		int cw = 16, ch = 16;
 		GetContentSize(id, cw, ch);
-		const int scale = (cw >= 40) ? 2 : 4; // 建筑 2x，单位 4x
+		const int scale = (cw >= 40) ? 2 : 5; // 建筑 2x，单位 5x
 		w = cw * scale;
 		h = ch * scale;
 	}

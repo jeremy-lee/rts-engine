@@ -636,11 +636,15 @@ int main(int argc, char** argv) {
 
 		// ---- 渲染：世界 ----
 		const RenderSnapshot snapshot = RenderSnapshot::FromWorld(sim.GetWorld(), revealAll);
+		// 渲染插值系数（tick 之间的进度 0-1）
+		const float interp = (tickDt > 0.0) ? static_cast<float>(accumulator / tickDt) : 1.0f;
 		// 地形批次（程序化图集 or 纯色）与单位批次（C&C 图集）
 		SpriteBatch terrainBatch, unitBatch;
 		terrainBatch.Begin();
 		unitBatch.Begin();
 		for (const auto& s : snapshot.sprites) {
+			const float ix = s.prevX + (s.worldX - s.prevX) * interp;
+			const float iy = s.prevY + (s.worldY - s.prevY) * interp;
 			if (s.cncSprite >= 0 && cncOk) {
 				float u0 = 0.0f, v0 = 0.0f, u1 = 1.0f, v1 = 1.0f;
 				const int team = (s.player == 1) ? 1 : 0;
@@ -714,8 +718,10 @@ int main(int argc, char** argv) {
 			swRenderer.Resize(W, H);
 			swRenderer.Clear(0xFF101018);
 			for (const auto& s : snapshot.sprites) {
+				const float ix = s.prevX + (s.worldX - s.prevX) * interp;
+				const float iy = s.prevY + (s.worldY - s.prevY) * interp;
 				float sx = 0.0f, sy = 0.0f;
-				camera.WorldToScreen(s.worldX + s.w * 0.5f, s.worldY + s.h * 0.5f, sx, sy);
+				camera.WorldToScreen(ix + s.w * 0.5f, iy + s.h * 0.5f, sx, sy);
 				uint32_t color = s.color;
 				if (s.spriteIndex >= 0 && s.color == 0xFFFFFFFF) color = spriteRepColor(s.spriteIndex);
 				swRenderer.FillRect(sx - s.w * 0.5f, sy - s.h * 0.5f, s.w, s.h, color);

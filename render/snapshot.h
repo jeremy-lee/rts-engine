@@ -16,6 +16,8 @@ namespace rts {
 struct RenderSprite {
 	float worldX = 0.0f; // 世界像素（等距投影后）
 	float worldY = 0.0f;
+	float prevX = 0.0f;  // 上一 tick 位置（渲染插值）
+	float prevY = 0.0f;
 	float w = 0.0f;
 	float h = 0.0f;
 	uint32_t color = 0xFFFFFFFF;
@@ -69,6 +71,8 @@ struct RenderSnapshot {
 				s.w = static_cast<float>(TerrainGfx::kTileW);
 				s.h = static_cast<float>(TerrainGfx::kTileH);
 				s.color = 0xFFFFFFFF;
+				s.prevX = s.worldX; // 地形不插值
+				s.prevY = s.worldY;
 				// 已探索但不可见：变暗
 				if (fog == 1 && !ignoreFog) {
 					const uint32_t a = s.color & 0xFF000000u;
@@ -116,6 +120,12 @@ struct RenderSnapshot {
 			s.h = static_cast<float>(sh);
 			s.worldX = static_cast<float>(p.x) - s.w * 0.5f;
 			s.worldY = static_cast<float>(p.y) - s.h * 0.5f;
+			// 插值起点（上一 tick 位置；未初始化时用当前）
+			const SubCoord prev = (a.movable.prevPos.x == 0 && a.movable.prevPos.y == 0 &&
+				(a.pos.x != 0 || a.pos.y != 0)) ? a.pos : a.movable.prevPos;
+			const ScreenPos pp = ProjectCell(prev.ToCell(), 0);
+			s.prevX = static_cast<float>(pp.x) - s.w * 0.5f;
+			s.prevY = static_cast<float>(pp.y) - s.h * 0.5f;
 			s.cncSprite = static_cast<int>(cid);
 			// 朝向：单位取 Movable.facing，建筑固定 0
 			s.facing = a.Has(kCompBuilding) ? 0 : a.movable.facing;

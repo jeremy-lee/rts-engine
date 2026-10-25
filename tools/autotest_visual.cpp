@@ -296,6 +296,7 @@ int main(int argc, char** argv) {
 
 		// 渲染
 		const RenderSnapshot snapshot = RenderSnapshot::FromWorld(vs.sim.GetWorld(), true);
+		const float interp = (accumulator > 0.0) ? static_cast<float>(accumulator / tickDt) : 1.0f;
 		SpriteBatch terrainBatch, unitBatch;
 		terrainBatch.Begin();
 		unitBatch.Begin();
@@ -313,12 +314,14 @@ int main(int argc, char** argv) {
 			}
 		}
 		for (const auto& s : snapshot.sprites) {
+			const float ix = s.prevX + (s.worldX - s.prevX) * interp;
+			const float iy = s.prevY + (s.worldY - s.prevY) * interp;
 			if (s.cncSprite >= 0 && cncOk) {
 				// 单位：RA 图集
 				float u0 = 0, v0 = 0, u1 = 1, v1 = 1;
 				CncAtlas::GetUV(static_cast<CncSpriteId>(s.cncSprite), (s.player == 1) ? 1 : 0,
 					s.facing, u0, v0, u1, v1);
-				unitBatch.AddSprite(s.worldX, s.worldY, s.w, s.h, u0, v0, u1, v1, s.color);
+				unitBatch.AddSprite(ix, iy, s.w, s.h, u0, v0, u1, v1, s.color);
 			} else if (s.spriteIndex >= 0) {
 				// 地形：程序化 64×32 纹理（1:1）
 				float u0 = 0, v0 = 0, u1 = 1, v1 = 1;
