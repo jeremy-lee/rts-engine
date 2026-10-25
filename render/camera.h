@@ -45,12 +45,16 @@ struct Camera {
 		centerY += (sy2 - ay) / zoom;
 	}
 
-	// 限制相机中心在世界范围内（可选）
-	void ClampToWorld(float worldW, float worldH) {
-		const float halfW = viewW * 0.5f / zoom;
-		const float halfH = viewH * 0.5f / zoom;
-		centerX = std::clamp(centerX, halfW, std::max(halfW, worldW - halfW));
-		centerY = std::clamp(centerY, halfH, std::max(halfH, worldH - halfH));
+	// OpenRA Viewport.ClampToBounds：把相机中心限制在世界矩形 [min,max] 内
+	void ClampToBounds(float mapMinX, float mapMinY, float mapMaxX, float mapMaxY) {
+		const float halfW = viewW * 0.5f / ((zoom > 0.001f) ? zoom : 0.001f);
+		const float halfH = viewH * 0.5f / ((zoom > 0.001f) ? zoom : 0.001f);
+		const float loX = mapMinX + halfW;
+		const float hiX = mapMaxX - halfW;
+		const float loY = mapMinY + halfH;
+		const float hiY = mapMaxY - halfH;
+		centerX = (loX < hiX) ? std::clamp(centerX, loX, hiX) : (loX + hiX) * 0.5f;
+		centerY = (loY < hiY) ? std::clamp(centerY, loY, hiY) : (loY + hiY) * 0.5f;
 	}
 };
 

@@ -69,7 +69,7 @@ TEST(camera_clamp) {
 	cam.zoom = 1.0f;
 	cam.centerX = -5000.0f;
 	cam.centerY = 99999.0f;
-	cam.ClampToWorld(2000.0f, 1000.0f);
+	cam.ClampToBounds(0.0f, 0.0f, 2000.0f, 1000.0f);
 	CHECK(cam.centerX >= 0.0f);
 	CHECK(cam.centerY <= 1000.0f);
 }

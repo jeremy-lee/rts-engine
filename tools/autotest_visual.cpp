@@ -263,6 +263,13 @@ int main(int argc, char** argv) {
 			if (wheel != 0) camera.ZoomAt((wheel > 0) ? 1.1f : 1.0f / 1.1f, mx, my);
 			camera.viewW = W;
 			camera.viewH = H;
+			// OpenRA 风格：相机限制在地图世界矩形内
+			{
+				const int32_t mw = vs.sim.GetWorld().Width();
+				const int32_t mh = vs.sim.GetWorld().Height();
+				camera.ClampToBounds(static_cast<float>(mw) * -16.0f, 0.0f,
+					static_cast<float>(mw) * 16.0f, static_cast<float>(mw + mh) * 16.0f);
+			}
 		}
 
 		// 重开
