@@ -112,6 +112,24 @@ void TryFire(World& world, Actor& a, Actor& target) {
 
 void Update(World& world, Actor& actor) {
 	if (!actor.alive) return;
+
+	// M19：防御塔自动攻击（建筑 + 武器；TryFire 内部处理冷却）
+	if (actor.Has(kCompBuilding) && actor.armament.damage > 0) {
+		Actor* best = nullptr;
+		int64_t bestD2 = INT64_MAX;
+		const int64_t rangeSq = static_cast<int64_t>(actor.armament.range) * actor.armament.range;
+		for (auto& e : world.Entities().All()) {
+			if (!e.alive || e.playerId == actor.playerId) continue;
+			const int64_t d2 = DistanceSq(actor.pos, e.pos);
+			if (d2 <= rangeSq && d2 < bestD2) {
+				bestD2 = d2;
+				best = &e;
+			}
+		}
+		if (best != nullptr) TryFire(world, actor, *best);
+		return; // 建筑不执行其他活动
+	}
+
 	switch (actor.activity.type) {
 		case ActivityType::Idle:
 			break;

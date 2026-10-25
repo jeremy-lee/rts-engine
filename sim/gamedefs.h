@@ -40,6 +40,8 @@ struct BuildingDef {
 	int32_t width = 2;  // 占用格子
 	int32_t height = 2;
 	std::vector<std::string> produces;
+	bool turret = false;      // 防御塔：自动攻击范围内敌人
+	WeaponDef weapon;         // 武器（turret 用）
 	int32_t numericId = -1;
 };
 

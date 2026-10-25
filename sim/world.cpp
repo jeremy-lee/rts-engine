@@ -163,6 +163,15 @@ void World::ApplyCommand(const Command& cmd) {
 				a->health.maxHp = def->hp;
 				a->footprintW = static_cast<uint8_t>(fw);
 				a->footprintH = static_cast<uint8_t>(fh);
+				// M19：防御塔（建筑 + 武器 + 视野）
+				if (def->turret && def->weapon.damage > 0) {
+					a->components |= kCompArmament | kCompVision;
+					a->armament.range = def->weapon.range;
+					a->armament.damage = def->weapon.damage;
+					a->armament.cooldown = def->weapon.cooldown;
+					a->armament.lastFire = 0;
+					a->vision.range = def->weapon.range;
+				}
 			}
 			m_map.SetFootprint(origin, fw, fh, id);
 			break;

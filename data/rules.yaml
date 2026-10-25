@@ -48,6 +48,18 @@ units:
       cooldown: 45
 
 buildings:
+  turret:
+    name: "防御塔"
+    cost: 200
+    buildTime: 15
+    hp: 400
+    width: 2
+    height: 2
+    turret: true
+    weapon:
+      damage: 20
+      range: 6144
+      cooldown: 45
   barracks:
     name: "兵营"
     cost: 300

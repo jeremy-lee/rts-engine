@@ -60,6 +60,14 @@ Rules Rules::FromYAML(const std::string& text) {
 			b.hp = kv.second.GetInt("hp", 500);
 			b.width = kv.second.GetInt("width", 2);
 			b.height = kv.second.GetInt("height", 2);
+			// M19：防御塔
+			b.turret = kv.second.GetBool("turret", false);
+			if (const DataNode* bw = kv.second.GetNode("weapon"); bw && bw->IsMap()) {
+				b.weapon.id = b.id + "_weapon";
+				b.weapon.damage = bw->GetInt("damage", 10);
+				b.weapon.range = bw->GetInt("range", 8 * kSubPerCell);
+				b.weapon.cooldown = bw->GetInt("cooldown", 30);
+			}
 			if (const DataNode* produces = kv.second.GetNode("produces"); produces && produces->IsList()) {
 				for (const auto& item : produces->list) {
 					if (item.IsScalar()) b.produces.push_back(item.scalar);

@@ -64,6 +64,18 @@ units:
       range: 5120
       cooldown: 30
 buildings:
+  turret:
+    name: "防御塔"
+    cost: 200
+    buildTime: 15
+    hp: 400
+    width: 2
+    height: 2
+    turret: true
+    weapon:
+      damage: 20
+      range: 6144
+      cooldown: 45
   barracks:
     name: "兵营"
     cost: 300
@@ -185,6 +197,7 @@ int main() {
 	ui::Button btnBuild;
 	ui::Button btnInfantry;
 	ui::Button btnTank;
+	ui::Button btnTurret;
 
 	// 输入状态
 	bool prevLeft = false;
@@ -233,6 +246,8 @@ int main() {
 		btnInfantry.label = "INFANTRY (50)";
 		btnTank.rect = ui::Rect{374.0f, static_cast<float>(H) - bottomH + 14.0f, 170.0f, 62.0f};
 		btnTank.label = "TANK (150)";
+		btnTurret.rect = ui::Rect{556.0f, static_cast<float>(H) - bottomH + 14.0f, 170.0f, 62.0f};
+		btnTurret.label = "TURRET (200)";
 
 		// 小地图布局
 		const float mmSize = 150.0f;
@@ -254,6 +269,7 @@ int main() {
 		btnBuild.enabled = (credits >= 300);
 		btnInfantry.enabled = (idleBarracks != 0 && credits >= 50);
 		btnTank.enabled = (idleBarracks != 0 && credits >= 150);
+		btnTurret.enabled = (credits >= 200);
 
 		// ---- 左键 ----
 		const bool left = window.IsMouseDown(0);
@@ -329,6 +345,17 @@ int main() {
 					cmd.targetId = 1;
 					sim.Commands().Push(cmd);
 					audio.Play(Sfx::Produce);
+				} else if (btnTurret.Hit(mx, my)) {
+					const CellCoord center = ScreenToCell(ScreenPos{static_cast<int32_t>(camera.centerX),
+						static_cast<int32_t>(camera.centerY)});
+					Command cmd;
+					cmd.type = CommandType::Build;
+					cmd.playerId = 0;
+					cmd.x = center.x * kSubPerCell;
+					cmd.y = center.y * kSubPerCell;
+					cmd.targetId = 1; // turret
+					sim.Commands().Push(cmd);
+					audio.Play(Sfx::Build);
 				}
 			} else {
 				dragStartX = window.MouseX();
@@ -507,6 +534,7 @@ int main() {
 		ui::BuildButton(uiVerts, btnBuild, btnBuild.enabled ? btnFill : btnFillDisabled, btnBorder);
 		ui::BuildButton(uiVerts, btnInfantry, btnInfantry.enabled ? btnFill : btnFillDisabled, btnBorder);
 		ui::BuildButton(uiVerts, btnTank, btnTank.enabled ? btnFill : btnFillDisabled, btnBorder);
+		ui::BuildButton(uiVerts, btnTurret, btnTurret.enabled ? btnFill : btnFillDisabled, btnBorder);
 
 		// 小地图
 		{
