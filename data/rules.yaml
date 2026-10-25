@@ -7,7 +7,7 @@ units:
     cost: 100
     buildTime: 30
     hp: 150
-    speed: 28
+    speed: 120
     harvester: true
     weapon:
       damage: 0
@@ -19,7 +19,7 @@ units:
     cost: 50
     buildTime: 30
     hp: 100
-    speed: 32
+    speed: 160
     weapon:
       damage: 10
       range: 8192
@@ -30,7 +30,7 @@ units:
     cost: 150
     buildTime: 60
     hp: 300
-    speed: 20
+    speed: 100
     weapon:
       damage: 25
       range: 10240
@@ -41,7 +41,7 @@ units:
     cost: 100
     buildTime: 45
     hp: 80
-    speed: 28
+    speed: 120
     weapon:
       damage: 40
       range: 12288

@@ -1,0 +1,15 @@
+[gl] GL_MAX_TEXTURE_SIZE = 32768
+[unit] cnc=0 x=-1241 y=1420 w=50 h=39 player=0 facing=0
+[unit] cnc=0 x=1191 y=2636 w=50 h=39 player=1 facing=0
+[m] tick=46 pos=(31227,69093) prev=(31232,69120) facing=0
+[m] tick=46 pos=(31227,69093) prev=(31232,69120) facing=0
+[m] tick=46 pos=(31227,69093) prev=(31232,69120) facing=0
+[m] tick=46 pos=(31227,69093) prev=(31232,69120) facing=0
+[m] tick=47 pos=(31222,69066) prev=(31227,69093) facing=0
+[m] tick=47 pos=(31222,69066) prev=(31227,69093) facing=0
+[m] tick=47 pos=(31222,69066) prev=(31227,69093) facing=0
+[m] tick=47 pos=(31222,69066) prev=(31227,69093) facing=0
+[m] tick=48 pos=(31217,69039) prev=(31222,69066) facing=0
+[m] tick=48 pos=(31217,69039) prev=(31222,69066) facing=0
+[m] tick=48 pos=(31217,69039) prev=(31222,69066) facing=0
+[m] tick=48 pos=(31217,69039) prev=(31222,69066) facing=0

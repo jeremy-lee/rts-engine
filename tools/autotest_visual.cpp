@@ -123,7 +123,7 @@ VisualState StartMatch(uint64_t seed) {
 		Actor* a = vs.sim.GetWorld().Entities().Get(id);
 		a->health.hp = 100;
 		a->health.maxHp = 100;
-		a->movable.speed = 96; // 3 格/秒：每帧位移 >1 像素，避免亚像素顿挫
+		a->movable.speed = 160; // 5 格/秒
 		a->armament.damage = 10;
 		a->armament.range = 4096;
 		a->armament.cooldown = 15;
@@ -209,7 +209,7 @@ int main(int argc, char** argv) {
 		const ScreenPos c = ProjectCell(CellCoord(64, 64), 0);
 		camera.centerX = static_cast<float>(c.x);
 		camera.centerY = static_cast<float>(c.y);
-		camera.zoom = 1.0f; // 1:1 sprite，zoom 1.0 时单位原始像素大小
+		camera.zoom = 1.8f; // 放大到每帧位移 >1 像素
 	}
 
 	auto last = std::chrono::steady_clock::now();
