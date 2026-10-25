@@ -93,8 +93,8 @@ buildings:
 
 Map MakeMap() {
 	Map map(128, 128, 0, kWalkable | kBuildable);
-	map.SetResourceAmount(CellCoord(20, 20), 12000);
-	map.SetResourceAmount(CellCoord(108, 108), 12000);
+	map.SetResourceAmount(CellCoord(14, 14), 12000);
+	map.SetResourceAmount(CellCoord(50, 50), 12000);
 	return map;
 }
 
@@ -129,8 +129,8 @@ VisualState StartMatch(uint64_t seed) {
 		a->armament.cooldown = 15;
 		a->vision.range = 8 * kSubPerCell;
 	};
-	addUnit(0, CellCoord(26, 64));
-	addUnit(1, CellCoord(102, 64));
+	addUnit(0, CellCoord(18, 32));
+	addUnit(1, CellCoord(46, 32));
 	return vs;
 }
 
@@ -232,22 +232,31 @@ int main(int argc, char** argv) {
 		const float mx = static_cast<float>(window.MouseX());
 		const float my = static_cast<float>(window.MouseY());
 
-		// 相机：跟随 P0 部队（近景，能看到单位动作）+ 右键拖拽 + 滚轮
+		// 相机：自适应全景（包围盒 + 自动缩放，保证双方都在视野内）+ 右键拖拽 + 滚轮
 		{
-			float cx = 0, cy = 0;
+			float minX = 1e9f, maxX = -1e9f, minY = 1e9f, maxY = -1e9f;
 			int n = 0;
 			for (const auto& a : vs.sim.GetWorld().Entities().All()) {
-				if (!a.alive || a.playerId != 0) continue;
+				if (!a.alive) continue;
 				const ScreenPos p = ProjectCell(a.pos.ToCell(), 0);
-				cx += static_cast<float>(p.x);
-				cy += static_cast<float>(p.y);
+				const float px = static_cast<float>(p.x);
+				const float py = static_cast<float>(p.y);
+				minX = (px < minX) ? px : minX;
+				maxX = (px > maxX) ? px : maxX;
+				minY = (py < minY) ? py : minY;
+				maxY = (py > maxY) ? py : maxY;
 				++n;
 			}
 			if (n > 0) {
-				cx /= static_cast<float>(n);
-				cy /= static_cast<float>(n);
+				const float cx = (minX + maxX) * 0.5f;
+				const float cy = (minY + maxY) * 0.5f;
 				camera.centerX += (cx - camera.centerX) * 0.08f;
 				camera.centerY += (cy - camera.centerY) * 0.08f;
+				const float bw = (maxX - minX) + 260.0f;
+				const float bh = (maxY - minY) + 200.0f;
+				float z = std::min(static_cast<float>(W) / bw, static_cast<float>(H) / bh) * 0.95f;
+				z = std::max(0.5f, std::min(1.6f, z));
+				camera.zoom += (z - camera.zoom) * 0.05f;
 			}
 			static int lastX = -1, lastY = -1;
 			if (window.IsMouseDown(1)) {
