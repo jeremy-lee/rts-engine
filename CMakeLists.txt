@@ -21,6 +21,7 @@ add_library(rts_sim STATIC
     sim/pathfinder.cpp
     sim/datatable.cpp
     sim/gamedefs.cpp
+    sim/ai.cpp
 )
 target_include_directories(rts_sim PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
@@ -59,6 +60,7 @@ add_executable(rts_tests
     tests/test_pathfinder.cpp
     tests/test_gamedefs.cpp
     tests/test_economy.cpp
+    tests/test_ai.cpp
 )
 target_link_libraries(rts_tests PRIVATE rts_sim)
 

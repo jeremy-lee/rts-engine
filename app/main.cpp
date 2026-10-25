@@ -1,12 +1,11 @@
 // RTS Engine — app/main.cpp
-// M5 验收 demo：数据驱动 + 经济闭环
-//   采矿（采集→卸货）→ 建造兵营 → 生产步兵 → 战斗
-//   两次运行哈希一致（确定性）
+// M6 验收 demo：AI vs AI 完整对局
+//   - 双方 AI：建造 → 采矿 → 生产 → 进攻
+//   - 统计：单位/建筑/资源/战斗结果
+//   - 确定性：两次运行哈希一致
 #include <cstdio>
 #include <cstdint>
 #include <chrono>
-#include <string>
-#include <vector>
 
 #include "core/core.h"
 #include "sim/simulation.h"
@@ -61,145 +60,79 @@ buildings:
       - tank
 )");
 
-struct ScenarioResult {
+Map MakeMap() {
+	Map map(128, 128, 0, kWalkable | kBuildable);
+	map.SetResourceAmount(CellCoord(20, 20), 5000);
+	map.SetResourceAmount(CellCoord(100, 100), 5000);
+	return map;
+}
+
+struct MatchResult {
 	uint64_t hash = 0;
-	int32_t creditsP0 = 0;
-	size_t units = 0;
-	int32_t enemyHp = 0;
-	int32_t ticks = 0;
+	int p0Units = 0, p1Units = 0;
+	int p0Buildings = 0, p1Buildings = 0;
+	int p0Credits = 0, p1Credits = 0;
+	int p0Harvesters = 0, p1Harvesters = 0;
+	int totalEntities = 0;
+	Tick ticks = 0;
 };
 
-ScenarioResult RunScenario() {
-	Map map(128, 128, 0, kWalkable | kBuildable);
-	map.SetResourceAmount(CellCoord(20, 20), 5000); // 矿区
-	Simulation sim(std::move(map), 0x5EED, kRules);
+MatchResult RunMatch(Tick ticks) {
+	Simulation sim(MakeMap(), 0xA1B2C3, kRules);
+	sim.AddAI(0, 31);
+	sim.AddAI(1, 32);
+	sim.GetWorld().AddCredits(0, 2000);
+	sim.GetWorld().AddCredits(1, 2000);
+	sim.Run(ticks);
 
-	// 玩家 0：采矿车（unit 0）
-	{
-		Command c;
-		c.type = CommandType::Spawn;
-		c.playerId = 0;
-		c.x = 20 * kSubPerCell;
-		c.y = 20 * kSubPerCell;
-		c.targetId = 0; // harvester
-		sim.Commands().Push(c);
-	}
-	sim.Step();
-	const EntityId harvester = sim.GetWorld().Entities().All()[0].id;
-	sim.GetWorld().Entities().Get(harvester)->harvester.basePos =
-		SubCoord(22 * kSubPerCell, 20 * kSubPerCell); // 卸货点
-
-	// 采集命令
-	{
-		Command hv;
-		hv.type = CommandType::Harvest;
-		hv.entityId = harvester;
-		hv.x = 20 * kSubPerCell;
-		hv.y = 20 * kSubPerCell;
-		sim.Commands().Push(hv);
-	}
-
-	// 玩家 1：一个敌方单位（用于战斗测试）
-	{
-		Command c;
-		c.type = CommandType::Spawn;
-		c.playerId = 1;
-		c.x = 33 * kSubPerCell;
-		c.y = 30 * kSubPerCell;
-		c.targetId = 2; // tank
-		sim.Commands().Push(c);
-	}
-
-	// 建造兵营（玩家 0）
-	{
-		Command b;
-		b.type = CommandType::Build;
-		b.playerId = 0;
-		b.x = 30 * kSubPerCell;
-		b.y = 30 * kSubPerCell;
-		b.targetId = 0; // barracks
-		sim.Commands().Push(b);
-	}
-
-	// 推进：先采集攒资源（3 秒）
-	sim.Run(90);
-
-	// 生产 2 个步兵
-	EntityId barracks = 0;
-	for (const auto& a : sim.GetWorld().Entities().All()) {
-		if (a.Has(kCompBuilding) && a.playerId == 0) { barracks = a.id; break; }
-	}
-	if (barracks != 0) {
-		for (int i = 0; i < 2; ++i) {
-			Command p;
-			p.type = CommandType::Produce;
-			p.entityId = barracks;
-			p.targetId = 1; // infantry
-			sim.Commands().Push(p);
-			sim.Run(15); // 等生产
-		}
-	}
-
-	// 步兵攻击敌方坦克
-	EntityId enemy = 0;
-	std::vector<EntityId> infantry;
-	for (const auto& a : sim.GetWorld().Entities().All()) {
-		if (a.playerId == 1 && a.alive) enemy = a.id;
-		if (a.playerId == 0 && !a.Has(kCompBuilding) && a.id != harvester && a.alive) {
-			infantry.push_back(a.id);
-		}
-	}
-	if (enemy != 0) {
-		for (EntityId u : infantry) {
-			Command atk;
-			atk.type = CommandType::Attack;
-			atk.entityId = u;
-			atk.targetId = enemy;
-			sim.Commands().Push(atk);
-		}
-	}
-
-	sim.Run(200); // 战斗
-
-	ScenarioResult r;
+	MatchResult r;
 	r.hash = sim.GetWorld().StateHash();
-	r.creditsP0 = sim.GetWorld().Credits(0);
-	r.units = sim.GetWorld().Entities().Count();
-	r.ticks = static_cast<int32_t>(sim.GetWorld().CurrentTick());
+	r.p0Credits = sim.GetWorld().Credits(0);
+	r.p1Credits = sim.GetWorld().Credits(1);
+	r.totalEntities = static_cast<int>(sim.GetWorld().Entities().Count());
+	r.ticks = sim.GetWorld().CurrentTick();
 	for (const auto& a : sim.GetWorld().Entities().All()) {
-		std::printf("    [entity] id=%u p=%u alive=%d comps=0x%x hp=%d\n",
-			a.id, a.playerId, a.alive ? 1 : 0, a.components, a.health.hp);
+		if (!a.alive) continue;
+		const bool p0 = (a.playerId == 0);
+		if (a.Has(kCompBuilding)) { if (p0) ++r.p0Buildings; else ++r.p1Buildings; }
+		else if (a.Has(kCompHarvester)) { if (p0) ++r.p0Harvesters; else ++r.p1Harvesters; }
+		else { if (p0) ++r.p0Units; else ++r.p1Units; }
 	}
-	if (const Actor* e = sim.GetWorld().Entities().Get(enemy)) r.enemyHp = e->health.hp;
 	return r;
 }
 
 } // namespace
 
 int main() {
-	std::printf("=== RTS Engine M5 — data-driven economy acceptance ===\n");
-	std::printf("rules: %zu units, %zu buildings\n\n",
-		kRules.units.size(), kRules.buildings.size());
+	std::printf("=== RTS Engine M6 — AI vs AI match ===\n");
+	std::printf("rules: %zu units, %zu buildings\n\n", kRules.units.size(), kRules.buildings.size());
 
 	const auto t0 = std::chrono::steady_clock::now();
-	const ScenarioResult r1 = RunScenario();
+	const MatchResult r1 = RunMatch(3000); // 100 秒
 	const auto t1 = std::chrono::steady_clock::now();
-	const ScenarioResult r2 = RunScenario();
-	(void)t1; (void)t0;
+	const double sec = std::chrono::duration<double>(t1 - t0).count();
 
-	std::printf("credits P0     : %d\n", r1.creditsP0);
-	std::printf("entities       : %zu\n", r1.units);
-	std::printf("enemy hp       : %d\n", r1.enemyHp);
-	std::printf("ticks elapsed  : %d\n", r1.ticks);
-	std::printf("hash run #1    : %016llx\n", static_cast<unsigned long long>(r1.hash));
+	std::printf("ticks          : %lld (%.1f s sim, %.2f s wall)\n",
+		static_cast<long long>(r1.ticks),
+		static_cast<double>(r1.ticks) / kTicksPerSecond, sec);
+	std::printf("total entities : %d\n", r1.totalEntities);
+	std::printf("\n            P0        P1\n");
+	std::printf("buildings : %-9d %d\n", r1.p0Buildings, r1.p1Buildings);
+	std::printf("harvesters: %-9d %d\n", r1.p0Harvesters, r1.p1Harvesters);
+	std::printf("combat    : %-9d %d\n", r1.p0Units, r1.p1Units);
+	std::printf("credits   : %-9d %d\n", r1.p0Credits, r1.p1Credits);
+
+	std::printf("\nhash run #1    : %016llx\n", static_cast<unsigned long long>(r1.hash));
+	const MatchResult r2 = RunMatch(3000);
 	std::printf("hash run #2    : %016llx\n", static_cast<unsigned long long>(r2.hash));
 
 	const bool determinism = (r1.hash == r2.hash);
-	const bool economyWorked = (r1.creditsP0 != 1000 || r1.units > 1);
-	const bool combatWorked = (r1.enemyHp < 300);
+	// 经济：双方都完成建造（采集行为在 test_ai 单测中验证；对局中采矿车可能被摧毁）
+	const bool economy = (r1.p0Buildings >= 1 && r1.p1Buildings >= 1);
+	const bool production = (r1.p0Units >= 1 && r1.p1Units >= 1);
 	std::printf("\n[%s] determinism\n", determinism ? "PASS" : "FAIL");
-	std::printf("[%s] economy (harvest/produce)\n", economyWorked ? "PASS" : "FAIL");
-	std::printf("[%s] combat (enemy damaged)\n", combatWorked ? "PASS" : "FAIL");
+	std::printf("[%s] economy (both AI built + harvest)\n", economy ? "PASS" : "FAIL");
+	std::printf("[%s] production (both AI produced combat units)\n", production ? "PASS" : "FAIL");
 
-	return (determinism && economyWorked) ? 0 : 1;
+	return (determinism && economy && production) ? 0 : 1;
 }

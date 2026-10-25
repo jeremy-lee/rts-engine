@@ -4,15 +4,17 @@
 
 ## 状态
 
-**M3 — 渲染**（完成）。M0 地基 + M1 世界模型 + M2 模拟循环已验收；M3 增加 Win32+OpenGL 1.1 渲染后端、精灵批处理、相机、渲染快照。
+**M5 — 玩法数据驱动**（完成）。M0 地基、M1 世界模型、M2 模拟循环、M3 渲染、M4 寻路、M5 数据驱动玩法均已验收。
 
-演示：uild\rts_win_app.exe（120 FPS / 65636 sprites）。测试：60/60 通过。
+M5：YAML 子集解析器 + 规则加载（单位/建筑/武器）+ 采矿经济 + 建造/生产命令 + 战斗闭环。
+
+测试：80/80 通过。验收 demo：rts_app.exe（采集→建造→生产→战斗）。
 
 ## 快速开始
 
 ```bat
 build.bat
-build\rts_app.exe        :: headless 确定性自检
+brts_app.exe        :: headless 确定性自检
 build\rts_tests.exe      :: 单元测试
 ```
 

@@ -223,6 +223,7 @@ void World::TickEconomy() {
 		const int32_t unitNumericId = b->producer.unitNumericId;
 		const uint8_t playerId = b->playerId;
 		const CellCoord base = b->pos.ToCell();
+		const SubCoord buildingPos = b->pos;
 
 		const UnitDef* def = m_rules.FindUnitByNumeric(unitNumericId);
 		if (def != nullptr) {
@@ -238,6 +239,14 @@ void World::TickEconomy() {
 				u->armament.damage = def->weapon.damage;
 				u->armament.range = def->weapon.range;
 				u->armament.cooldown = def->weapon.cooldown;
+				if (def->isHarvester) {
+					u->components |= kCompHarvester;
+					u->harvester.basePos = buildingPos;
+					u->harvester.mine = spawnCell;
+					u->harvester.capacity = 100;
+					u->harvester.perTick = 10;
+					u->harvester.phase = HarvestPhase::ToMine;
+				}
 			}
 		}
 		// 重新获取（Create 可能使旧指针失效）
