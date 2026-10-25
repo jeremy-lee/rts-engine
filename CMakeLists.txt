@@ -22,6 +22,8 @@ add_library(rts_sim STATIC
     sim/datatable.cpp
     sim/gamedefs.cpp
     sim/ai.cpp
+    net/socket.cpp
+    net/lockstep.cpp
 )
 target_include_directories(rts_sim PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
@@ -40,6 +42,9 @@ if(WIN32)
 
     add_executable(rts_win_app app/win32_main.cpp)
     target_link_libraries(rts_win_app PRIVATE rts_render)
+
+    add_executable(rts_net app/net_main.cpp)
+    target_link_libraries(rts_net PRIVATE rts_sim)
 endif()
 
 # ---- 测试（仅 headless，不依赖 GL）----
@@ -61,6 +66,7 @@ add_executable(rts_tests
     tests/test_gamedefs.cpp
     tests/test_economy.cpp
     tests/test_ai.cpp
+    tests/test_net.cpp
 )
 target_link_libraries(rts_tests PRIVATE rts_sim)
 
