@@ -209,7 +209,7 @@ int main(int argc, char** argv) {
 		const ScreenPos c = ProjectCell(CellCoord(64, 64), 0);
 		camera.centerX = static_cast<float>(c.x);
 		camera.centerY = static_cast<float>(c.y);
-		camera.zoom = 1.6f; // sprite 1:1 像素，zoom 1.6 对应 1280 屏
+		camera.zoom = 1.0f; // 1:1 sprite，zoom 1.0 时单位原始像素大小
 	}
 
 	auto last = std::chrono::steady_clock::now();
@@ -232,32 +232,22 @@ int main(int argc, char** argv) {
 		const float mx = static_cast<float>(window.MouseX());
 		const float my = static_cast<float>(window.MouseY());
 
-		// 相机：自适应跟随（包围盒中心 + 自动缩放）+ 右键拖拽 + 滚轮
+		// 相机：跟随 P0 部队（近景，能看到单位动作）+ 右键拖拽 + 滚轮
 		{
-			float minX = 1e9f, maxX = -1e9f, minY = 1e9f, maxY = -1e9f;
+			float cx = 0, cy = 0;
 			int n = 0;
 			for (const auto& a : vs.sim.GetWorld().Entities().All()) {
-				if (!a.alive) continue;
+				if (!a.alive || a.playerId != 0) continue;
 				const ScreenPos p = ProjectCell(a.pos.ToCell(), 0);
-				const float px = static_cast<float>(p.x);
-				const float py = static_cast<float>(p.y);
-				minX = (px < minX) ? px : minX;
-				maxX = (px > maxX) ? px : maxX;
-				minY = (py < minY) ? py : minY;
-				maxY = (py > maxY) ? py : maxY;
+				cx += static_cast<float>(p.x);
+				cy += static_cast<float>(p.y);
 				++n;
 			}
 			if (n > 0) {
-				const float cx = (minX + maxX) * 0.5f;
-				const float cy = (minY + maxY) * 0.5f;
+				cx /= static_cast<float>(n);
+				cy /= static_cast<float>(n);
 				camera.centerX += (cx - camera.centerX) * 0.08f;
 				camera.centerY += (cy - camera.centerY) * 0.08f;
-				// 自适应缩放：包围盒 + 边距（保证双方都在视野内）
-				const float bw = (maxX - minX) + 260.0f;
-				const float bh = (maxY - minY) + 200.0f;
-				float z = std::min(static_cast<float>(W) / bw, static_cast<float>(H) / bh) * 0.95f;
-				z = std::max(0.3f, std::min(1.4f, z));
-				camera.zoom += (z - camera.zoom) * 0.05f;
 			}
 			static int lastX = -1, lastY = -1;
 			if (window.IsMouseDown(1)) {
