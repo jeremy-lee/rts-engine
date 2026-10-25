@@ -123,7 +123,7 @@ VisualState StartMatch(uint64_t seed) {
 		Actor* a = vs.sim.GetWorld().Entities().Get(id);
 		a->health.hp = 100;
 		a->health.maxHp = 100;
-		a->movable.speed = 48; // 1.5 格/秒
+		a->movable.speed = 96; // 3 格/秒：每帧位移 >1 像素，避免亚像素顿挫
 		a->armament.damage = 10;
 		a->armament.range = 4096;
 		a->armament.cooldown = 15;
@@ -327,6 +327,7 @@ int main(int argc, char** argv) {
 		// 渲染
 		const RenderSnapshot snapshot = RenderSnapshot::FromWorld(vs.sim.GetWorld(), true);
 		const float interp = (accumulator > 0.0) ? static_cast<float>(accumulator / tickDt) : 1.0f;
+
 		SpriteBatch terrainBatch, unitBatch;
 		terrainBatch.Begin();
 		unitBatch.Begin();
