@@ -123,7 +123,7 @@ VisualState StartMatch(uint64_t seed) {
 		Actor* a = vs.sim.GetWorld().Entities().Get(id);
 		a->health.hp = 100;
 		a->health.maxHp = 100;
-		a->movable.speed = 32;
+		a->movable.speed = 48; // 1.5 格/秒
 		a->armament.damage = 10;
 		a->armament.range = 4096;
 		a->armament.cooldown = 15;
