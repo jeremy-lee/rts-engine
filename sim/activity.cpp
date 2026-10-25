@@ -78,14 +78,16 @@ bool MoveTowards(World& world, Actor& actor, SubCoord target) {
 	const CellCoord nc = next.ToCell();
 	if (world.GetMap().InBounds(nc) && world.GetMap().Walkable(nc) &&
 		!world.GetMap().Occupied(nc)) {
-		// OpenRA 风格：先转向（TurnSpeed 逐 tick 转 45°），对准后才移动
+		// OpenRA 风格：先转向（TurnSpeed 512 ≈ 180°/tick），对准后才移动
 		const int targetFacing = FacingFromDelta(dx, dy);
 		if (targetFacing >= 0 && actor.movable.facing != targetFacing) {
 			int diff = (targetFacing - static_cast<int>(actor.movable.facing) + 8) % 8;
-			const int step = (diff <= 4) ? 1 : 7; // 最短方向转向
-			actor.movable.facing = static_cast<uint8_t>((static_cast<int>(actor.movable.facing) + step) % 8);
+			if (diff > 4) diff -= 8; // 最短方向（正=顺时针，负=逆时针）
+			const int step = (diff > 0) ? std::min(diff, 4) : std::max(diff, -4);
+			actor.movable.facing = static_cast<uint8_t>(
+				(static_cast<int>(actor.movable.facing) + step + 8) % 8);
 			if (actor.movable.facing != targetFacing) {
-				return false; // 还在转向：本 tick 不移动（先转向）
+				return false; // 180° 以内一 tick 转完；更大才需要第二 tick
 			}
 		}
 		actor.movable.moving = true;
