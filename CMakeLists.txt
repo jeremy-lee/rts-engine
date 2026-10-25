@@ -82,6 +82,9 @@ if(WIN32)
     add_executable(rts_net app/net_main.cpp)
     target_link_libraries(rts_net PRIVATE rts_sim)
 
+    add_executable(rts_game app/game_main.cpp)
+    target_link_libraries(rts_game PRIVATE rts_render)
+
     # ---- 工具链（M8）----
     add_executable(rts_lint tools/rules_lint.cpp)
     target_link_libraries(rts_lint PRIVATE rts_sim)
