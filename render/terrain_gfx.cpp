@@ -26,8 +26,20 @@ struct Canvas {
 	int w = 0;
 	int ox = 0;
 
+	// 菱形判定（OpenRA 风格等距 tile）：|dx|/(W/2) + |dy|/(H/2) <= 1
+	static bool InDiamond(int x, int y) {
+		const float dx = (x < TerrainGfx::kTileW / 2)
+			? static_cast<float>(TerrainGfx::kTileW / 2 - x)
+			: static_cast<float>(x - TerrainGfx::kTileW / 2);
+		const float dy = (y < TerrainGfx::kTileH / 2)
+			? static_cast<float>(TerrainGfx::kTileH / 2 - y)
+			: static_cast<float>(y - TerrainGfx::kTileH / 2);
+		return (dx / (TerrainGfx::kTileW / 2.0f)) + (dy / (TerrainGfx::kTileH / 2.0f)) <= 1.0f;
+	}
+
 	void Put(int x, int y, uint32_t c) {
 		if (x < 0 || y < 0 || x >= TerrainGfx::kTileW || y >= TerrainGfx::kTileH) return;
+		if (!InDiamond(x, y)) return; // 菱形外：透明
 		const size_t o = (static_cast<size_t>(y) * w + ox + x) * 4;
 		data[o + 0] = static_cast<uint8_t>((c >> 16) & 0xFF);
 		data[o + 1] = static_cast<uint8_t>((c >> 8) & 0xFF);
