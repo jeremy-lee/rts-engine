@@ -106,8 +106,8 @@ public:
 		switch (id) {
 			case CncSpriteId::Infantry:  w = 14; h = 17; break;
 			case CncSpriteId::Rocket:    w = 14; h = 17; break;
-			case CncSpriteId::Tank:      w = 13; h = 21; break;
-			case CncSpriteId::LightTank: w = 12; h = 19; break;
+			case CncSpriteId::Tank:      w = 24; h = 22; break; // 32 朝向最大 bbox（斜向 24 宽）
+			case CncSpriteId::LightTank: w = 22; h = 20; break;
 			case CncSpriteId::Harvester: w = 40; h = 27; break;
 			case CncSpriteId::Barracks:  w = 48; h = 39; break;
 			case CncSpriteId::Factory:   w = 72; h = 24; break;
