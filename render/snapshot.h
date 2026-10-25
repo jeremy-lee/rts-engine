@@ -133,9 +133,11 @@ struct RenderSnapshot {
 			// 朝向：单位取 Movable.facing，建筑固定 0
 			s.facing = a.Has(kCompBuilding) ? 0 : a.movable.facing;
 			// 动画帧：移动时循环 run 帧
-			// 动画：停止后保持 run 帧约 0.27 秒（10 tick），避免走/站快速切换导致闪烁
+			// 动画：战斗（Attack）或移动中保持 run 帧；静止 10 tick 后回 stand
+			// （Attack 期间单位会反复停/走，若切 stand 会造成 stand/run 帧跳变 = 闪烁）
+			const bool inCombat = (a.activity.type == ActivityType::Attack);
 			const Tick sinceMove = world.CurrentTick() - a.movable.lastMoveTick;
-			if (a.Has(kCompBuilding) || (!a.movable.moving && sinceMove > 10)) {
+			if (a.Has(kCompBuilding) || (!inCombat && !a.movable.moving && sinceMove > 10)) {
 				s.animFrame = 0; // stand
 			} else {
 				s.animFrame = static_cast<uint8_t>(1 + (world.CurrentTick() / 3) % 6); // 10 FPS，6 帧循环
