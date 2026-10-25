@@ -1,0 +1,30 @@
+# 关卡 4：钢铁洪流
+# 目标：消灭所有敌军（坦克为主）
+name: "钢铁洪流"
+description: "敌军装甲部队来袭，消灭所有敌人"
+goal: destroy_all
+timeLimit: 4500
+playerStart: [40, 40]
+
+waves:
+  - tick: 0
+    units:
+      - type: infantry
+        count: 2
+        pos: [100, 100]
+      - type: tank
+        count: 1
+        pos: [105, 105]
+  - tick: 900
+    units:
+      - type: tank
+        count: 2
+        pos: [110, 100]
+  - tick: 1800
+    units:
+      - type: infantry
+        count: 4
+        pos: [100, 110]
+      - type: tank
+        count: 1
+        pos: [105, 110]

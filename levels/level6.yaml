@@ -1,0 +1,22 @@
+# 关卡 6：工业化
+# 目标：采集资源达到 3000，同时抵御骚扰
+name: "工业化"
+description: "把经济做大到 3000 资源，小心敌军的骚扰"
+goal: collect
+collectTarget: 3000
+playerStart: [40, 40]
+
+waves:
+  - tick: 1200
+    units:
+      - type: infantry
+        count: 2
+        pos: [110, 110]
+  - tick: 2400
+    units:
+      - type: infantry
+        count: 3
+        pos: [105, 105]
+      - type: tank
+        count: 1
+        pos: [110, 105]

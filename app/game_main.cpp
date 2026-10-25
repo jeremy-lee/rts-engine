@@ -154,28 +154,57 @@ int main() {
 	sim.GetWorld().AddCredits(0, 2000);
 	sim.GetWorld().AddCredits(1, 1500);
 
-	// M15：加载关卡
-	LevelDef levelDef;
-	LoadLevel("levels/level1.yaml", levelDef);
-	Campaign campaign(levelDef, 0, 1);
+	// M20：关卡流程（选关 → 游玩 → 结算）
+	const std::vector<std::string> levelPaths = {
+		"levels/level1.yaml", "levels/level2.yaml", "levels/level3.yaml",
+		"levels/level4.yaml", "levels/level5.yaml", "levels/level6.yaml",
+	};
+	enum class GameState { LevelSelect, Playing, Result };
+	GameState gameState = GameState::LevelSelect;
+	int currentLevel = 0;
 
-	// 玩家初始单位
-	{
-		Command c;
-		c.type = CommandType::Spawn;
-		c.playerId = 0;
-		c.x = 60 * kSubPerCell;
-		c.y = 60 * kSubPerCell;
-		c.targetId = 0;
-		sim.Commands().Push(c);
-		sim.Step();
-		c.targetId = 1;
-		c.x = 62 * kSubPerCell;
-		sim.Commands().Push(c);
-		c.x = 60 * kSubPerCell;
-		c.y = 62 * kSubPerCell;
-		sim.Commands().Push(c);
+	// 预加载关卡名
+	std::vector<std::string> levelNames;
+	for (const auto& p : levelPaths) {
+		LevelDef ld;
+		if (LoadLevel(p, ld)) levelNames.push_back(ld.name);
+		else levelNames.push_back(p);
 	}
+
+	LevelDef levelDef;
+	Campaign campaign;
+
+	std::vector<EntityId> selection;
+
+	auto startLevel = [&](int idx) {
+		if (idx < 0 || idx >= static_cast<int>(levelPaths.size())) return;
+		currentLevel = idx;
+		levelDef = LevelDef();
+		LoadLevel(levelPaths[idx], levelDef);
+		sim = Simulation(MakeMap(), 0x2024, kRules);
+		sim.AddAI(1, 99);
+		sim.GetWorld().AddCredits(0, 2000);
+		sim.GetWorld().AddCredits(1, 1500);
+		{
+			Command c;
+			c.type = CommandType::Spawn;
+			c.playerId = 0;
+			c.x = 60 * kSubPerCell;
+			c.y = 60 * kSubPerCell;
+			c.targetId = 0;
+			sim.Commands().Push(c);
+			sim.Step();
+			c.targetId = 1;
+			c.x = 62 * kSubPerCell;
+			sim.Commands().Push(c);
+			c.x = 60 * kSubPerCell;
+			c.y = 62 * kSubPerCell;
+			sim.Commands().Push(c);
+		}
+		campaign = Campaign(levelDef, 0, 1);
+		selection.clear();
+		gameState = GameState::Playing;
+	};
 
 	Camera camera;
 	camera.viewW = window.Width();
@@ -186,8 +215,6 @@ int main() {
 		camera.centerY = static_cast<float>(c.y);
 		camera.zoom = 1.0f;
 	}
-
-	std::vector<EntityId> selection;
 
 	// M14：渲染后端切换（F1 = GL / 软件渲染）
 	bool softwareMode = false; // TEMP: GL 验证
@@ -476,6 +503,9 @@ int main() {
 			// 关卡：生成波次 + 判定胜负
 			if (!campaign.Finished()) {
 				campaign.Update(sim.GetWorld(), sim.Commands(), sim.GetWorld().CurrentTick());
+			}
+			if (campaign.Finished()) {
+				gameState = GameState::Result;
 			}
 			// 重新开始（R 键）
 			{

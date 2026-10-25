@@ -1,0 +1,42 @@
+# 关卡 5：绝境
+# 目标：存活 90 秒（5400 tick）
+name: "绝境求生"
+description: "在 90 秒的持续进攻中存活下来"
+goal: survive
+surviveTicks: 5400
+playerStart: [64, 64]
+
+waves:
+  - tick: 0
+    units:
+      - type: infantry
+        count: 3
+        pos: [120, 120]
+  - tick: 900
+    units:
+      - type: tank
+        count: 1
+        pos: [120, 120]
+  - tick: 1800
+    units:
+      - type: infantry
+        count: 4
+        pos: [115, 115]
+  - tick: 2700
+    units:
+      - type: tank
+        count: 2
+        pos: [120, 120]
+  - tick: 3600
+    units:
+      - type: infantry
+        count: 3
+        pos: [120, 115]
+      - type: tank
+        count: 1
+        pos: [115, 120]
+  - tick: 4500
+    units:
+      - type: tank
+        count: 3
+        pos: [120, 120]
