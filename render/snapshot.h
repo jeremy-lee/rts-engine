@@ -26,6 +26,7 @@ struct RenderSprite {
 	int cncSprite = -1;    // C&C 图集索引；-1 = 无
 	uint8_t player = 255;  // 所属玩家（255 = 无，用于软件后端着色）
 	uint8_t facing = 0;    // 朝向 0-7（0=北，顺时针）
+	uint8_t animFrame = 0; // 动画帧：0=stand，1-4=run
 };
 
 struct RenderEffect {
@@ -129,6 +130,10 @@ struct RenderSnapshot {
 			s.cncSprite = static_cast<int>(cid);
 			// 朝向：单位取 Movable.facing，建筑固定 0
 			s.facing = a.Has(kCompBuilding) ? 0 : a.movable.facing;
+			// 动画帧：移动时循环 run 帧
+			s.animFrame = (a.Has(kCompBuilding) || !a.movable.moving)
+				? 0
+				: static_cast<uint8_t>(1 + (world.CurrentTick() / 6) % 4);
 			snap.sprites.push_back(s);
 		}
 

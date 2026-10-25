@@ -320,7 +320,7 @@ int main(int argc, char** argv) {
 				// 单位：RA 图集
 				float u0 = 0, v0 = 0, u1 = 1, v1 = 1;
 				CncAtlas::GetUV(static_cast<CncSpriteId>(s.cncSprite), (s.player == 1) ? 1 : 0,
-					s.facing, u0, v0, u1, v1);
+					s.facing, s.animFrame, u0, v0, u1, v1);
 				unitBatch.AddSprite(ix, iy, s.w, s.h, u0, v0, u1, v1, s.color);
 			} else if (s.spriteIndex >= 0) {
 				// 地形：程序化 64×32 纹理（1:1）

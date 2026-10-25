@@ -648,7 +648,7 @@ int main(int argc, char** argv) {
 			if (s.cncSprite >= 0 && cncOk) {
 				float u0 = 0.0f, v0 = 0.0f, u1 = 1.0f, v1 = 1.0f;
 				const int team = (s.player == 1) ? 1 : 0;
-				CncAtlas::GetUV(static_cast<CncSpriteId>(s.cncSprite), team, s.facing, u0, v0, u1, v1);
+				CncAtlas::GetUV(static_cast<CncSpriteId>(s.cncSprite), team, s.facing, s.animFrame, u0, v0, u1, v1);
 				uint32_t tint = s.color;
 				if (softwareMode && s.player != 255) {
 					tint = (s.player == 0) ? 0xFF00C8FF : 0xFFFF4040;
