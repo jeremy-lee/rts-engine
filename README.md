@@ -48,6 +48,9 @@ build\rts_editor.exe
 
 :: 数据校验
 build\rts_lint.exe data\rules.yaml
+
+:: AI 自动对战测试（完整对局 + 确定性）
+build\rts_autotest.exe --runs 3
 ```
 
 ### 可玩 Demo 操作
