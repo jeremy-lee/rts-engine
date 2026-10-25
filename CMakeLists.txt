@@ -122,4 +122,7 @@ if(WIN32)
 
     add_executable(rts_editor tools/map_editor.cpp)
     target_link_libraries(rts_editor PRIVATE rts_render)
+
+    add_executable(rts_autotest_visual tools/autotest_visual.cpp)
+    target_link_libraries(rts_autotest_visual PRIVATE rts_render)
 endif()
