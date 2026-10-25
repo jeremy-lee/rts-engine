@@ -7,6 +7,8 @@
 #include "render/sheet.h"
 
 #include <cstdint>
+#include <fstream>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -46,38 +48,79 @@ public:
 
 	static constexpr int kUnitFrames = 7; // 0 = stand，1-6 = run 动画（完整 6 帧循环）
 
-	// 精灵 UV（[0,1]）：team 0=蓝方, 1=红方；facing 0-7（0=北，顺时针）；frame 0=stand,1-4=run
-	// 图集布局：
-	//   行 0-39：单位（ui*10 + frame*2 + team，列 = facing + team*8）
-	//   行 40-43：建筑（Barracks 40/41、Factory 42/43，列 0）
+	// ---- 资源驱动的精灵元数据（OpenRA sequences yaml 语义）----
+	// 尺寸/布局不再硬编码：从 assets/cnc_atlas.txt 加载（图集变化时无需改代码）。
+	struct SpriteMeta {
+		int row = 0;
+		int w = 16;
+		int h = 16;
+		int facings = 8; // 8 或 32；建筑 = 1
+		int frames = 1;  // 动画帧数
+	};
+
+	static const char* SpriteName(CncSpriteId id) {
+		switch (id) {
+			case CncSpriteId::Infantry:  return "Infantry";
+			case CncSpriteId::Rocket:    return "Rocket";
+			case CncSpriteId::Tank:      return "Tank";
+			case CncSpriteId::LightTank: return "LightTank";
+			case CncSpriteId::Harvester: return "Harvester";
+			case CncSpriteId::Barracks:  return "Barracks";
+			case CncSpriteId::Factory:   return "Factory";
+			case CncSpriteId::Grass:     return "Grass";
+			case CncSpriteId::Water:     return "Water";
+			case CncSpriteId::Sand:      return "Sand";
+			case CncSpriteId::Highland:  return "Highland";
+			default: return "Unknown";
+		}
+	}
+
+	static CncSpriteId SpriteIdFromName(const std::string& n) {
+		for (int i = 0; i < static_cast<int>(CncSpriteId::Count); ++i) {
+			const CncSpriteId id = static_cast<CncSpriteId>(i);
+			if (n == SpriteName(id)) return id;
+		}
+		return CncSpriteId::Count;
+	}
+
+	static std::vector<SpriteMeta>& MetaTable() {
+		static std::vector<SpriteMeta> t(static_cast<size_t>(CncSpriteId::Count));
+		return t;
+	}
+
+	// 加载图集元数据（OpenRA sequences 的等价物）。返回是否成功。
+	static bool LoadMeta(const std::string& path) {
+		std::ifstream in(path);
+		if (!in) return false;
+		std::string line;
+		while (std::getline(in, line)) {
+			if (line.empty() || line[0] == '#') continue;
+			std::istringstream iss(line);
+			std::string key;
+			iss >> key;
+			if (key != "sprite") continue;
+			std::string name;
+			SpriteMeta m;
+			if (!(iss >> name >> m.row >> m.w >> m.h >> m.facings >> m.frames)) continue;
+			const CncSpriteId id = SpriteIdFromName(name);
+			if (id == CncSpriteId::Count) continue;
+			MetaTable()[static_cast<size_t>(id)] = m;
+		}
+		return true;
+	}
+
 	// 精灵 UV（[0,1]）：team 0=蓝方, 1=红方；facing 为 WAngle；frame 0=stand,1-6=run
-	// 图集布局（64 列 × 34 行，格子 80×64）：
-	//   行 0：Tank 32 朝向 × 2 阵营（车体+炮塔合成）
-	//   行 1：LightTank 32 朝向 × 2 阵营
-	//   行 2-15：Infantry 8 朝向 × 7 帧 × 2 阵营
-	//   行 16-29：Harvester 8 朝向 × 7 帧 × 2 阵营
-	//   行 30-33：Barracks / Factory × 2 阵营
+	// 布局来源：assets/cnc_atlas.txt（row/w/h/facings/frames）
 	static void GetUV(CncSpriteId id, int team, WAngle facing, int frame, float& u0, float& v0, float& u1, float& v1) {
 		const int t = (team == 1) ? 1 : 0;
-		const int k = (frame < 0) ? 0 : (frame >= kUnitFrames ? kUnitFrames - 1 : frame);
-		int row = 0;
+		const SpriteMeta& m = MetaTable()[static_cast<size_t>(id)];
+		const int k = (frame < 0) ? 0 : (frame >= m.frames ? m.frames - 1 : frame);
+		int row = m.row;
 		int col = 0;
-		bool isTank = false;   // 32 朝向（无动画帧）
-		bool isUnit8 = false;  // 8 朝向 + 动画帧
-		switch (id) {
-			case CncSpriteId::Tank:      row = 0;  isTank = true; break;
-			case CncSpriteId::LightTank: row = 1;  isTank = true; break;
-			case CncSpriteId::Infantry:  row = 2;  isUnit8 = true; break;
-			case CncSpriteId::Rocket:    row = 2;  isUnit8 = true; break;
-			case CncSpriteId::Harvester: row = 16; isUnit8 = true; break;
-			case CncSpriteId::Barracks:  row = 30; break;
-			case CncSpriteId::Factory:   row = 32; break;
-			default: row = 2; isUnit8 = true; break;
-		}
-		if (isTank) {
+		if (m.facings == 32) {
 			const int f32 = facing.angle / 32; // 0-31
 			col = ((32 - f32) % 32) + t * 32;
-		} else if (isUnit8) {
+		} else if (m.facings == 8) {
 			const int f8 = facing.angle / 128; // 0-7（与 SHP 逆时针一致）
 			row += k * 2 + t;
 			col = ((8 - f8) % 8) + t * 8;
@@ -86,33 +129,22 @@ public:
 			col = 0;
 		}
 		// OpenRA Sheet/Sprite 语义：预计算 bounds 的 UV（含 1/128 像素 inset，避免采样越界）
-		int tw = 16, th = 16;
-		GetContentSize(id, tw, th);
-		const int ox = col * kCellW + (kCellW - tw) / 2;
-		const int oy = row * kCellH + (kCellH - th) / 2;
+		const int ox = col * kCellW + (kCellW - m.w) / 2;
+		const int oy = row * kCellH + (kCellH - m.h) / 2;
 		Sheet& sheet = ImgSheet();
 		if (!sheet.Valid()) {
 			sheet.width = kCols * kCellW;
 			sheet.height = kRows * kCellH;
 		}
-		const SpriteRect r = MakeSpriteRect(sheet, ox, oy, tw, th);
+		const SpriteRect r = MakeSpriteRect(sheet, ox, oy, m.w, m.h);
 		u0 = r.u0; v0 = r.v0; u1 = r.u1; v1 = r.v1;
 	}
 
-	// 图集里精灵的尺寸 = 裁剪到内容的紧凑 bbox（OpenRA TrimmedFrame 语义）
-	// 8 朝向的 stand 帧最大 bbox（去掉了 SHP 画布的 padding）
-	// 图集内容是裁剪后的紧凑 bbox（OpenRA TrimmedFrame 语义）
+	// 精灵尺寸 = 元数据里的 bounds（OpenRA TrimmedFrame 的最大 bbox）
 	static void GetContentSize(CncSpriteId id, int& w, int& h) {
-		switch (id) {
-			case CncSpriteId::Infantry:  w = 14; h = 17; break;
-			case CncSpriteId::Rocket:    w = 14; h = 17; break;
-			case CncSpriteId::Tank:      w = 24; h = 22; break; // 32 朝向最大 bbox（斜向 24 宽）
-			case CncSpriteId::LightTank: w = 22; h = 20; break;
-			case CncSpriteId::Harvester: w = 40; h = 27; break;
-			case CncSpriteId::Barracks:  w = 48; h = 39; break;
-			case CncSpriteId::Factory:   w = 72; h = 24; break;
-			default: w = 14; h = 17; break;
-		}
+		const SpriteMeta& m = MetaTable()[static_cast<size_t>(id)];
+		w = m.w;
+		h = m.h;
 	}
 
 	// OpenRA 语义：Sprite.Size = 帧 bounds 尺寸（1:1 像素），放大由相机 zoom 负责
