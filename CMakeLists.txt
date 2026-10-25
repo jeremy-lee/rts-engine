@@ -22,33 +22,23 @@ add_library(rts_sim STATIC
     sim/datatable.cpp
     sim/gamedefs.cpp
     sim/ai.cpp
-    net/socket.cpp
-    net/lockstep.cpp
 )
 target_include_directories(rts_sim PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+# 网络层（仅 Windows）
+if(WIN32)
+    target_sources(rts_sim PRIVATE
+        net/socket.cpp
+        net/lockstep.cpp
+    )
+endif()
 
 # ---- headless 可执行程序 ----
 add_executable(rts_app app/main.cpp)
 target_link_libraries(rts_app PRIVATE rts_sim)
 
-# ---- 渲染层（Windows：Win32 + OpenGL 1.1）----
-if(WIN32)
-    add_library(rts_render STATIC
-        platform/win32_window.cpp
-        render/gl_renderer.cpp
-    )
-    target_include_directories(rts_render PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-    target_link_libraries(rts_render PUBLIC opengl32 gdi32 user32 rts_sim)
-
-    add_executable(rts_win_app app/win32_main.cpp)
-    target_link_libraries(rts_win_app PRIVATE rts_render)
-
-    add_executable(rts_net app/net_main.cpp)
-    target_link_libraries(rts_net PRIVATE rts_sim)
-endif()
-
 # ---- 测试（仅 headless，不依赖 GL）----
-add_executable(rts_tests
+set(RTS_TEST_SOURCES
     tests/test_main.cpp
     tests/test_fixed.cpp
     tests/test_random.cpp
@@ -66,9 +56,36 @@ add_executable(rts_tests
     tests/test_gamedefs.cpp
     tests/test_economy.cpp
     tests/test_ai.cpp
-    tests/test_net.cpp
 )
+if(WIN32)
+    list(APPEND RTS_TEST_SOURCES tests/test_net.cpp)
+endif()
+
+add_executable(rts_tests ${RTS_TEST_SOURCES})
 target_link_libraries(rts_tests PRIVATE rts_sim)
 
 enable_testing()
 add_test(NAME rts_tests COMMAND rts_tests)
+
+# ---- Windows 专属：渲染 / 联机 demo / 工具链 ----
+if(WIN32)
+    add_library(rts_render STATIC
+        platform/win32_window.cpp
+        render/gl_renderer.cpp
+    )
+    target_include_directories(rts_render PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(rts_render PUBLIC opengl32 gdi32 user32 rts_sim)
+
+    add_executable(rts_win_app app/win32_main.cpp)
+    target_link_libraries(rts_win_app PRIVATE rts_render)
+
+    add_executable(rts_net app/net_main.cpp)
+    target_link_libraries(rts_net PRIVATE rts_sim)
+
+    # ---- 工具链（M8）----
+    add_executable(rts_lint tools/rules_lint.cpp)
+    target_link_libraries(rts_lint PRIVATE rts_sim)
+
+    add_executable(rts_editor tools/map_editor.cpp)
+    target_link_libraries(rts_editor PRIVATE rts_render)
+endif()
