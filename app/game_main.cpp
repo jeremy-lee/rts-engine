@@ -21,6 +21,7 @@
 #include "render/font.h"
 #include "render/text.h"
 #include "render/ui.h"
+#include "render/software_renderer.h"
 #include "platform/win32_window.h"
 #include "audio/audio.h"
 #include "sim/campaign.h"
@@ -144,6 +145,12 @@ int main() {
 	}
 
 	std::vector<EntityId> selection;
+
+	// M14：渲染后端切换（F1 = GL / 软件渲染）
+	bool softwareMode = false;
+	uint32_t swTex = 0;
+	SoftwareRenderer swRenderer;
+	double swFrameMs = 0.0;
 
 	// UI 按钮（屏幕坐标，随窗口尺寸更新）
 	ui::Button btnBuild;
@@ -324,6 +331,14 @@ int main() {
 			prevRight = right;
 		}
 
+		// ---- 后端切换（F1）----
+		{
+			static bool prevF1 = false;
+			const bool f1 = window.IsKeyDown(VK_F1);
+			if (f1 && !prevF1) softwareMode = !softwareMode;
+			prevF1 = f1;
+		}
+
 		// ---- 静音切换（M）----
 		{
 			static bool prevM = false;
@@ -436,16 +451,47 @@ int main() {
 			}
 		}
 
-		renderer.BeginFrame(W, H);
-		renderer.DrawBatch(worldBatch.Vertices(), camera);
+		// M14：世界渲染（GL 或软件后端）
+		if (softwareMode) {
+			const auto t0 = std::chrono::steady_clock::now();
+			swRenderer.Resize(W, H);
+			swRenderer.Clear(0xFF101018);
+			for (const auto& s : snapshot.sprites) {
+				float sx = 0.0f, sy = 0.0f;
+				camera.WorldToScreen(s.worldX + s.w * 0.5f, s.worldY + s.h * 0.5f, sx, sy);
+				swRenderer.FillRect(sx - s.w * 0.5f, sy - s.h * 0.5f, s.w, s.h, s.color);
+			}
+			swRenderer.SyncRgba();
+			if (swTex == 0) {
+				swTex = renderer.UploadTexture(swRenderer.Rgba(), W, H);
+			} else {
+				renderer.UpdateTexture(swTex, swRenderer.Rgba(), W, H);
+			}
+			const auto t1 = std::chrono::steady_clock::now();
+			swFrameMs = std::chrono::duration<double, std::milli>(t1 - t0).count();
+
+			renderer.BeginFrame(W, H);
+			std::vector<SpriteVertex> worldQuad(6);
+			BuildQuad(0.0f, 0.0f, static_cast<float>(W), static_cast<float>(H),
+				0.0f, 0.0f, 1.0f, 1.0f, 0xFFFFFFFF, worldQuad.data());
+			renderer.DrawScreenTextured(worldQuad, swTex);
+		} else {
+			renderer.BeginFrame(W, H);
+			renderer.DrawBatch(worldBatch.Vertices(), camera);
+		}
 		renderer.DrawScreenBatch(uiVerts);
 
 		// 文字
 		std::vector<SpriteVertex> textVerts;
 		{
-			char line[160];
-			std::snprintf(line, sizeof(line), "CREDITS %d   UNITS %d   BUILDINGS %d   ENEMY %d   FPS %.0f",
-				credits, myUnits, myBuildings, enemyUnits, fps);
+			char line[200];
+			if (softwareMode) {
+				std::snprintf(line, sizeof(line), "CREDITS %d  UNITS %d  BUILD %d  ENEMY %d  FPS %.0f  BACKEND SOFT %.1fms",
+					credits, myUnits, myBuildings, enemyUnits, fps, swFrameMs);
+			} else {
+				std::snprintf(line, sizeof(line), "CREDITS %d  UNITS %d  BUILD %d  ENEMY %d  FPS %.0f  BACKEND GL",
+					credits, myUnits, myBuildings, enemyUnits, fps);
+			}
 			text::Build(textVerts, line, 12.0f, 8.0f, 1.5f, 0xFFE0E0E0);
 
 			text::Build(textVerts, btnBuild.label,

@@ -30,6 +30,8 @@ public:
 
 	// 上传 RGBA 纹理，返回纹理 id（0=失败）
 	uint32_t UploadTexture(const std::vector<uint8_t>& rgba, int width, int height);
+	// 更新已有纹理内容（同尺寸）
+	void UpdateTexture(uint32_t textureId, const std::vector<uint8_t>& rgba, int width, int height);
 
 	void SetClearColor(float r, float g, float b) {
 		m_clearR = r; m_clearG = g; m_clearB = b;

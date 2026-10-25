@@ -95,6 +95,12 @@ void GLRenderer::DrawScreenTextured(const std::vector<SpriteVertex>& verts, uint
 	glDisable(GL_TEXTURE_2D);
 }
 
+void GLRenderer::UpdateTexture(uint32_t textureId, const std::vector<uint8_t>& rgba, int width, int height) {
+	if (textureId == 0 || width <= 0 || height <= 0) return;
+	glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(textureId));
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, rgba.data());
+}
+
 void GLRenderer::EndFrame() {
 	glDisableClientState(GL_COLOR_ARRAY);
 	glDisableClientState(GL_VERTEX_ARRAY);
