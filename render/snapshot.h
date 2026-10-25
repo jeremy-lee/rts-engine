@@ -149,23 +149,7 @@ struct RenderSnapshot {
 		});
 		snap.sprites.insert(snap.sprites.end(), units.begin(), units.end());
 
-		// 尸体：不画完整精灵（之前画成黑色轮廓像"黑影"），改为地面小血渍
-		for (const auto& a : world.Entities().All()) {
-			if (a.alive) continue;
-			const CellCoord ac = a.pos.ToCell();
-			const ScreenPos p = ProjectCell(ac, 0);
-			RenderSprite s;
-			s.w = 10.0f;
-			s.h = 6.0f;
-			s.worldX = static_cast<float>(p.x) - s.w * 0.5f;
-			s.worldY = static_cast<float>(p.y) - s.h * 0.5f;
-			s.color = 0x70202018u; // 低调的暗色血渍
-			s.spriteIndex = -1;
-			s.cncSprite = -1;
-			s.prevX = s.worldX;
-			s.prevY = s.worldY;
-			snap.sprites.push_back(s);
-		}
+		// 墓体/血渍不画（之前黑影/黑点太显眼，直接让死亡单位消失）
 		return snap;
 	}
 };
