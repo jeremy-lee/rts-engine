@@ -28,6 +28,7 @@
 #include "platform/win32_window.h"
 #include "audio/audio.h"
 #include "sim/campaign.h"
+#include "net/lockstep.h"
 
 using namespace rts;
 
@@ -106,7 +107,22 @@ struct WorldPoint { float x = 0, y = 0; };
 
 } // namespace
 
-int main() {
+int main(int argc, char** argv) {
+	// M22：联机模式（--host 或 --client <ip>）
+	LockstepSession netSession;
+	bool netMode = false;
+	bool netHost = false;
+	if (argc >= 2) {
+		const std::string arg = argv[1];
+		if (arg == "--host") {
+			netMode = true;
+			netHost = true;
+		} else if (arg == "--client" && argc >= 3) {
+			netMode = true;
+			netHost = false;
+		}
+	}
+
 	Win32Window window;
 	if (!window.Create("RTS Engine — M10 HUD (You vs AI)", 1280, 720)) return 1;
 
@@ -173,6 +189,29 @@ int main() {
 		else levelNames.push_back(p);
 	}
 
+	// M22：联机会话
+	bool netReady = false;
+	if (netMode) {
+		NetInit();
+		const uint16_t port = 39020;
+		if (netHost) {
+			netReady = netSession.StartHost(port, 1);
+		} else {
+			netReady = netSession.StartClient(argv[2], port);
+		}
+		if (!netReady) {
+			std::printf("[net] 连接失败\n");
+			return 1;
+		}
+	}
+
+	// 联机模式：本地命令缓冲
+	std::vector<Command> localCmds;
+	auto pushCommand = [&](const Command& cmd) {
+		if (netMode) localCmds.push_back(cmd);
+		else sim.Commands().Push(cmd);
+	};
+
 	LevelDef levelDef;
 	Campaign campaign;
 
@@ -194,19 +233,36 @@ int main() {
 			c.x = 60 * kSubPerCell;
 			c.y = 60 * kSubPerCell;
 			c.targetId = 0;
-			sim.Commands().Push(c);
+			pushCommand(c);
 			sim.Step();
 			c.targetId = 1;
 			c.x = 62 * kSubPerCell;
-			sim.Commands().Push(c);
+			pushCommand(c);
 			c.x = 60 * kSubPerCell;
 			c.y = 62 * kSubPerCell;
-			sim.Commands().Push(c);
+			pushCommand(c);
 		}
 		campaign = Campaign(levelDef, 0, 1);
 		selection.clear();
 		gameState = GameState::Playing;
 	};
+
+	// M22：联机模式直接开始一局（无战役波次，双方各 1 个步兵）
+	if (netMode) {
+		const uint8_t myPlayer = netSession.LocalPlayerId();
+		sim = Simulation(MakeMap(), 0x2024, kRules);
+		sim.GetWorld().AddCredits(0, 2000);
+		sim.GetWorld().AddCredits(1, 2000);
+		campaign = Campaign(LevelDef(), 0, 1);
+		Command c;
+		c.type = CommandType::Spawn;
+		c.playerId = myPlayer;
+		c.x = (myPlayer == 0) ? 60 * kSubPerCell : 75 * kSubPerCell;
+		c.y = (myPlayer == 0) ? 60 * kSubPerCell : 75 * kSubPerCell;
+		c.targetId = 1; // infantry
+		localCmds.push_back(c);
+		gameState = GameState::Playing;
+	}
 
 	Camera camera;
 	camera.viewW = window.Width();
@@ -363,21 +419,21 @@ int main() {
 					cmd.x = center.x * kSubPerCell;
 					cmd.y = center.y * kSubPerCell;
 					cmd.targetId = 0;
-					sim.Commands().Push(cmd);
+					pushCommand(cmd);
 					audio.Play(Sfx::Build);
 				} else if (btnTank.Hit(mx, my) && idleBarracks != 0) {
 					Command cmd;
 					cmd.type = CommandType::Produce;
 					cmd.entityId = idleBarracks;
 					cmd.targetId = 2;
-					sim.Commands().Push(cmd);
+					pushCommand(cmd);
 					audio.Play(Sfx::Produce);
 				} else if (btnInfantry.Hit(mx, my) && idleBarracks != 0) {
 					Command cmd;
 					cmd.type = CommandType::Produce;
 					cmd.entityId = idleBarracks;
 					cmd.targetId = 1;
-					sim.Commands().Push(cmd);
+					pushCommand(cmd);
 					audio.Play(Sfx::Produce);
 				} else if (btnTurret.Hit(mx, my)) {
 					const CellCoord center = ScreenToCell(ScreenPos{static_cast<int32_t>(camera.centerX),
@@ -388,7 +444,7 @@ int main() {
 					cmd.x = center.x * kSubPerCell;
 					cmd.y = center.y * kSubPerCell;
 					cmd.targetId = 1; // turret
-					sim.Commands().Push(cmd);
+					pushCommand(cmd);
 					audio.Play(Sfx::Build);
 				}
 			} else {
@@ -434,7 +490,7 @@ int main() {
 						cmd.x = static_cast<int32_t>(mp.x / kTileW * 2) * kSubPerCell / 2;
 						cmd.y = static_cast<int32_t>(mp.y / kTileH * 2) * kSubPerCell / 2;
 					}
-					sim.Commands().Push(cmd);
+					pushCommand(cmd);
 				}
 			}
 			prevRight = right;
@@ -477,7 +533,7 @@ int main() {
 				Command cmd;
 				cmd.type = CommandType::Upgrade;
 				cmd.playerId = 0;
-				sim.Commands().Push(cmd);
+				pushCommand(cmd);
 				audio.Play(Sfx::Build);
 			}
 			prevU = uDown;
@@ -531,6 +587,22 @@ int main() {
 		// ---- 逻辑 tick ----
 		accumulator += dt;
 		while (accumulator >= tickDt) {
+			if (netMode) {
+				// M22：联机 —— host 跑战役，双方命令经锁步同步
+				if (netHost && !campaign.Finished()) {
+					CommandQueue waveQueue;
+					campaign.Update(sim.GetWorld(), waveQueue, sim.GetWorld().CurrentTick());
+					std::vector<Command> waveCmds;
+					waveQueue.Consume(waveCmds);
+					for (const auto& wc : waveCmds) localCmds.push_back(wc);
+				}
+				const auto merged = netSession.Step(sim.GetWorld().CurrentTick(), localCmds);
+				localCmds.clear();
+				for (const auto& mc : merged) sim.Commands().Push(mc);
+				sim.Step();
+				accumulator -= tickDt;
+				continue;
+			}
 			// 关卡：生成波次 + 判定胜负
 			if (!campaign.Finished()) {
 				campaign.Update(sim.GetWorld(), sim.Commands(), sim.GetWorld().CurrentTick());
