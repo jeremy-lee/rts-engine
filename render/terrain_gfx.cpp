@@ -26,20 +26,9 @@ struct Canvas {
 	int w = 0;
 	int ox = 0;
 
-	// 菱形判定（OpenRA 风格等距 tile）：|dx|/(W/2) + |dy|/(H/2) <= 1
-	static bool InDiamond(int x, int y) {
-		const float dx = (x < TerrainGfx::kTileW / 2)
-			? static_cast<float>(TerrainGfx::kTileW / 2 - x)
-			: static_cast<float>(x - TerrainGfx::kTileW / 2);
-		const float dy = (y < TerrainGfx::kTileH / 2)
-			? static_cast<float>(TerrainGfx::kTileH / 2 - y)
-			: static_cast<float>(y - TerrainGfx::kTileH / 2);
-		return (dx / (TerrainGfx::kTileW / 2.0f)) + (dy / (TerrainGfx::kTileH / 2.0f)) <= 1.0f;
-	}
-
+	// 矩形 tile（无缝铺贴）：等距投影下相邻格中心相距 (32,16)，矩形 64×32 会重叠但同色不可见
 	void Put(int x, int y, uint32_t c) {
 		if (x < 0 || y < 0 || x >= TerrainGfx::kTileW || y >= TerrainGfx::kTileH) return;
-		if (!InDiamond(x, y)) return; // 菱形外：透明
 		const size_t o = (static_cast<size_t>(y) * w + ox + x) * 4;
 		data[o + 0] = static_cast<uint8_t>((c >> 16) & 0xFF);
 		data[o + 1] = static_cast<uint8_t>((c >> 8) & 0xFF);
@@ -56,18 +45,12 @@ struct Canvas {
 void DrawGrass(Canvas& c) {
 	c.Fill(Rgb(58, 88, 42));
 	Noise n;
-	for (int i = 0; i < 260; ++i) {
+	// 低对比噪点（±4），避免菱形/矩形边界可见
+	for (int i = 0; i < 320; ++i) {
 		const int x = n.Range(TerrainGfx::kTileW);
 		const int y = n.Range(TerrainGfx::kTileH);
 		const int s = n.Range(3);
-		c.Put(x, y, s == 0 ? Rgb(70, 104, 50) : s == 1 ? Rgb(48, 74, 34) : Rgb(64, 94, 46));
-	}
-	// 草叶（短竖线）
-	for (int i = 0; i < 24; ++i) {
-		const int x = n.Range(TerrainGfx::kTileW);
-		const int y = n.Range(TerrainGfx::kTileH - 2);
-		c.Put(x, y, Rgb(92, 128, 62));
-		c.Put(x, y + 1, Rgb(80, 112, 54));
+		c.Put(x, y, s == 0 ? Rgb(61, 91, 44) : s == 1 ? Rgb(55, 85, 40) : Rgb(59, 89, 43));
 	}
 }
 
