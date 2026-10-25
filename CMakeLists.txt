@@ -101,6 +101,7 @@ if(WIN32)
         render/font.cpp
         render/assets.cpp
         render/cnc_assets.cpp
+        render/terrain_gfx.cpp
     )
     target_include_directories(rts_render PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/third_party)
     target_link_libraries(rts_render PUBLIC opengl32 gdi32 user32 rts_sim)

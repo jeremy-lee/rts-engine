@@ -1,0 +1,5 @@
+[init] cncOk=1 cncTex=3 atlasTex=2 atlas=256x64 map=192x192 entities=2
+[dbg] sprites=36866 cam=(0,3072) zoom=0.90 win=1280x720
+[dbg] sprite0 world=(-32,-16) screen=(640,-2405) cnc=7
+[uv] grass u0=0.0219 v0=0.8854 u1=0.0406 v1=0.9479
+[dbg2] terrain verts=0 unit verts=221196

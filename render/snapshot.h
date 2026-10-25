@@ -9,6 +9,7 @@
 #include "projection.h"
 #include "assets.h"
 #include "cnc_assets.h"
+#include "terrain_gfx.h"
 
 namespace rts {
 
@@ -58,15 +59,16 @@ struct RenderSnapshot {
 				s.worldY = static_cast<float>(p.y) - kTileH * 0.5f;
 				s.w = static_cast<float>(kTileW);
 				s.h = static_cast<float>(kTileH);
-				// M16/M17：地形用 C&C TMP tile（行 5）
-				CncSpriteId tid = CncSpriteId::Grass;
-				if (map.Water(c)) tid = CncSpriteId::Water;
-				else if (!map.Walkable(c)) tid = CncSpriteId::Sand;
-				else if (map.TerrainHeight(c) > 0) tid = CncSpriteId::Highland;
-				s.cncSprite = static_cast<int>(tid);
-				s.w = static_cast<float>(kTileW);
-				s.h = static_cast<float>(kTileH);
-				s.color = 0xFFFFFFFF; // 原色 tint
+				// 地形用程序化 64×32 纹理（与矩形网格 1:1）
+				TerrainKind tk = TerrainKind::Grass;
+				if (map.Water(c)) tk = TerrainKind::Water;
+				else if (!map.Walkable(c)) tk = TerrainKind::Rock;
+				else if (map.TerrainHeight(c) > 0) tk = TerrainKind::Highland;
+				s.spriteIndex = static_cast<int>(tk);
+				s.cncSprite = -1; // 地形不用 C&C 图集
+				s.w = static_cast<float>(TerrainGfx::kTileW);
+				s.h = static_cast<float>(TerrainGfx::kTileH);
+				s.color = 0xFFFFFFFF;
 				// 已探索但不可见：变暗
 				if (fog == 1 && !ignoreFog) {
 					const uint32_t a = s.color & 0xFF000000u;

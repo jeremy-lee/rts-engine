@@ -139,6 +139,11 @@ int main(int argc, char** argv) {
 	const auto atlasPixels = AssetAtlas::Build(atlasW, atlasH);
 	const uint32_t atlasTex = renderer.UploadTexture(atlasPixels, atlasW, atlasH);
 
+	// 地形纹理（程序化 64×32，与网格 1:1）
+	int terrW = 0, terrH = 0;
+	const auto terrPixels = TerrainGfx::Build(terrW, terrH);
+	const uint32_t terrainTex = renderer.UploadTexture(terrPixels, terrW, terrH);
+
 	// M16：C&C 素材图集（占位美术，OpenRA 提取）
 	std::vector<uint8_t> cncPixels;
 	int cncW = 0, cncH = 0;
@@ -646,8 +651,9 @@ int main(int argc, char** argv) {
 				}
 				unitBatch.AddSprite(s.worldX, s.worldY, s.w, s.h, u0, v0, u1, v1, tint);
 			} else if (!softwareMode && s.spriteIndex >= 0) {
+				// 地形：程序化 64×32 纹理（1:1）
 				float u0 = 0.0f, v0 = 0.0f, u1 = 1.0f, v1 = 1.0f;
-				AssetAtlas::GetUV(static_cast<SpriteId>(s.spriteIndex), u0, v0, u1, v1);
+				TerrainGfx::GetUV(static_cast<TerrainKind>(s.spriteIndex), u0, v0, u1, v1);
 				terrainBatch.AddSprite(s.worldX, s.worldY, s.w, s.h, u0, v0, u1, v1, s.color);
 			} else {
 				uint32_t color = s.color;
@@ -730,12 +736,10 @@ int main(int argc, char** argv) {
 			renderer.DrawScreenTextured(worldQuad, swTex);
 		} else {
 			renderer.BeginFrame(W, H);
+			// 地形用程序化纹理，单位用 C&C 图集
+			renderer.DrawTexturedBatch(terrainBatch.Vertices(), camera, terrainTex);
 			if (cncOk) {
-				// 地形与单位都来自 C&C 图集
-				renderer.DrawTexturedBatch(terrainBatch.Vertices(), camera, cncTex);
 				renderer.DrawTexturedBatch(unitBatch.Vertices(), camera, cncTex);
-			} else {
-				renderer.DrawTexturedBatch(terrainBatch.Vertices(), camera, atlasTex);
 			}
 		}
 		renderer.DrawScreenBatch(uiVerts);

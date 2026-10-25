@@ -93,12 +93,6 @@ Map MakeMap() {
 	Map map(192, 192, 0, kWalkable | kBuildable);
 	map.SetResourceAmount(CellCoord(30, 30), 12000);
 	map.SetResourceAmount(CellCoord(160, 160), 12000);
-	// 中间障碍带
-	for (int y = 80; y < 112; ++y) {
-		for (int x = 80; x < 112; ++x) {
-			if ((x + y) % 3 == 0) map.SetFlags(CellCoord(x, y), kBuildable);
-		}
-	}
 	return map;
 }
 
@@ -166,6 +160,11 @@ int main(int argc, char** argv) {
 	int cncW = 0, cncH = 0;
 	const bool cncOk = CncAtlas::Load("assets/cnc_atlas.png", cncPixels, cncW, cncH);
 	const uint32_t cncTex = cncOk ? renderer.UploadTexture(cncPixels, cncW, cncH) : 0;
+
+	// 地形纹理（程序化 64×32）
+	int terrW = 0, terrH = 0;
+	const auto terrPixels = TerrainGfx::Build(terrW, terrH);
+	const uint32_t terrainTex = renderer.UploadTexture(terrPixels, terrW, terrH);
 
 	VisualState vs = StartMatch(seed);
 
@@ -273,10 +272,16 @@ int main(int argc, char** argv) {
 		unitBatch.Begin();
 		for (const auto& s : snapshot.sprites) {
 			if (s.cncSprite >= 0 && cncOk) {
+				// 单位：RA 图集
 				float u0 = 0, v0 = 0, u1 = 1, v1 = 1;
 				CncAtlas::GetUV(static_cast<CncSpriteId>(s.cncSprite), (s.player == 1) ? 1 : 0,
 					s.facing, u0, v0, u1, v1);
 				unitBatch.AddSprite(s.worldX, s.worldY, s.w, s.h, u0, v0, u1, v1, s.color);
+			} else if (s.spriteIndex >= 0) {
+				// 地形：程序化 64×32 纹理（1:1）
+				float u0 = 0, v0 = 0, u1 = 1, v1 = 1;
+				TerrainGfx::GetUV(static_cast<TerrainKind>(s.spriteIndex), u0, v0, u1, v1);
+				terrainBatch.AddSprite(s.worldX, s.worldY, s.w, s.h, u0, v0, u1, v1, s.color);
 			} else {
 				terrainBatch.AddSolid(s.worldX, s.worldY, s.w, s.h, s.color);
 			}
@@ -300,11 +305,10 @@ int main(int argc, char** argv) {
 		ui::BuildPanel(uiVerts, ui::Rect{0, 0, static_cast<float>(W), 40}, 0xE0202020);
 
 		renderer.BeginFrame(W, H);
+		// 地形（程序化纹理）+ 单位（RA 图集）
+		renderer.DrawTexturedBatch(terrainBatch.Vertices(), camera, terrainTex);
 		if (cncOk) {
-			renderer.DrawTexturedBatch(terrainBatch.Vertices(), camera, cncTex);
 			renderer.DrawTexturedBatch(unitBatch.Vertices(), camera, cncTex);
-		} else {
-			renderer.DrawTexturedBatch(terrainBatch.Vertices(), camera, atlasTex);
 		}
 		renderer.DrawScreenBatch(uiVerts);
 
