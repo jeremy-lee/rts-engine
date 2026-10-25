@@ -78,10 +78,17 @@ bool MoveTowards(World& world, Actor& actor, SubCoord target) {
 	const CellCoord nc = next.ToCell();
 	if (world.GetMap().InBounds(nc) && world.GetMap().Walkable(nc) &&
 		!world.GetMap().Occupied(nc)) {
-		// 更新朝向（移动方向）
-		const int f = FacingFromDelta(next.x - actor.pos.x, next.y - actor.pos.y);
-		if (f >= 0) actor.movable.facing = static_cast<uint8_t>(f);
-		actor.movable.moving = true; // 实际移动 → 播放行走动画
+		// OpenRA 风格：先转向（TurnSpeed 逐 tick 转 45°），对准后才移动
+		const int targetFacing = FacingFromDelta(dx, dy);
+		if (targetFacing >= 0 && actor.movable.facing != targetFacing) {
+			int diff = (targetFacing - static_cast<int>(actor.movable.facing) + 8) % 8;
+			const int step = (diff <= 4) ? 1 : 7; // 最短方向转向
+			actor.movable.facing = static_cast<uint8_t>((static_cast<int>(actor.movable.facing) + step) % 8);
+			if (actor.movable.facing != targetFacing) {
+				return false; // 还在转向：本 tick 不移动（先转向）
+			}
+		}
+		actor.movable.moving = true;
 		actor.movable.lastMoveTick = world.CurrentTick();
 		actor.pos = next;
 		return false;
