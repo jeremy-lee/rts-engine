@@ -147,7 +147,7 @@ int main() {
 	std::vector<EntityId> selection;
 
 	// M14：渲染后端切换（F1 = GL / 软件渲染）
-	bool softwareMode = false;
+	bool softwareMode = true; // 默认软件渲染（M14）
 	uint32_t swTex = 0;
 	SoftwareRenderer swRenderer;
 	double swFrameMs = 0.0;
