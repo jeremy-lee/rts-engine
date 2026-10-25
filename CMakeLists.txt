@@ -17,6 +17,7 @@ endif()
 add_library(rts_sim STATIC
     sim/world.cpp
     sim/map.cpp
+    sim/activity.cpp
 )
 target_include_directories(rts_sim PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
@@ -33,6 +34,9 @@ add_executable(rts_tests
     tests/test_determinism.cpp
     tests/test_map.cpp
     tests/test_projection.cpp
+    tests/test_actor.cpp
+    tests/test_activity.cpp
+    tests/test_replay.cpp
 )
 target_link_libraries(rts_tests PRIVATE rts_sim)
 

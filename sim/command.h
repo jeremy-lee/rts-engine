@@ -12,7 +12,8 @@ enum class CommandType : uint8_t {
 	None = 0,
 	Spawn = 1,   // 生成实体（测试/编辑器用）
 	Move = 2,    // 移动到目标子格坐标
-	Stop = 3,
+	Stop = 3,    // 停止当前活动
+	Attack = 4,  // 攻击目标实体
 };
 
 #pragma pack(push, 1)

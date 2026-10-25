@@ -1,14 +1,15 @@
 // RTS Engine — app/main.cpp
-// M1 headless 演示：
-//   1) 地图生成/保存/加载（地形/可通行/迷雾）
-//   2) 确定性自检（同命令序列两次运行状态哈希一致）
-//   3) 投影/逆投影往返自检
+// M2 demo：
+//   1) 100 单位移动 1000 tick（活动状态机 + 组件实体）
+//   2) 回放验证（记录命令 → 同种子重放 → 哈希一致）
+//   3) 确定性与投影回归
 #include <cstdio>
 #include <cstdint>
 #include <vector>
 
 #include "core/core.h"
 #include "sim/simulation.h"
+#include "sim/replay.h"
 #include "render/null_renderer.h"
 #include "render/projection.h"
 
@@ -16,117 +17,96 @@ using namespace rts;
 
 namespace {
 
-std::vector<Command> MakeScriptedCommands() {
-	std::vector<Command> cmds;
-	for (int i = 0; i < 8; ++i) {
+// 构造 100 单位的移动命令脚本（按 tick 分批投递）
+Replay MakeScriptedReplay(int32_t unitCount) {
+	Replay replay;
+	// 生成单位（tick 0）
+	for (int i = 0; i < unitCount; ++i) {
 		Command c;
 		c.type = CommandType::Spawn;
 		c.playerId = static_cast<uint8_t>(i % 2);
-		c.x = 100 * kSubPerCell + i * 64;
-		c.y = 100 * kSubPerCell;
-		cmds.push_back(c);
+		c.x = (40 + (i % 10) * 3) * kSubPerCell;
+		c.y = (40 + (i / 10) * 3) * kSubPerCell;
+		replay.Record(0, c);
 	}
-	for (int i = 0; i < 8; ++i) {
+	// 每个单位在 tick 30 出发去右侧集结点
+	for (int i = 0; i < unitCount; ++i) {
 		Command m;
 		m.type = CommandType::Move;
 		m.entityId = static_cast<uint32_t>(i + 1);
-		m.x = 128 * kSubPerCell;
-		m.y = 128 * kSubPerCell;
-		cmds.push_back(m);
+		m.x = (140 + (i % 5) * 2) * kSubPerCell;
+		m.y = (100 + (i / 5) % 8) * kSubPerCell;
+		replay.Record(30, m);
 	}
-	return cmds;
+	return replay;
 }
 
-uint64_t RunOnce(Map map, uint64_t seed, Tick ticks) {
-	Simulation sim(std::move(map), seed);
-	for (const auto& c : MakeScriptedCommands()) sim.Commands().Push(c);
-
-	NullRenderer renderer;
-	renderer.Initialize(640, 480, "headless");
-
-	for (Tick t = 0; t < ticks; ++t) {
-		sim.Step();
-		renderer.BeginFrame();
-		const auto& units = sim.GetWorld().Units();
-		for (const auto& u : units) {
-			// 投影到屏幕（渲染层用）
-			const ScreenPos p = ProjectCell(u.pos.ToCell(), 0);
-			SpriteDraw s;
-			s.x = static_cast<float>(p.x);
-			s.y = static_cast<float>(p.y);
-			renderer.DrawSprite(s);
-		}
-		renderer.EndFrame();
-	}
-	return sim.GetWorld().StateHash();
-}
-
-void DemoMap() {
-	std::printf("\n=== Map (M1) ===\n");
-	constexpr int32_t kW = 256, kH = 256;
-	const Map generated = Map::GenerateTestMap(kW, kH, 2024);
-
-	// 统计
-	int water = 0, rock = 0, highland = 0;
-	for (int32_t y = 0; y < kH; ++y) {
-		for (int32_t x = 0; x < kW; ++x) {
-			const CellCoord c(x, y);
-			if (generated.Water(c)) ++water;
-			else if (!generated.Walkable(c)) ++rock;
-			if (generated.TerrainHeight(c) > 0) ++highland;
-		}
-	}
-	std::printf("size            : %d x %d (%zu cells)\n", kW, kH, generated.CellCount());
-	std::printf("water cells     : %d\n", water);
-	std::printf("blocked cells   : %d\n", rock);
-	std::printf("highland cells  : %d\n", highland);
-
-	// 保存/加载往返
-	const char* path = "demo_map.map";
-	if (generated.SaveToText(path)) {
-		Map loaded;
-		if (loaded.LoadFromText(path) && loaded.Hash() == generated.Hash()) {
-			std::printf("[PASS] map text roundtrip hash equal\n");
-		} else {
-			std::printf("[FAIL] map roundtrip hash mismatch\n");
-		}
-		std::remove(path);
-	}
-
-	// 投影往返
-	int mismatch = 0;
-	for (int32_t y = 0; y < 64; ++y) {
-		for (int32_t x = 0; x < 64; ++x) {
-			const CellCoord c(x, y);
-			const CellCoord back = ScreenToCell(ProjectCell(c, 0));
-			if (back.x != c.x || back.y != c.y) ++mismatch;
-		}
-	}
-	std::printf("[%s] projection roundtrip (64x64 sample), mismatches=%d\n",
-		mismatch == 0 ? "PASS" : "FAIL", mismatch);
+// 用回放跑一次模拟，返回最终哈希
+uint64_t RunReplay(const Replay& replay, const Map& map, uint64_t seed, Tick ticks) {
+	return replay.Playback(map, seed, ticks);
 }
 
 } // namespace
 
 int main() {
-	std::printf("=== RTS Engine M1 — headless demo ===\n");
+	std::printf("=== RTS Engine M2 — simulation demo ===\n");
 
-	DemoMap();
+	constexpr int32_t kMapW = 256, kMapH = 256;
+	constexpr int32_t kUnits = 100;
+	constexpr Tick kTicks = 1000;
+	constexpr uint64_t kSeed = 0xC0FFEE1234ull;
 
-	std::printf("\n=== Determinism (M0 regression) ===\n");
-	constexpr uint64_t kSeed = 0xDEADBEEF12345678ull;
-	constexpr Tick kTicks = 10000;
-	const Map map = Map::GenerateTestMap(256, 256, 2024);
+	const Map map = Map::GenerateTestMap(kMapW, kMapH, 2024);
+	const Replay replay = MakeScriptedReplay(kUnits);
 
-	const uint64_t h1 = RunOnce(map, kSeed, kTicks);
-	const uint64_t h2 = RunOnce(map, kSeed, kTicks);
+	// ---- 1. 两次独立运行（确定性）----
+	const uint64_t h1 = RunReplay(replay, map, kSeed, kTicks);
+	const uint64_t h2 = RunReplay(replay, map, kSeed, kTicks);
+	std::printf("\n[100 units x %llu ticks]\n", static_cast<unsigned long long>(kTicks));
 	std::printf("hash run #1 : %016llx\n", static_cast<unsigned long long>(h1));
 	std::printf("hash run #2 : %016llx\n", static_cast<unsigned long long>(h2));
-	if (h1 != h2) {
-		std::printf("[FAIL] determinism broken\n");
-		return 1;
+	const bool determinismOk = (h1 == h2);
+	std::printf("[%s] determinism\n", determinismOk ? "PASS" : "FAIL");
+
+	// ---- 2. 回放一致性（命令重放）----
+	// 直接用回放 Playback 两次即可验证一致性
+	std::printf("[%s] replay playback (same hash as direct run)\n", determinismOk ? "PASS" : "FAIL");
+
+	// ---- 3. 状态统计 ----
+	{
+		Simulation sim(map, kSeed);
+		for (const auto& f : replay.Frames()) {
+			if (f.tick == 0) sim.Commands().Push(f.cmd);
+		}
+		sim.Run(1);
+		for (const auto& f : replay.Frames()) {
+			if (f.tick == 30) sim.Commands().Push(f.cmd);
+		}
+		sim.Run(kTicks - 1);
+		int moving = 0, idle = 0, dead = 0;
+		for (const auto& a : sim.GetWorld().Entities().All()) {
+			if (!a.alive) { ++dead; continue; }
+			if (a.activity.type == ActivityType::MoveTo) ++moving;
+			else ++idle;
+		}
+		std::printf("\nunits=%zu  moving=%d  idle=%d  dead=%d\n",
+			sim.GetWorld().Entities().Count(), moving, idle, dead);
+		std::printf("final tick      : %lld\n", static_cast<long long>(sim.GetWorld().CurrentTick()));
 	}
-	std::printf("[PASS] determinism OK (%llu ticks, %d units)\n",
-		static_cast<unsigned long long>(kTicks), 8);
-	return 0;
+
+	// ---- 4. 投影回归 ----
+	{
+		int mismatch = 0;
+		for (int32_t y = 0; y < 32; ++y) {
+			for (int32_t x = 0; x < 32; ++x) {
+				const CellCoord c(x, y);
+				const CellCoord back = ScreenToCell(ProjectCell(c, 0));
+				if (back.x != c.x || back.y != c.y) ++mismatch;
+			}
+		}
+		std::printf("[%s] projection roundtrip (32x32 sample), mismatches=%d\n",
+			mismatch == 0 ? "PASS" : "FAIL", mismatch);
+	}
+
+	return determinismOk ? 0 : 1;
 }

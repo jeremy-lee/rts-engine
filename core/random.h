@@ -60,6 +60,16 @@ public:
 		return static_cast<int32>(lo + static_cast<int32>(Range(span)));
 	}
 
+	// 状态哈希（联机校验：RNG 状态必须一致）
+	uint64_t StateHash() const {
+		uint64_t h = 1469598103934665603ull;
+		for (int i = 0; i < 4; ++i) {
+			h ^= m_s[i];
+			h *= 1099511628211ull;
+		}
+		return h;
+	}
+
 private:
 	static constexpr uint64 RotL(uint64 x, int k) { return (x << k) | (x >> (64 - k)); }
 	uint64 m_s[4];
