@@ -96,13 +96,12 @@ public:
 		}
 	}
 
-	// 绘制尺寸 = 紧凑尺寸 × 放大倍数（小单位 5x 大建筑 2-3x，保证屏上视觉统一）
+	// OpenRA 语义：Sprite.Size = 帧 bounds 尺寸（1:1 像素），放大由相机 zoom 负责
 	static void GetSize(CncSpriteId id, int& w, int& h) {
-		int cw = 16, ch = 17;
+		int cw = 50, ch = 39;
 		GetContentSize(id, cw, ch);
-		const int scale = (cw >= 60) ? 2 : ((cw >= 30) ? 3 : 5);
-		w = cw * scale;
-		h = ch * scale;
+		w = cw;
+		h = ch;
 	}
 };
 

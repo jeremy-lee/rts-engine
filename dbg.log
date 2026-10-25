@@ -1,0 +1,6 @@
+[gl] GL_MAX_TEXTURE_SIZE = 32768
+[unit] cnc=0 x=-1241 y=1420 w=50 h=39 player=0 facing=0
+[unit] cnc=0 x=1191 y=2636 w=50 h=39 player=1 facing=0
+[dbg] cncOk=1 cncTex=3 terrainVerts=98304 unitVerts=12 sprites=16386
+[dbg] cncOk=1 cncTex=3 terrainVerts=98304 unitVerts=12 sprites=16386
+[dbg] cncOk=1 cncTex=3 terrainVerts=98304 unitVerts=12 sprites=16386

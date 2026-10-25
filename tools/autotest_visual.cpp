@@ -209,7 +209,7 @@ int main(int argc, char** argv) {
 		const ScreenPos c = ProjectCell(CellCoord(64, 64), 0);
 		camera.centerX = static_cast<float>(c.x);
 		camera.centerY = static_cast<float>(c.y);
-		camera.zoom = 0.8f;
+		camera.zoom = 1.6f; // sprite 1:1 像素，zoom 1.6 对应 1280 屏
 	}
 
 	auto last = std::chrono::steady_clock::now();
@@ -252,9 +252,9 @@ int main(int argc, char** argv) {
 				const float cy = (minY + maxY) * 0.5f;
 				camera.centerX += (cx - camera.centerX) * 0.08f;
 				camera.centerY += (cy - camera.centerY) * 0.08f;
-				// 自动缩放：包围盒 + 边距
-				const float bw = (maxX - minX) + 300.0f;
-				const float bh = (maxY - minY) + 220.0f;
+				// 自适应缩放：包围盒 + 边距（保证双方都在视野内）
+				const float bw = (maxX - minX) + 260.0f;
+				const float bh = (maxY - minY) + 200.0f;
 				float z = std::min(static_cast<float>(W) / bw, static_cast<float>(H) / bh) * 0.95f;
 				z = std::max(0.3f, std::min(1.4f, z));
 				camera.zoom += (z - camera.zoom) * 0.05f;
@@ -386,6 +386,7 @@ int main(int argc, char** argv) {
 		if (cncOk) {
 			renderer.DrawTexturedBatch(unitBatch.Vertices(), camera, cncTex);
 		}
+
 		renderer.DrawScreenBatch(uiVerts);
 
 		// 文字
