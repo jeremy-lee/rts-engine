@@ -40,7 +40,7 @@ units:
     name: "采矿车"
     cost: 100
     hp: 150
-    speed: 28
+    speed: 120
     harvester: true
     weapon:
       damage: 0
@@ -51,7 +51,7 @@ units:
     cost: 50
     buildTime: 10
     hp: 100
-    speed: 32
+    speed: 160
     weapon:
       damage: 10
       range: 4096
@@ -61,7 +61,7 @@ units:
     cost: 150
     buildTime: 30
     hp: 300
-    speed: 20
+    speed: 100
     weapon:
       damage: 25
       range: 5120
@@ -298,7 +298,7 @@ int main(int argc, char** argv) {
 		const ScreenPos c = ProjectCell(CellCoord(60, 60), 0);
 		camera.centerX = static_cast<float>(c.x);
 		camera.centerY = static_cast<float>(c.y);
-		camera.zoom = 1.0f;
+		camera.zoom = 1.8f;
 	}
 
 	// M14：渲染后端切换（F1 = GL / 软件渲染）
@@ -341,6 +341,13 @@ int main(int argc, char** argv) {
 		const float my = static_cast<float>(window.MouseY());
 
 		// ---- 相机 ----
+		{
+			// OpenRA Viewport.ClampToBounds：限制相机在地图内
+			const int32_t mw = sim.GetWorld().Width();
+			const int32_t mh = sim.GetWorld().Height();
+			camera.ClampToBounds(static_cast<float>(mw) * -16.0f, 0.0f,
+				static_cast<float>(mw) * 16.0f, static_cast<float>(mw + mh) * 16.0f);
+		}
 		const float panSpeed = 500.0f * static_cast<float>(dt) / camera.zoom;
 		if (window.IsKeyDown('W') || window.IsKeyDown(VK_UP)) camera.centerY -= panSpeed;
 		if (window.IsKeyDown('S') || window.IsKeyDown(VK_DOWN)) camera.centerY += panSpeed;
