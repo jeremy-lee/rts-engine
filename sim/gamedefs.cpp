@@ -49,6 +49,14 @@ Rules Rules::FromYAML(const std::string& text) {
 		}
 	}
 
+	// upgrade（M19）
+	if (const DataNode* up = root.GetNode("upgrade"); up && up->IsMap()) {
+		rules.upgrade.cost = up->GetInt("cost", 300);
+		rules.upgrade.attack = up->GetInt("attack", 5);
+		rules.upgrade.hp = up->GetInt("hp", 50);
+		rules.upgrade.speed = up->GetInt("speed", 2);
+	}
+
 	// buildings: { id: {name, cost, buildTime, hp, width, height, produces:[...]} }
 	if (const DataNode* bNode = root.GetNode("buildings"); bNode && bNode->IsMap()) {
 		for (const auto& kv : bNode->map) {

@@ -176,6 +176,27 @@ void World::ApplyCommand(const Command& cmd) {
 			m_map.SetFootprint(origin, fw, fh, id);
 			break;
 		}
+		case CommandType::Upgrade: {
+			// M19：科技升级（攻/防/速，扣资源）
+			const UpgradeDef& def = m_rules.upgrade;
+			if (!SpendCredits(cmd.playerId, def.cost)) break;
+			UpgradeState& up = m_upgrades[cmd.playerId];
+			up.attackBonus += def.attack;
+			up.hpBonus += def.hp;
+			up.speedBonus += def.speed;
+			// 应用到现有单位
+			for (auto& a : m_entities.All()) {
+				if (!a.alive || a.playerId != cmd.playerId) continue;
+				if (a.Has(kCompArmament)) a.armament.damage += def.attack;
+				if (a.Has(kCompHealth)) {
+					a.health.maxHp += def.hp;
+					a.health.hp += def.hp;
+				}
+				if (a.Has(kCompMovable)) a.movable.speed += def.speed;
+			}
+			break;
+		}
+
 		case CommandType::Produce: {
 			Actor* a = m_entities.Get(cmd.entityId);
 			if (a == nullptr || !a->Has(kCompBuilding)) break;

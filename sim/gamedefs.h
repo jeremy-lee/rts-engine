@@ -45,9 +45,18 @@ struct BuildingDef {
 	int32_t numericId = -1;
 };
 
+// 科技升级定义（M19）
+struct UpgradeDef {
+	int32_t cost = 300;
+	int32_t attack = 5;   // +伤害
+	int32_t hp = 50;      // +最大生命
+	int32_t speed = 2;    // +速度
+};
+
 struct Rules {
 	std::map<std::string, UnitDef> units;
 	std::map<std::string, BuildingDef> buildings;
+	UpgradeDef upgrade; // M19：科技升级
 
 	// 数字 id → 定义（按加载顺序分配）
 	std::vector<std::string> unitIds;

@@ -63,6 +63,11 @@ units:
       damage: 25
       range: 5120
       cooldown: 30
+upgrade:
+  cost: 300
+  attack: 5
+  hp: 50
+  speed: 2
 buildings:
   turret:
     name: "防御塔"
@@ -404,6 +409,20 @@ int main() {
 				}
 			}
 			prevRight = right;
+		}
+
+		// ---- 科技升级（U）----
+		{
+			static bool prevU = false;
+			const bool uDown = window.IsKeyDown('U');
+			if (uDown && !prevU && credits >= 300) {
+				Command cmd;
+				cmd.type = CommandType::Upgrade;
+				cmd.playerId = 0;
+				sim.Commands().Push(cmd);
+				audio.Play(Sfx::Build);
+			}
+			prevU = uDown;
 		}
 
 		// ---- 全揭示切换（F2）----

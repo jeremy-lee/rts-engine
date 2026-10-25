@@ -48,6 +48,14 @@ public:
 
 	// ---- 经济（M5）----
 	int32_t Credits(int player) const { return (player < 2) ? m_credits[player] : 0; }
+
+	// ---- 科技升级（M19）----
+	struct UpgradeState {
+		int32_t attackBonus = 0;
+		int32_t hpBonus = 0;
+		int32_t speedBonus = 0;
+	};
+	const UpgradeState& Upgrades(int player) const { return m_upgrades[player < 2 ? player : 0]; }
 	bool SpendCredits(int player, int32_t amount);
 	void AddCredits(int player, int32_t amount);
 
@@ -79,6 +87,7 @@ public:
 
 private:
 	std::vector<AttackFx> m_attackFx;
+	UpgradeState m_upgrades[2];
 
 	Map m_map;
 	EntityStore m_entities;
