@@ -1,3 +1,5 @@
+[unit] cnc=0 x=-1244 y=1412 w=56 h=56 player=0 facing=0
+[unit] cnc=0 x=1188 y=2628 w=56 h=56 player=1 facing=0
 [shot] shot_0090.bmp
 [shot] shot_0300.bmp
 [shot] shot_0600.bmp

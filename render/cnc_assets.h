@@ -65,39 +65,38 @@ public:
 		}
 		const float texW = static_cast<float>(kCols * kCellW);
 		const float texH = static_cast<float>(kRows * kCellH);
-		// 地形 tile：只取格子中心 24×24 区域（TMP tile 原始尺寸）
-		if (row == 5) {
-			const int tw = 24, th = 24;
-			const int ox = col * kCellW + (kCellW - tw) / 2;
-			const int oy = row * kCellH + (kCellH - th) / 2;
-			u0 = static_cast<float>(ox) / texW;
-			v0 = static_cast<float>(oy) / texH;
-			u1 = static_cast<float>(ox + tw) / texW;
-			v1 = static_cast<float>(oy + th) / texH;
-			return;
-		}
-		u0 = static_cast<float>(col * kCellW) / texW;
-		v0 = static_cast<float>(row * kCellH) / texH;
-		u1 = static_cast<float>((col + 1) * kCellW) / texW;
-		v1 = static_cast<float>((row + 1) * kCellH) / texH;
+		// 只取格子中心的内容区域（精灵是紧凑帧，居中放置）
+		int tw = 16, th = 16;
+		GetContentSize(id, tw, th);
+		const int ox = col * kCellW + (kCellW - tw) / 2;
+		const int oy = row * kCellH + (kCellH - th) / 2;
+		u0 = static_cast<float>(ox) / texW;
+		v0 = static_cast<float>(oy) / texH;
+		u1 = static_cast<float>(ox + tw) / texW;
+		v1 = static_cast<float>(oy + th) / texH;
 	}
 
-	// 绘制尺寸：RA 原版单位（16x20），按内容尺寸放大以在 1280x720 下清晰
-	static void GetSize(CncSpriteId id, int& w, int& h) {
+	// 图集里精灵的紧凑内容尺寸（--nopadding 帧真实大小）
+	static void GetContentSize(CncSpriteId id, int& w, int& h) {
 		switch (id) {
-			case CncSpriteId::Infantry:  w = 16 * 4; h = 20 * 4; break; // 64x80
-			case CncSpriteId::Rocket:    w = 16 * 4; h = 20 * 4; break; // 64x80
-			case CncSpriteId::Tank:      w = 16 * 4; h = 20 * 4; break; // 64x80
-			case CncSpriteId::LightTank: w = 14 * 4; h = 18 * 4; break; // 56x72
-			case CncSpriteId::Harvester: w = 28 * 3; h = 28 * 3; break; // 84x84
-			case CncSpriteId::Barracks:  w = 48 * 2; h = 42 * 2; break; // 96x84
-			case CncSpriteId::Factory:   w = 72 * 2; h = 26 * 2; break; // 144x52
-			case CncSpriteId::Grass:     w = 64; h = 32; break;         // 地形 tile
-			case CncSpriteId::Water:     w = 64; h = 32; break;
-			case CncSpriteId::Sand:      w = 64; h = 32; break;
-			case CncSpriteId::Highland:  w = 64; h = 32; break;
-			default: w = 48; h = 48; break;
+			case CncSpriteId::Infantry:  w = 14; h = 14; break;
+			case CncSpriteId::Rocket:    w = 12; h = 14; break;
+			case CncSpriteId::Tank:      w = 16; h = 20; break;
+			case CncSpriteId::LightTank: w = 14; h = 18; break;
+			case CncSpriteId::Harvester: w = 24; h = 26; break;
+			case CncSpriteId::Barracks:  w = 48; h = 40; break;
+			case CncSpriteId::Factory:   w = 72; h = 26; break;
+			default: w = 16; h = 16; break;
 		}
+	}
+
+	// 绘制尺寸 = 内容尺寸 × 放大倍数（像素艺术放大后清晰）
+	static void GetSize(CncSpriteId id, int& w, int& h) {
+		int cw = 16, ch = 16;
+		GetContentSize(id, cw, ch);
+		const int scale = (cw >= 40) ? 2 : 4; // 建筑 2x，单位 4x
+		w = cw * scale;
+		h = ch * scale;
 	}
 };
 
