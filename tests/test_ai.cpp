@@ -130,7 +130,7 @@ TEST(ai_attacks_enemy) {
 	CHECK(enemy != 0);
 	const int32_t hpBefore = sim.GetWorld().Entities().Get(enemy)->health.hp;
 
-	sim.Run(1500);
+	sim.Run(2500); // 集结 + 推进需要更多时间
 	const int32_t hpAfter = sim.GetWorld().Entities().Get(enemy)->health.hp;
 	CHECK(hpAfter < hpBefore);
 }

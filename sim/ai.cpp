@@ -176,22 +176,76 @@ void AIPlayer::Update(World& world, CommandQueue& queue) {
 		}
 	}
 
-	// ---- 5. 进攻：兵力足够时集结攻击 ----
-	if (combatCount >= 4 && now - m_lastAttack >= kAIAttackInterval) {
-		m_lastAttack = now;
-		const EntityId target = FindNearestEnemy(world, basePos);
-		if (target != kInvalidEntity) {
-			for (const auto& a : world.Entities().All()) {
-				if (!a.alive || a.playerId != m_playerId) continue;
-				if (a.Has(kCompBuilding) || a.Has(kCompHarvester)) continue;
-				if (!a.Has(kCompArmament) || a.armament.damage <= 0) continue;
-				Command atk;
-				atk.type = CommandType::Attack;
-				atk.entityId = a.id;
-				atk.targetId = target;
-				queue.Push(atk);
+	// ---- 5. 集结进攻（OpenRA SquadManagerBotModule 风格）----
+	//    兵力 >= 4：先所有战斗单位向集结点靠拢，集结完成后再整队推进
+	if (combatCount >= 4) {
+		const EntityId enemy = FindNearestEnemy(world, basePos);
+		if (m_phase == AIPhase::Gather) {
+			// 集结点固定（只在进入 Gather 时算一次，避免目标漂移）
+			if (!m_rallySet) {
+				CellCoord rally = basePos.ToCell();
+				if (enemy != kInvalidEntity) {
+					const Actor* e = world.Entities().Get(enemy);
+					if (e != nullptr) {
+						const CellCoord ec = e->pos.ToCell();
+						const CellCoord bc = basePos.ToCell();
+						const int32_t ddx = ec.x - bc.x;
+						const int32_t ddy = ec.y - bc.y;
+						const int32_t adx = (ddx < 0) ? -ddx : ddx;
+						const int32_t ady = (ddy < 0) ? -ddy : ddy;
+						const int32_t len = (adx > ady) ? (adx > 1 ? adx : 1) : (ady > 1 ? ady : 1);
+						rally.x = bc.x + ddx * 8 / len;
+						rally.y = bc.y + ddy * 8 / len;
+					}
+				}
+				m_rally = Map::FindNearestWalkable(world.GetMap(), rally);
+				m_rallySet = true;
+				m_gatherTick = now;
 			}
+			// 集结：所有战斗单位一次性向集结点移动（不重发，避免抖动）
+			if (now - m_gatherTick < 120) {
+				for (const auto& a : world.Entities().All()) {
+					if (!a.alive || a.playerId != m_playerId) continue;
+					if (a.Has(kCompBuilding) || a.Has(kCompHarvester)) continue;
+					if (!a.Has(kCompArmament) || a.armament.damage <= 0) continue;
+					const CellCoord ac = a.pos.ToCell();
+					const int32_t ddx = ac.x - m_rally.x;
+					const int32_t ddy = ac.y - m_rally.y;
+					if (ddx * ddx + ddy * ddy > 9) {
+						Command mv;
+						mv.type = CommandType::Move;
+						mv.entityId = a.id;
+						mv.x = m_rally.x * kSubPerCell;
+						mv.y = m_rally.y * kSubPerCell;
+						queue.Push(mv);
+					}
+				}
+			}
+			// 集结 4 秒（120 tick）后整队推进
+			if (now - m_gatherTick >= 120) {
+				m_phase = AIPhase::Attack;
+				m_rallySet = false;
+			}
+		} else {
+			// 推进：整队攻击最近敌人
+			if (enemy != kInvalidEntity && now - m_lastAttack >= kAIAttackInterval) {
+				m_lastAttack = now;
+				for (const auto& a : world.Entities().All()) {
+					if (!a.alive || a.playerId != m_playerId) continue;
+					if (a.Has(kCompBuilding) || a.Has(kCompHarvester)) continue;
+					if (!a.Has(kCompArmament) || a.armament.damage <= 0) continue;
+					Command atk;
+					atk.type = CommandType::Attack;
+					atk.entityId = a.id;
+					atk.targetId = enemy;
+					queue.Push(atk);
+				}
+			}
+			// 兵力不足 → 回到集结
+			if (combatCount < 2) m_phase = AIPhase::Gather;
 		}
+	} else {
+		m_phase = AIPhase::Gather; // 兵力不足时回到集结状态
 	}
 }
 

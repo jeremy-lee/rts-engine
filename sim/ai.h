@@ -30,10 +30,17 @@ private:
 	// 找自己的建筑（基地）
 	EntityId FindMainBuilding(const World& world) const;
 
+	// OpenRA SquadManagerBotModule 风格：先集结再推进
+	enum class AIPhase : uint8_t { Gather, Attack };
+
 	uint8_t m_playerId = 0;
 	Rng m_rng;
 	Tick m_lastDecision = -1;
 	Tick m_lastAttack = -1;
+	AIPhase m_phase = AIPhase::Gather;
+	CellCoord m_rally;      // 固定集结点（避免目标漂移）
+	bool m_rallySet = false;
+	Tick m_gatherTick = 0;  // 集结开始时间
 };
 
 // 固定决策间隔（tick）
