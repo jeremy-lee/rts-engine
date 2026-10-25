@@ -1,8 +1,13 @@
 // RTS Engine — sim/world.cpp
-// World 实现（M0 最小模拟：生成/移动/停止 + 状态哈希）
 #include "world.h"
 
 namespace rts {
+
+World::World(int32_t width, int32_t height, uint64_t seed)
+	: m_map(width, height, 0, kWalkable | kBuildable), m_rng(seed) {}
+
+World::World(Map map, uint64_t seed)
+	: m_map(std::move(map)), m_rng(seed) {}
 
 void World::ApplyCommand(const Command& cmd) {
 	switch (cmd.type) {
@@ -12,7 +17,7 @@ void World::ApplyCommand(const Command& cmd) {
 			u.playerId = cmd.playerId;
 			u.pos = SubCoord(cmd.x, cmd.y);
 			u.target = u.pos;
-			u.speed = 32; // 32 子格/tick = 32/1024 格/tick ≈ 0.94 格/秒（30Hz 下）
+			u.speed = 32; // 32 子格/tick
 			m_units.push_back(u);
 			break;
 		}
@@ -44,21 +49,33 @@ void World::MoveUnits() {
 			u.moving = false;
 			continue;
 		}
-		// 整数步进：每个 tick 最多走 speed 子格（沿直线，整数运算）
 		const int64_t step = static_cast<int64_t>(u.speed) * u.speed;
 		if (dist <= step) {
+			// 到达前检查目标格可通行（M1）
+			const CellCoord tc = u.target.ToCell();
+			if (!m_map.InBounds(tc) || !m_map.Walkable(tc)) {
+				u.moving = false;
+				continue;
+			}
 			u.pos = u.target;
 			u.moving = false;
 			continue;
 		}
-		// 归一化方向（整数近似）：dir = (dx, dy) / |d| * speed
 		const int64_t d = static_cast<int64_t>(Isqrt(static_cast<uint64_t>(dist)));
 		if (d == 0) { u.moving = false; continue; }
 		const int64_t sx = (static_cast<int64_t>(dx) * u.speed) / d;
 		const int64_t sy = (static_cast<int64_t>(dy) * u.speed) / d;
-		// 防止因取整为零导致卡住
-		u.pos.x += static_cast<int32_t>(sx != 0 ? sx : (dx > 0 ? 1 : -1));
-		u.pos.y += static_cast<int32_t>(sy != 0 ? sy : (dy > 0 ? 1 : -1));
+
+		// 落点格不可通行则停止（M1 简化碰撞：仅检查落点）
+		SubCoord next(
+			u.pos.x + static_cast<int32_t>(sx != 0 ? sx : (dx > 0 ? 1 : -1)),
+			u.pos.y + static_cast<int32_t>(sy != 0 ? sy : (dy > 0 ? 1 : -1)));
+		const CellCoord nc = next.ToCell();
+		if (m_map.InBounds(nc) && m_map.Walkable(nc)) {
+			u.pos = next;
+		} else {
+			u.moving = false;
+		}
 	}
 }
 
@@ -79,8 +96,7 @@ uint64_t World::StateHash() const {
 		h *= 1099511628211ull;
 	};
 	mix(static_cast<uint64_t>(m_tick));
-	mix(static_cast<uint64_t>(m_width));
-	mix(static_cast<uint64_t>(m_height));
+	mix(m_map.Hash());
 	mix(static_cast<uint64_t>(m_units.size()));
 	for (const auto& u : m_units) {
 		mix(u.id);

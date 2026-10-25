@@ -1,6 +1,7 @@
 // RTS Engine — sim/world.h
-// 世界：固定步长模拟的唯一状态容器。M0 版本聚焦「确定性验证」：
-// 单位直线移动 + 状态哈希 + 命令驱动，足以证明地基正确。
+// 世界：固定步长模拟的唯一状态容器。
+// M0：单位直线移动 + 状态哈希（确定性验证）。
+// M1：接入 Map（地形/可通行/迷雾），移动受地形约束。
 #pragma once
 
 #include <cstdint>
@@ -8,6 +9,7 @@
 #include "core/core.h"
 #include "command.h"
 #include "command_queue.h"
+#include "map.h"
 
 namespace rts {
 
@@ -23,14 +25,16 @@ struct Unit {
 
 class World {
 public:
-	World(int32_t width, int32_t height, uint64_t seed)
-		: m_width(width), m_height(height), m_rng(seed) {}
+	World(int32_t width, int32_t height, uint64_t seed);
+	World(Map map, uint64_t seed);
 
 	// ---- 查询 ----
-	int32_t Width() const { return m_width; }
-	int32_t Height() const { return m_height; }
+	int32_t Width() const { return m_map.Width(); }
+	int32_t Height() const { return m_map.Height(); }
 	Tick CurrentTick() const { return m_tick; }
 	const std::vector<Unit>& Units() const { return m_units; }
+	const Map& GetMap() const { return m_map; }
+	Map& GetMap() { return m_map; }
 	Rng& Random() { return m_rng; }
 
 	Unit* FindUnit(uint32_t id) {
@@ -52,8 +56,7 @@ public:
 private:
 	void MoveUnits();
 
-	int32_t m_width = 0;
-	int32_t m_height = 0;
+	Map m_map;
 	Tick m_tick = 0;
 	Rng m_rng;
 	std::vector<Unit> m_units;

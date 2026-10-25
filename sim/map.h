@@ -1,0 +1,78 @@
+// RTS Engine — sim/map.h
+// 地图：地形层（高度/可通行/可建造）+ 迷雾数据层 + 文本序列化。
+// 设计：地图是纯数据（不依赖渲染），坐标一律使用 CellCoord。
+#pragma once
+
+#include <cstdint>
+#include <string>
+#include "core/core.h"
+
+namespace rts {
+
+// 地形标志位
+enum TerrainFlags : uint8_t {
+	kWalkable = 1 << 0,   // 地面单位可通过
+	kBuildable = 1 << 1,  // 可建造
+	kWater = 1 << 2,      // 水域（不可通行）
+};
+
+class Map {
+public:
+	Map() = default;
+	Map(int32_t width, int32_t height, uint8_t fillHeight = 0,
+		uint8_t fillFlags = kWalkable | kBuildable);
+
+	// ---- 尺寸 ----
+	int32_t Width() const { return m_width; }
+	int32_t Height() const { return m_height; }
+	bool InBounds(CellCoord c) const { return m_heightLayer.InBounds(c); }
+	size_t CellCount() const { return m_heightLayer.CellCount(); }
+
+	// ---- 地形查询 ----
+	uint8_t TerrainHeight(CellCoord c) const { return m_heightLayer.Get(c); }
+	uint8_t Flags(CellCoord c) const { return m_flags.Get(c, 0); }
+	bool Walkable(CellCoord c) const { return (Flags(c) & kWalkable) != 0; }
+	bool Buildable(CellCoord c) const { return (Flags(c) & kBuildable) != 0; }
+	bool Water(CellCoord c) const { return (Flags(c) & kWater) != 0; }
+
+	// ---- 地形修改 ----
+	void SetTerrainHeight(CellCoord c, uint8_t h) { m_heightLayer.Set(c, h); }
+	void SetFlags(CellCoord c, uint8_t f) { m_flags.Set(c, f); }
+	void SetWalkable(CellCoord c, bool v) {
+		uint8_t f = Flags(c);
+		f = v ? (f | kWalkable) : (f & ~kWalkable);
+		SetFlags(c, f);
+	}
+	void SetBuildable(CellCoord c, bool v) {
+		uint8_t f = Flags(c);
+		f = v ? (f | kBuildable) : (f & ~kBuildable);
+		SetFlags(c, f);
+	}
+
+	// ---- 迷雾（0=可见, 255=未探索）----
+	uint8_t Fog(CellCoord c) const { return m_fog.Get(c, 255); }
+	void SetFog(CellCoord c, uint8_t v) { m_fog.Set(c, v); }
+
+	// ---- 序列化：文本格式（可读、可 diff、便于测试）----
+	// 格式：
+	//   RTSMAP 1
+	//   <width> <height>
+	//   每格一行：<height> <flags> <fog>
+	bool LoadFromText(const std::string& path);
+	bool SaveToText(const std::string& path) const;
+
+	// ---- 测试地图生成（确定性，给定 seed 可复现）----
+	static Map GenerateTestMap(int32_t width, int32_t height, uint64_t seed);
+
+	// ---- 确定性哈希 ----
+	uint64_t Hash() const;
+
+private:
+	int32_t m_width = 0;
+	int32_t m_height = 0;
+	CellLayer<uint8_t> m_heightLayer; // 地形高度 0..255
+	CellLayer<uint8_t> m_flags;       // TerrainFlags 位集
+	CellLayer<uint8_t> m_fog;         // 迷雾 0..255
+};
+
+} // namespace rts

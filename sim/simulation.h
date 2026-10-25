@@ -11,6 +11,9 @@ public:
 	Simulation(int32_t mapW, int32_t mapH, uint64_t seed)
 		: m_world(mapW, mapH, seed) {}
 
+	Simulation(Map map, uint64_t seed)
+		: m_world(std::move(map), seed) {}
+
 	World& GetWorld() { return m_world; }
 	CommandQueue& Commands() { return m_commands; }
 
