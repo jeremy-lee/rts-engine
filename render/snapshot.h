@@ -33,6 +33,8 @@ struct RenderSprite {
 struct RenderEffect {
 	float fromX = 0, fromY = 0; // 世界坐标
 	float toX = 0, toY = 0;
+	uint8_t kind = 0; // 0=tracer（曳光）, 1=impact（命中）, 2=death（爆炸）
+	uint8_t age = 0;  // 特效老化（tick，用于淡出/扩散）
 };
 
 struct RenderSnapshot {
@@ -95,15 +97,33 @@ struct RenderSnapshot {
 				snap.sprites.push_back(s);
 		}
 
-		// 攻击特效（世界坐标）
+		// 攻击特效（世界坐标，子格精度）：曳光 + 命中火花
 		for (const auto& fx : world.AttackFxList()) {
-			const ScreenPos f = ProjectCell(fx.from.ToCell(), 0);
-			const ScreenPos t = ProjectCell(fx.to.ToCell(), 0);
+			const ScreenPos f = ProjectSub(fx.from, 0);
+			const ScreenPos t = ProjectSub(fx.to, 0);
 			RenderEffect e;
 			e.fromX = static_cast<float>(f.x);
 			e.fromY = static_cast<float>(f.y);
 			e.toX = static_cast<float>(t.x);
 			e.toY = static_cast<float>(t.y);
+			e.kind = 0;
+			snap.effects.push_back(e);
+			RenderEffect imp;
+			imp.fromX = imp.toX = static_cast<float>(t.x);
+			imp.fromY = imp.toY = static_cast<float>(t.y);
+			imp.kind = 1;
+			snap.effects.push_back(imp);
+		}
+		// 死亡爆炸（15 tick 内扩散淡出）
+		for (const auto& d : world.DeathFxList()) {
+			const Tick age = world.CurrentTick() - d.tick;
+			if (age < 0 || age > 15) continue;
+			const ScreenPos p = ProjectSub(d.pos, 0);
+			RenderEffect e;
+			e.fromX = e.toX = static_cast<float>(p.x);
+			e.fromY = e.toY = static_cast<float>(p.y);
+			e.kind = 2;
+			e.age = static_cast<uint8_t>(age);
 			snap.effects.push_back(e);
 		}
 

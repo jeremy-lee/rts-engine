@@ -713,6 +713,41 @@ int main(int argc, char** argv) {
 		terrainBatch.End();
 		unitBatch.End();
 
+		// ---- VFX：曳光 / 命中 / 死亡爆炸 ----
+		std::vector<SpriteVertex> fxVerts;
+		for (const auto& e : snapshot.effects) {
+			if (e.kind == 0) {
+				for (int i = 1; i <= 6; ++i) {
+					const float t = static_cast<float>(i) / 7.0f;
+					const float wx = e.fromX + (e.toX - e.fromX) * t;
+					const float wy = e.fromY + (e.toY - e.fromY) * t;
+					float sx = 0, sy = 0;
+					camera.WorldToScreen(wx, wy, sx, sy);
+					ui::BuildPanel(fxVerts, ui::Rect{sx - 2, sy - 2, 4, 4}, 0xFFFFC040u);
+				}
+			} else if (e.kind == 1) {
+				float sx = 0, sy = 0;
+				camera.WorldToScreen(e.toX, e.toY, sx, sy);
+				ui::BuildPanel(fxVerts, ui::Rect{sx - 4, sy - 1, 8, 3}, 0xFFFFE080u);
+				ui::BuildPanel(fxVerts, ui::Rect{sx - 1, sy - 4, 3, 8}, 0xFFFFE080u);
+			} else {
+				const float r = 5.0f + static_cast<float>(e.age) * 1.6f;
+				const uint8_t fade = static_cast<uint8_t>(255 - e.age * 12);
+				const uint32_t col = (static_cast<uint32_t>(fade) << 24) | 0xFF8020u;
+				float sx = 0, sy = 0;
+				camera.WorldToScreen(e.fromX, e.fromY, sx, sy);
+				for (int i = 0; i < 8; ++i) {
+					const float ang = static_cast<float>(i) * 0.7853982f;
+					const float px = sx + r * std::cos(ang);
+					const float py = sy + r * std::sin(ang) * 0.5f;
+					ui::BuildPanel(fxVerts, ui::Rect{px - 2, py - 2, 4, 4}, col);
+				}
+			}
+		}
+		if (!fxVerts.empty()) {
+			renderer.DrawScreenBatch(fxVerts);
+		}
+
 		// ---- 渲染：UI ----
 		std::vector<SpriteVertex> uiVerts;
 		ui::BuildPanel(uiVerts, ui::Rect{0, 0, static_cast<float>(W), topBarH}, 0xE6202020);

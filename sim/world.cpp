@@ -368,6 +368,7 @@ void World::Advance(CommandQueue& queue) {
 		ApplyCommand(c);
 	}
 	ClearAttackFx();
+	PruneDeathFx(m_tick);
 	TickActors();
 	TickEconomy();
 	ApplySeparation();

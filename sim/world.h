@@ -23,6 +23,12 @@ struct AttackFx {
 	SubCoord to;
 };
 
+// 死亡特效（位置 + 触发 tick，供渲染层做爆炸/淡出）
+struct DeathFx {
+	SubCoord pos;
+	Tick tick = 0;
+};
+
 // 单位路径：格子序列 + 当前索引
 struct UnitPath {
 	std::vector<CellCoord> cells;
@@ -88,9 +94,16 @@ public:
 	void AddAttackFx(const SubCoord& from, const SubCoord& to) { m_attackFx.push_back(AttackFx{from, to}); }
 	const std::vector<AttackFx>& AttackFxList() const { return m_attackFx; }
 	void ClearAttackFx() { m_attackFx.clear(); }
+	void AddDeathFx(const SubCoord& pos, Tick tick) { m_deathFx.push_back(DeathFx{pos, tick}); }
+	const std::vector<DeathFx>& DeathFxList() const { return m_deathFx; }
+	// 清理过期死亡特效（保留 60 tick，渲染只需 15）
+	void PruneDeathFx(Tick now) {
+		std::erase_if(m_deathFx, [now](const DeathFx& d) { return now - d.tick > 60; });
+	}
 
 private:
 	std::vector<AttackFx> m_attackFx;
+	std::vector<DeathFx> m_deathFx;
 	UpgradeState m_upgrades[2];
 
 	Map m_map;

@@ -387,16 +387,38 @@ int main(int argc, char** argv) {
 		terrainBatch.End();
 		unitBatch.End();
 
-		// 攻击特效
+		// VFX：曳光（kind 0）、命中火花（1）、死亡爆炸（2）
 		std::vector<SpriteVertex> uiVerts;
 		for (const auto& e : snapshot.effects) {
-			for (int i = 1; i <= 5; ++i) {
-				const float t = static_cast<float>(i) / 6.0f;
-				const float wx = e.fromX + (e.toX - e.fromX) * t;
-				const float wy = e.fromY + (e.toY - e.fromY) * t;
+			if (e.kind == 0) {
+				// 曳光：沿 from→to 的 6 个亮点（按射程缩短）
+				for (int i = 1; i <= 6; ++i) {
+					const float t = static_cast<float>(i) / 7.0f;
+					const float wx = e.fromX + (e.toX - e.fromX) * t;
+					const float wy = e.fromY + (e.toY - e.fromY) * t;
+					float sx = 0, sy = 0;
+					camera.WorldToScreen(wx, wy, sx, sy);
+					ui::BuildPanel(uiVerts, ui::Rect{sx - 2, sy - 2, 4, 4}, 0xFFFFC040u);
+				}
+			} else if (e.kind == 1) {
+				// 命中火花：目标点小十字
 				float sx = 0, sy = 0;
-				camera.WorldToScreen(wx, wy, sx, sy);
-				ui::BuildPanel(uiVerts, ui::Rect{sx - 2, sy - 2, 4, 4}, 0xFFFFA020u);
+				camera.WorldToScreen(e.toX, e.toY, sx, sy);
+				ui::BuildPanel(uiVerts, ui::Rect{sx - 4, sy - 1, 8, 3}, 0xFFFFE080u);
+				ui::BuildPanel(uiVerts, ui::Rect{sx - 1, sy - 4, 3, 8}, 0xFFFFE080u);
+			} else {
+				// 死亡爆炸：半径随 age 扩大、亮度递减的 8 点环
+				const float r = 5.0f + static_cast<float>(e.age) * 1.6f;
+				const uint8_t fade = static_cast<uint8_t>(255 - e.age * 12);
+				const uint32_t col = (static_cast<uint32_t>(fade) << 24) | 0xFF8020u;
+				float sx = 0, sy = 0;
+				camera.WorldToScreen(e.fromX, e.fromY, sx, sy);
+				for (int i = 0; i < 8; ++i) {
+					const float ang = static_cast<float>(i) * 0.7853982f;
+					const float px = sx + r * std::cos(ang);
+					const float py = sy + r * std::sin(ang) * 0.5f; // 等距压扁
+					ui::BuildPanel(uiVerts, ui::Rect{px - 2, py - 2, 4, 4}, col);
+				}
 			}
 		}
 		// 顶部 HUD 条
