@@ -59,6 +59,7 @@ set(RTS_TEST_SOURCES
     tests/test_ai.cpp
     tests/test_building.cpp
     tests/test_fog.cpp
+    tests/test_audio.cpp
 )
 if(WIN32)
     list(APPEND RTS_TEST_SOURCES tests/test_net.cpp)
@@ -66,12 +67,23 @@ endif()
 
 add_executable(rts_tests ${RTS_TEST_SOURCES})
 target_link_libraries(rts_tests PRIVATE rts_sim)
+if(WIN32)
+    target_link_libraries(rts_tests PRIVATE rts_audio)
+endif()
 
 enable_testing()
 add_test(NAME rts_tests COMMAND rts_tests)
 
 # ---- Windows 专属：渲染 / 联机 demo / 工具链 ----
 if(WIN32)
+    add_library(rts_audio STATIC
+        audio/audio.cpp
+    )
+    target_include_directories(rts_audio PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/third_party)
+    if(MSVC)
+        target_compile_options(rts_audio PRIVATE /wd4244)
+    endif()
+
     add_library(rts_render STATIC
         platform/win32_window.cpp
         render/gl_renderer.cpp
@@ -87,7 +99,7 @@ if(WIN32)
     target_link_libraries(rts_net PRIVATE rts_sim)
 
     add_executable(rts_game app/game_main.cpp)
-    target_link_libraries(rts_game PRIVATE rts_render)
+    target_link_libraries(rts_game PRIVATE rts_render rts_audio)
 
     # ---- 工具链（M8）----
     add_executable(rts_lint tools/rules_lint.cpp)

@@ -22,6 +22,7 @@
 #include "render/text.h"
 #include "render/ui.h"
 #include "platform/win32_window.h"
+#include "audio/audio.h"
 
 using namespace rts;
 
@@ -94,6 +95,14 @@ int main() {
 	int fontW = 0, fontH = 0;
 	const auto fontPixels = BitmapFont::BuildTextureData(fontW, fontH);
 	const uint32_t fontTex = renderer.UploadTexture(fontPixels, fontW, fontH);
+
+	// 音频
+	AudioSystem audio;
+	const bool audioOk = audio.Init();
+	if (audioOk) {
+		audio.SetMasterVolume(0.5f);
+		audio.StartMusic();
+	}
 
 	Simulation sim(MakeMap(), 0x2024, kRules);
 	sim.AddAI(1, 99);
@@ -218,7 +227,7 @@ int main() {
 					const int64_t d2 = ddx * ddx + ddy * ddy;
 					if (d2 < bestDist && d2 < 36 * 36) { bestDist = d2; best = a.id; }
 				}
-				if (best != 0) selection.assign(1, best);
+				if (best != 0) { selection.assign(1, best); audio.Play(Sfx::Click); }
 				else selection.clear();
 			} else {
 				selection.clear();
@@ -249,18 +258,21 @@ int main() {
 					cmd.y = center.y * kSubPerCell;
 					cmd.targetId = 0;
 					sim.Commands().Push(cmd);
+					audio.Play(Sfx::Build);
 				} else if (btnTank.Hit(mx, my) && idleBarracks != 0) {
 					Command cmd;
 					cmd.type = CommandType::Produce;
 					cmd.entityId = idleBarracks;
 					cmd.targetId = 2;
 					sim.Commands().Push(cmd);
+					audio.Play(Sfx::Produce);
 				} else if (btnInfantry.Hit(mx, my) && idleBarracks != 0) {
 					Command cmd;
 					cmd.type = CommandType::Produce;
 					cmd.entityId = idleBarracks;
 					cmd.targetId = 1;
 					sim.Commands().Push(cmd);
+					audio.Play(Sfx::Produce);
 				}
 			} else {
 				dragStartX = window.MouseX();
@@ -293,6 +305,7 @@ int main() {
 						cmd.type = CommandType::Attack;
 						cmd.entityId = id;
 						cmd.targetId = enemy;
+						audio.Play(Sfx::Attack);
 					} else {
 						cmd.type = CommandType::Move;
 						cmd.entityId = id;
@@ -303,6 +316,17 @@ int main() {
 				}
 			}
 			prevRight = right;
+		}
+
+		// ---- 静音切换（M）----
+		{
+			static bool prevM = false;
+			const bool mDown = window.IsKeyDown('M');
+			if (mDown && !prevM && audioOk) {
+				const float v = (audio.MasterVolume() > 0.01f) ? 0.0f : 0.5f;
+				audio.SetMasterVolume(v);
+			}
+			prevM = mDown;
 		}
 
 		// ---- 快速选择 1/2/3 ----
@@ -445,6 +469,7 @@ int main() {
 		}
 	}
 
+	audio.Shutdown();
 	renderer.Shutdown();
 	window.Destroy();
 	return 0;
