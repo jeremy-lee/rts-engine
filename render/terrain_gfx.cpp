@@ -26,9 +26,20 @@ struct Canvas {
 	int w = 0;
 	int ox = 0;
 
-	// 矩形 tile（无缝铺贴）：等距投影下相邻格中心相距 (32,16)，矩形 64×32 会重叠但同色不可见
+	// 菱形 tile（OpenRA 等距地形：|dx|/(W/2) + |dy|/(H/2) <= 1）
+	static bool InDiamond(int x, int y) {
+		const float dx = (x < TerrainGfx::kTileW / 2)
+			? static_cast<float>(TerrainGfx::kTileW / 2 - x)
+			: static_cast<float>(x - TerrainGfx::kTileW / 2);
+		const float dy = (y < TerrainGfx::kTileH / 2)
+			? static_cast<float>(TerrainGfx::kTileH / 2 - y)
+			: static_cast<float>(y - TerrainGfx::kTileH / 2);
+		return (dx / (TerrainGfx::kTileW / 2.0f)) + (dy / (TerrainGfx::kTileH / 2.0f)) <= 1.0f;
+	}
+
 	void Put(int x, int y, uint32_t c) {
 		if (x < 0 || y < 0 || x >= TerrainGfx::kTileW || y >= TerrainGfx::kTileH) return;
+		if (!InDiamond(x, y)) return;
 		const size_t o = (static_cast<size_t>(y) * w + ox + x) * 4;
 		data[o + 0] = static_cast<uint8_t>((c >> 16) & 0xFF);
 		data[o + 1] = static_cast<uint8_t>((c >> 8) & 0xFF);

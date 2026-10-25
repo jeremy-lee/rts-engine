@@ -48,10 +48,19 @@ struct RenderSnapshot {
 		snap.mapW = world.Width();
 		snap.mapH = world.Height();
 
+		// OpenRA 地形排序：按屏幕 Y（等距深度 (x+y)）从远到近绘制（painter's algorithm）
 		const Map& map = world.GetMap();
 		snap.sprites.reserve(static_cast<size_t>(map.Width()) * map.Height());
-		for (int32_t y = 0; y < map.Height(); ++y) {
-			for (int32_t x = 0; x < map.Width(); ++x) {
+		std::vector<CellCoord> tileOrder;
+		tileOrder.reserve(static_cast<size_t>(map.Width()) * map.Height());
+		for (int32_t y = 0; y < map.Height(); ++y)
+			for (int32_t x = 0; x < map.Width(); ++x) tileOrder.push_back(CellCoord(x, y));
+		std::sort(tileOrder.begin(), tileOrder.end(), [](const CellCoord& a, const CellCoord& b) {
+			return (a.x + a.y) < (b.x + b.y);
+		});
+		for (const CellCoord& cell : tileOrder) {
+			const int32_t x = cell.x;
+			const int32_t y = cell.y;
 				const CellCoord c(x, y);
 				const uint8_t fog = map.Fog(c); // 0=未探索 1=已探索 2=可见
 				// 未探索：不绘制地形（纯黑）
@@ -84,7 +93,6 @@ struct RenderSnapshot {
 					s.color = a | ((r * 2 / 5) << 16) | ((g * 2 / 5) << 8) | (b * 2 / 5);
 				}
 				snap.sprites.push_back(s);
-			}
 		}
 
 		// 攻击特效（世界坐标）
