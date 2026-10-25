@@ -114,6 +114,9 @@ if(WIN32)
     add_executable(rts_lint tools/rules_lint.cpp)
     target_link_libraries(rts_lint PRIVATE rts_sim)
 
+    add_executable(rts_autotest tools/autotest.cpp)
+    target_link_libraries(rts_autotest PRIVATE rts_sim)
+
     add_executable(rts_editor tools/map_editor.cpp)
     target_link_libraries(rts_editor PRIVATE rts_render)
 endif()

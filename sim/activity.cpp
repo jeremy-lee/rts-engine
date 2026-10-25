@@ -171,10 +171,21 @@ void Update(World& world, Actor& actor) {
 			if (InAttackRange(actor, *target)) {
 				TryFire(world, actor, *target);
 			} else {
-				// 接近目标
-				const bool arrived = MoveTowards(world, actor, target->pos);
-				if (arrived) {
-					// 到达后下一 tick 会进入射程判定
+				// 接近目标：用 A* 寻路（避免直线撞障碍卡住）
+				UnitPath* path = world.GetPath(actor.id);
+				if (path == nullptr || path->index >= path->cells.size()) {
+					world.ComputePath(actor.id, target->pos.ToCell());
+					path = world.GetPath(actor.id);
+				}
+				bool moved = false;
+				if (path != nullptr && path->index < path->cells.size()) {
+					const CellCoord cell = path->cells[path->index];
+					const SubCoord center = SubCoord::FromCell(cell) + SubCoord(kSubPerCell / 2, kSubPerCell / 2);
+					if (MoveTowards(world, actor, center)) ++path->index;
+					moved = true;
+				}
+				if (!moved) {
+					MoveTowards(world, actor, target->pos); // 回退直线
 				}
 			}
 			break;
