@@ -107,7 +107,29 @@ struct WorldPoint { float x = 0, y = 0; };
 
 } // namespace
 
+// 把工作目录设为「含 assets/ 的目录」（exe 目录或其父目录）
+static void SetWorkingDirToExe() {
+	char buf[MAX_PATH] = {};
+	if (GetModuleFileNameA(nullptr, buf, MAX_PATH) == 0) return;
+	std::string p(buf);
+	const size_t pos = p.find_last_of("\\/");
+	if (pos == std::string::npos) return;
+	const std::string dir = p.substr(0, pos);
+	const size_t pos2 = dir.find_last_of("\\/");
+	if (pos2 != std::string::npos) {
+		const std::string parent = dir.substr(0, pos2);
+		if (GetFileAttributesA((parent + "/assets").c_str()) != INVALID_FILE_ATTRIBUTES) {
+			SetCurrentDirectoryA(parent.c_str());
+			return;
+		}
+	}
+	if (GetFileAttributesA((dir + "/assets").c_str()) != INVALID_FILE_ATTRIBUTES) {
+		SetCurrentDirectoryA(dir.c_str());
+	}
+}
+
 int main(int argc, char** argv) {
+	SetWorkingDirToExe();
 	// M22：联机模式（--host 或 --client <ip>）
 	LockstepSession netSession;
 	bool netMode = false;

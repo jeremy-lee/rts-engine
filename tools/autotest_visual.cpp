@@ -23,6 +23,7 @@
 #include "render/cnc_assets.h"
 #include "render/screenshot.h"
 #include "platform/win32_window.h"
+#include <GL/gl.h>
 
 using namespace rts;
 
@@ -135,7 +136,30 @@ VisualState StartMatch(uint64_t seed) {
 
 } // namespace
 
+// 把工作目录设为「含 assets/ 的目录」（exe 目录或其父目录）
+static void SetWorkingDirToExe() {
+	char buf[MAX_PATH] = {};
+	if (GetModuleFileNameA(nullptr, buf, MAX_PATH) == 0) return;
+	std::string p(buf);
+	const size_t pos = p.find_last_of("\\/");
+	if (pos == std::string::npos) return;
+	const std::string dir = p.substr(0, pos);
+	// 优先父目录（build/ 的上级通常是项目根，含 assets/）
+	const size_t pos2 = dir.find_last_of("\\/");
+	if (pos2 != std::string::npos) {
+		const std::string parent = dir.substr(0, pos2);
+		if (GetFileAttributesA((parent + "/assets").c_str()) != INVALID_FILE_ATTRIBUTES) {
+			SetCurrentDirectoryA(parent.c_str());
+			return;
+		}
+	}
+	if (GetFileAttributesA((dir + "/assets").c_str()) != INVALID_FILE_ATTRIBUTES) {
+		SetCurrentDirectoryA(dir.c_str());
+	}
+}
+
 int main(int argc, char** argv) {
+	SetWorkingDirToExe();
 	uint64_t seed = 101;
 	bool autoshot = false;
 	for (int i = 1; i < argc; ++i) {
@@ -149,6 +173,12 @@ int main(int argc, char** argv) {
 
 	GLRenderer renderer;
 	if (!renderer.Initialize(window.DeviceContext())) return 1;
+	{
+		GLint maxTex = 0;
+		glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxTex);
+		std::printf("[gl] GL_MAX_TEXTURE_SIZE = %d\n", maxTex);
+		std::fflush(stdout);
+	}
 
 	// 字体与图集
 	int fontW = 0, fontH = 0;
