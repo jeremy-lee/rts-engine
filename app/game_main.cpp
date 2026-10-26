@@ -358,6 +358,17 @@ int main(int argc, char** argv) {
 		if (wheel != 0) {
 			camera.ZoomAt((wheel > 0) ? 1.1f : 1.0f / 1.1f, mx, my);
 		}
+		// OpenRA 风格：鼠标到窗口边缘自动滚动（避开顶部/底部 UI）
+		{
+			const float edge = 24.0f;
+			const float scroll = 900.0f * static_cast<float>(dt) / camera.zoom;
+			const float uiTop = 36.0f;
+			const float uiBottom = 90.0f;
+			if (mx >= 0.0f && mx < edge) camera.centerX -= scroll;
+			if (mx > static_cast<float>(W) - edge) camera.centerX += scroll;
+			if (my >= uiTop && my < uiTop + edge) camera.centerY -= scroll;
+			if (my > static_cast<float>(H) - uiBottom - edge && my < static_cast<float>(H) - uiBottom) camera.centerY += scroll;
+		}
 		camera.viewW = W;
 		camera.viewH = H;
 
@@ -701,10 +712,10 @@ int main(int argc, char** argv) {
 			const ScreenPos p = ProjectCell(a->pos.ToCell(), 0);
 			const float px = static_cast<float>(p.x);
 			const float py = static_cast<float>(p.y);
-			const float half = 14.0f;
-			const float len = 6.0f;
+			const float half = 16.0f;
+			const float len = 8.0f;
 			const float th = 2.0f;
-			const uint32_t selCol = 0xFF40FF40u;
+			const uint32_t selCol = 0xFF40FFFFu; // 亮青色（对比草地）
 			// 四角 L 形
 			terrainBatch.AddSolid(px - half, py - half, len, th, selCol);
 			terrainBatch.AddSolid(px - half, py - half, th, len, selCol);
