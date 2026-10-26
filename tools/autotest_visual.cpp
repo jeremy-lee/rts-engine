@@ -407,17 +407,36 @@ int main(int argc, char** argv) {
 				ui::BuildPanel(uiVerts, ui::Rect{sx - 4, sy - 1, 8, 3}, 0xFFFFE080u);
 				ui::BuildPanel(uiVerts, ui::Rect{sx - 1, sy - 4, 3, 8}, 0xFFFFE080u);
 			} else {
-				// 死亡爆炸：半径随 age 扩大、亮度递减的 8 点环
-				const float r = 5.0f + static_cast<float>(e.age) * 1.6f;
-				const uint8_t fade = static_cast<uint8_t>(255 - e.age * 12);
-				const uint32_t col = (static_cast<uint32_t>(fade) << 24) | 0xFF8020u;
+				// 死亡爆炸（模拟 OpenRA fire1.shp 序列）：闪 → 火球 → 烟
 				float sx = 0, sy = 0;
 				camera.WorldToScreen(e.fromX, e.fromY, sx, sy);
-				for (int i = 0; i < 8; ++i) {
-					const float ang = static_cast<float>(i) * 0.7853982f;
-					const float px = sx + r * std::cos(ang);
-					const float py = sy + r * std::sin(ang) * 0.5f; // 等距压扁
-					ui::BuildPanel(uiVerts, ui::Rect{px - 2, py - 2, 4, 4}, col);
+				const int age = e.age;
+				if (age <= 4) {
+					// 闪光：白色快速扩大
+					const float r = 3.0f + static_cast<float>(age) * 2.0f;
+					const uint8_t a = static_cast<uint8_t>(255 - age * 40);
+					ui::BuildPanel(uiVerts, ui::Rect{sx - r, sy - r * 0.5f, r * 2, r}, (static_cast<uint32_t>(a) << 24) | 0xFFFFE0u);
+				} else if (age <= 16) {
+					// 火球：橙红环 + 内芯
+					const float r = 8.0f + static_cast<float>(age - 4) * 1.5f;
+					const uint8_t a = static_cast<uint8_t>(255 - (age - 4) * 10);
+					ui::BuildPanel(uiVerts, ui::Rect{sx - r * 0.5f, sy - r * 0.25f, r, r * 0.5f}, (static_cast<uint32_t>(a) << 24) | 0xFF6020u);
+					for (int i = 0; i < 8; ++i) {
+						const float ang = static_cast<float>(i) * 0.7853982f;
+						const float px = sx + r * std::cos(ang);
+						const float py = sy + r * std::sin(ang) * 0.5f;
+						ui::BuildPanel(uiVerts, ui::Rect{px - 2, py - 2, 4, 4}, (static_cast<uint32_t>(a) << 24) | 0xFFA040u);
+					}
+				} else {
+					// 烟：灰环扩散淡出
+					const float r = 14.0f + static_cast<float>(age - 16) * 2.0f;
+					const uint8_t a = static_cast<uint8_t>(std::max(0, 200 - (age - 16) * 15));
+					for (int i = 0; i < 6; ++i) {
+						const float ang = static_cast<float>(i) * 1.0471976f;
+						const float px = sx + r * std::cos(ang);
+						const float py = sy + r * std::sin(ang) * 0.5f - static_cast<float>(age - 16) * 0.6f;
+						ui::BuildPanel(uiVerts, ui::Rect{px - 3, py - 3, 6, 6}, (static_cast<uint32_t>(a) << 24) | 0x707070u);
+					}
 				}
 			}
 		}
