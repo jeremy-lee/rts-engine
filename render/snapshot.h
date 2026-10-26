@@ -83,7 +83,7 @@ struct RenderSnapshot {
 				s.cncSprite = -1; // 地形不用 C&C 图集
 				s.w = static_cast<float>(TerrainGfx::kTileW);
 				s.h = static_cast<float>(TerrainGfx::kTileH);
-				s.color = 0xFFFFFFFF;
+				s.color = 0xFFFFFFFFu;
 				s.prevX = s.worldX; // 地形不插值
 				s.prevY = s.worldY;
 				// 已探索但不可见：变暗
@@ -136,8 +136,8 @@ struct RenderSnapshot {
 			if (a.playerId != 0 && fog != 2 && !ignoreFog) continue; // 敌方在迷雾中隐藏
 			const ScreenPos p = ProjectSub(a.pos, 0); // 子格精度（不平滑会跳格）
 			RenderSprite s;
-			// GL 模式：白色 tint（保留 C&C 原色）；软件模式按 player 着色
-			s.color = 0xFFFFFFFF;
+			// GL 模式：白色 tint（保留 C&C 原色）；建造中的建筑半透明
+			s.color = (a.Has(kCompBuilding) && a.producer.remaining > 0) ? 0x90FFFFFFu : 0xFFFFFFFFu;
 			s.player = a.playerId;
 			s.entityId = a.id;
 			// M16：单位映射到 C&C 图集精灵

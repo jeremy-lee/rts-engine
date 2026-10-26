@@ -694,20 +694,38 @@ int main(int argc, char** argv) {
 				terrainBatch.AddSolid(s.worldX, s.worldY, s.w, s.h, color);
 			}
 		}
+		// 选中标记（OpenRA SelectionDecorations 风格：四角 L 形框 + 分级血条）
 		for (EntityId id : selection) {
 			const Actor* a = sim.GetWorld().Entities().Get(id);
 			if (a == nullptr || !a->alive) continue;
 			const ScreenPos p = ProjectCell(a->pos.ToCell(), 0);
-			terrainBatch.AddSolid(static_cast<float>(p.x) - 12.0f, static_cast<float>(p.y) - 12.0f,
-				24.0f, 24.0f, 0x8000FF00);
+			const float px = static_cast<float>(p.x);
+			const float py = static_cast<float>(p.y);
+			const float half = 14.0f;
+			const float len = 6.0f;
+			const float th = 2.0f;
+			const uint32_t selCol = 0xFF40FF40u;
+			// 四角 L 形
+			terrainBatch.AddSolid(px - half, py - half, len, th, selCol);
+			terrainBatch.AddSolid(px - half, py - half, th, len, selCol);
+			terrainBatch.AddSolid(px + half - len, py - half, len, th, selCol);
+			terrainBatch.AddSolid(px + half - th, py - half, th, len, selCol);
+			terrainBatch.AddSolid(px - half, py + half - th, len, th, selCol);
+			terrainBatch.AddSolid(px - half, py + half - len, th, len, selCol);
+			terrainBatch.AddSolid(px + half - len, py + half - th, len, th, selCol);
+			terrainBatch.AddSolid(px + half - th, py + half - len, th, len, selCol);
+			// 分级血条（绿 >60% / 黄 30-60% / 红 <30%）
 			if (a->health.maxHp > 0) {
 				const float barW = 28.0f;
 				const float barH = 4.0f;
-				const float bx = static_cast<float>(p.x) - barW * 0.5f;
-				const float by = static_cast<float>(p.y) - 20.0f;
+				const float bx = px - barW * 0.5f;
+				const float by = py - 22.0f;
 				const float ratio = static_cast<float>(a->health.hp) / static_cast<float>(a->health.maxHp);
-				terrainBatch.AddSolid(bx, by, barW, barH, 0xFF202020);
-				terrainBatch.AddSolid(bx, by, barW * ratio, barH, 0xFF40E040);
+				uint32_t hpCol = 0xFF40E040u;
+				if (ratio < 0.3f) hpCol = 0xFFE04040u;
+				else if (ratio < 0.6f) hpCol = 0xFFE0C040u;
+				terrainBatch.AddSolid(bx - 1.0f, by - 1.0f, barW + 2.0f, barH + 2.0f, 0xFF101010);
+				terrainBatch.AddSolid(bx, by, barW * ratio, barH, hpCol);
 			}
 		}
 		terrainBatch.End();

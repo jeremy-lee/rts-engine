@@ -162,6 +162,10 @@ void World::ApplyCommand(const Command& cmd) {
 			if (Actor* a = m_entities.Get(id)) {
 				a->health.hp = def->hp;
 				a->health.maxHp = def->hp;
+				// 建造动画（OpenRA Buildable 语义）：spawn 后需要 buildTime 才完成
+				const Tick buildTime = (def->cost > 0) ? (def->cost / 5 + 20) : 30;
+				a->producer.total = buildTime;
+				a->producer.remaining = buildTime;
 				a->footprintW = static_cast<uint8_t>(fw);
 				a->footprintH = static_cast<uint8_t>(fh);
 				// M19：防御塔（建筑 + 武器 + 视野）
