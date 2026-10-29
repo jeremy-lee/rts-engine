@@ -81,8 +81,8 @@ struct RenderSnapshot {
 				else if (map.TerrainHeight(c) > 0) tk = TerrainKind::Highland;
 				s.spriteIndex = static_cast<int>(tk);
 				s.cncSprite = -1; // 地形不用 C&C 图集
-				s.w = static_cast<float>(TerrainGfx::kTileW);
-				s.h = static_cast<float>(TerrainGfx::kTileH);
+				s.w = static_cast<float>(TerrainGfx::kTileW) * 2.0f; // 2× 覆盖，避免亚像素缝隙
+				s.h = static_cast<float>(TerrainGfx::kTileH) * 2.0f;
 				s.color = 0xFFFFFFFFu;
 				s.prevX = s.worldX; // 地形不插值
 				s.prevY = s.worldY;

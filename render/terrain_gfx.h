@@ -20,8 +20,10 @@ enum class TerrainKind : uint8_t {
 
 class TerrainGfx {
 public:
-	static constexpr int kTileW = 64;
-	static constexpr int kTileH = 32;
+	// 纹理 tile = 格间距（32×16）；投影常量 kTileW/kTileH（64/32）是格子的世界尺寸，
+	// 等距投影下相邻格中心相距 (32,16)，故 tile 纹理必须 32×16 才能无缝（64×32 会 2:1 重叠成棋盘）。
+	static constexpr int kTileW = 32;
+	static constexpr int kTileH = 16;
 	static constexpr int kCols = 5;
 
 	static std::vector<uint8_t> Build(int& outW, int& outH);
