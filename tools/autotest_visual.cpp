@@ -191,7 +191,7 @@ int main(int argc, char** argv) {
 
 	std::vector<uint8_t> cncPixels;
 	int cncW = 0, cncH = 0;
-	const bool cncOk = CncAtlas::Load("assets/cnc_atlas.png", cncPixels, cncW, cncH);
+	const bool cncOk = CncAtlas::Load("assets/cnc_atlas.bmp", cncPixels, cncW, cncH);
 	const uint32_t cncTex = cncOk ? renderer.UploadTexture(cncPixels, cncW, cncH) : 0;
 
 	// 地形纹理（程序化 64×32）

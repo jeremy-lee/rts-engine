@@ -200,7 +200,7 @@ int main() {
 	CncAtlas::LoadMeta("assets/cnc_atlas.txt");
 	std::vector<uint8_t> atlasPixels;
 	int atlasW = 0, atlasH = 0;
-	const bool cncOk = CncAtlas::Load("assets/cnc_atlas.png", atlasPixels, atlasW, atlasH);
+	const bool cncOk = CncAtlas::Load("assets/cnc_atlas.bmp", atlasPixels, atlasW, atlasH);
 	const uint32_t cncTex = cncOk ? renderer.UploadTexture(atlasPixels, atlasW, atlasH) : 0;
 
 	Map map = Map::GenerateTestMap(128, 128, 2024);

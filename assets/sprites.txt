@@ -1,0 +1,22 @@
+# RTS Engine 资源导入配置（rts_import 读取）
+# 帧文件命名：<framesDir>/<prefix>-<%04d>.png
+# 帧索引约定（RA SHP）：
+#   stand = standStart + facing
+#   run   = runStart + facing*6 + (frame-1)     （8 朝向动画）
+#   炮塔  = turretStart + facing                （坦克合成）
+#
+# 字段：sprite <name> <prefix> <facings> <frames> <mode> <standStart> <runStart> <turretStart> <row>
+#   mode = unit8（8 朝向+动画）| unit32（32 朝向无动画）| tank32（32 朝向车体+炮塔）| building（单朝向）
+cell 80 64
+cols 64
+team 2
+team0 70 90 255
+team1 235 60 60
+
+sprite Infantry  e1     8  7  unit8    0   16  -1  2
+# sprite Rocket e3 8 7 unit8 0 16 -1 2   # e3 素材未提取，暂注释
+sprite Tank      2tnk  32  1  tank32   0   -1  32  0
+sprite LightTank 1tnk  32  1  tank32   0   -1  32  1
+sprite Harvester harv   8  7  unit8    0   16  -1  16
+sprite Barracks  tent   1  1  building 0   -1  -1  30
+sprite Factory   weap   1  1  building 0   -1  -1  32
