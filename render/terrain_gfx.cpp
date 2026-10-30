@@ -138,13 +138,14 @@ void TerrainGfx::GetUVAt(int tile, float& u0, float& v0, float& u1, float& v1) {
 		GetUV(static_cast<TerrainKind>(tile % 5), u0, v0, u1, v1);
 		return;
 	}
-	// 只采样 tile 内的有效菱形区域（y 6..18），避免把画布上下填充画出来
+	// OpenRA 语义：TMP tile 的 Offset = 0、Size = 整个画布，TerrainSpriteLayer 直接画满幅
+	// （xyz = Screen3DPosition(cell) + Offset - 0.5*Size）。所以这里也取满幅 UV，不要裁菱形。
 	const float inset = 1.0f / 128.0f;
 	const float x0 = static_cast<float>(tile * kTileW);
 	u0 = (x0 + inset) / texW;
-	v0 = (static_cast<float>(kContentY0) + inset) / texH;
+	v0 = inset / texH;
 	u1 = (x0 + static_cast<float>(kTileW) - inset) / texW;
-	v1 = (static_cast<float>(kContentY0 + kContentH) - inset) / texH;
+	v1 = (texH - inset) / texH;
 }
 
 void TerrainGfx::GetUV(TerrainKind kind, float& u0, float& v0, float& u1, float& v1) {

@@ -69,6 +69,24 @@ TerrainKind BrushTerrain(Brush b) {
 	}
 }
 
+void ApplyBrush(Map& map, CellCoord c, Brush b, int radius); // 前向声明
+
+// Bresenham 连线：拖拽时从上一格到当前格逐格落笔，避免快速拖动漏格
+void DrawBrushLine(Map& map, CellCoord from, CellCoord to, Brush b, int radius) {
+	int32_t x0 = from.x, y0 = from.y;
+	const int32_t x1 = to.x, y1 = to.y;
+	const int32_t dx = std::abs(x1 - x0), sx = (x0 < x1) ? 1 : -1;
+	const int32_t dy = -std::abs(y1 - y0), sy = (y0 < y1) ? 1 : -1;
+	int32_t err = dx + dy;
+	for (;;) {
+		ApplyBrush(map, CellCoord(x0, y0), b, radius);
+		if (x0 == x1 && y0 == y1) break;
+		const int32_t e2 = 2 * err;
+		if (e2 >= dy) { err += dy; x0 += sx; }
+		if (e2 <= dx) { err += dx; y0 += sy; }
+	}
+}
+
 void ApplyBrush(Map& map, CellCoord c, Brush b, int radius) {
 	if (!map.InBounds(c)) return;
 	for (int32_t dy = -radius; dy <= radius; ++dy) {
@@ -420,7 +438,9 @@ int main() {
 
 		// ---- 左键：面板选择 / 画布绘制 ----
 		static bool prevLeft = false;
+		static CellCoord lastBrushCell(-99999, -99999);
 		const bool leftNow = window.IsMouseDown(0);
+		if (!leftNow) lastBrushCell = CellCoord(-99999, -99999);
 		if (leftNow) {
 			if (inPanel) {
 				for (int i = 0; i < spriteCount; ++i) {
@@ -444,7 +464,13 @@ int main() {
 						placed.push_back(e);
 					}
 				} else {
-					ApplyBrush(map, hoverCell, brush, brushRadius);
+					// 地形笔刷：首次落笔画单格，之后从上一格 Bresenham 连到当前格
+					if (lastBrushCell.x == -99999 || lastBrushCell.y == -99999) {
+						ApplyBrush(map, hoverCell, brush, brushRadius);
+					} else if (lastBrushCell.x != hoverCell.x || lastBrushCell.y != hoverCell.y) {
+						DrawBrushLine(map, lastBrushCell, hoverCell, brush, brushRadius);
+					}
+					lastBrushCell = hoverCell;
 				}
 			}
 		}
