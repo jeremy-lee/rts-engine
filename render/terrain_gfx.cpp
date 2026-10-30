@@ -1,6 +1,8 @@
 // RTS Engine — render/terrain_gfx.cpp
 #include "terrain_gfx.h"
 
+#include "stb_image.h"  // 实现（STB_IMAGE_IMPLEMENTATION）在 cnc_assets.cpp
+
 namespace rts {
 
 namespace {
@@ -21,15 +23,20 @@ uint32_t Rgb(int r, int g, int b, int a = 255) {
 		(static_cast<uint32_t>(g) << 8) | static_cast<uint32_t>(b);
 }
 
+// 程序化回退用的 tile 尺寸（注意：与 TerrainGfx::kTileW/kTileH 是两回事——
+// 后者是 TMP 图集的 24×24；曾经混用导致 Put 按 24 行写、缓冲区只有 16 行 → 堆越界）。
+constexpr int kProceduralW = 32;
+constexpr int kProceduralH = 16;
+
 struct Canvas {
 	uint8_t* data = nullptr;
 	int w = 0;
 	int ox = 0;
+	int tileW = kProceduralW;
+	int tileH = kProceduralH;
 
-	// 矩形 tile（无缝铺贴）：等距投影下相邻格中心相距 (32,16)，矩形 64×32 重叠但同色不可见。
-	// 注：OpenRA 用 TMP 菱形模板铺满；我们无 TMP，菱形会留黑三角缝隙，故用矩形。
 	void Put(int x, int y, uint32_t c) {
-		if (x < 0 || y < 0 || x >= TerrainGfx::kTileW || y >= TerrainGfx::kTileH) return;
+		if (x < 0 || y < 0 || x >= tileW || y >= tileH) return;
 		const size_t o = (static_cast<size_t>(y) * w + ox + x) * 4;
 		data[o + 0] = static_cast<uint8_t>((c >> 16) & 0xFF);
 		data[o + 1] = static_cast<uint8_t>((c >> 8) & 0xFF);
@@ -38,8 +45,8 @@ struct Canvas {
 	}
 
 	void Fill(uint32_t c) {
-		for (int y = 0; y < TerrainGfx::kTileH; ++y)
-			for (int x = 0; x < TerrainGfx::kTileW; ++x) Put(x, y, c);
+		for (int y = 0; y < tileH; ++y)
+			for (int x = 0; x < tileW; ++x) Put(x, y, c);
 	}
 };
 
@@ -68,15 +75,17 @@ void DrawHighland(Canvas& c) {
 } // namespace
 
 std::vector<uint8_t> TerrainGfx::Build(int& outW, int& outH) {
-	outW = kCols * kTileW;
-	outH = kTileH;
+	outW = 5 * kProceduralW;
+	outH = kProceduralH;
 	std::vector<uint8_t> pixels(static_cast<size_t>(outW) * outH * 4, 0);
 
 	auto draw = [&](TerrainKind kind, void (*fn)(Canvas&)) {
 		Canvas c;
 		c.data = pixels.data();
 		c.w = outW;
-		c.ox = static_cast<int>(kind) * kTileW;
+		c.ox = static_cast<int>(kind) * kProceduralW;
+		c.tileW = kProceduralW;
+		c.tileH = kProceduralH;
 		fn(c);
 	};
 
@@ -88,11 +97,64 @@ std::vector<uint8_t> TerrainGfx::Build(int& outW, int& outH) {
 	return pixels;
 }
 
+namespace {
+
+// 地形图集状态（加载后生效）
+struct AtlasState {
+	bool loaded = false;
+	int width = 0;
+	int height = 0;
+};
+
+AtlasState g_atlas;
+
+} // namespace
+
+bool TerrainGfx::Load(const std::string& path, std::vector<uint8_t>& outPixels, int& outW, int& outH) {
+
+	int w = 0, h = 0, ch = 0;
+	stbi_uc* data = stbi_load(path.c_str(), &w, &h, &ch, 4);
+
+	if (data == nullptr) return false;
+	outPixels.assign(data, data + static_cast<size_t>(w) * h * 4);
+	stbi_image_free(data);
+	outW = w;
+	outH = h;
+	g_atlas.loaded = true;
+	g_atlas.width = w;
+	g_atlas.height = h;
+	return true;
+}
+
+bool TerrainGfx::HasAtlas() { return g_atlas.loaded; }
+
+
+
+void TerrainGfx::GetUVAt(int tile, float& u0, float& v0, float& u1, float& v1) {
+	const float texW = static_cast<float>(g_atlas.width);
+	const float texH = static_cast<float>(g_atlas.height);
+	if (!g_atlas.loaded || texW <= 0.0f || texH <= 0.0f) {
+		u0 = 0.0f; v0 = 0.0f; u1 = 1.0f; v1 = 1.0f;
+		return;
+	}
+	const float inset = 1.0f / 128.0f;
+	const float x0 = static_cast<float>(tile * kTileW);
+	const float y0 = 0.0f;
+	u0 = (x0 + inset) / texW;
+	v0 = (y0 + inset) / texH;
+	u1 = (x0 + static_cast<float>(kTileW) - inset) / texW;
+	v1 = (y0 + static_cast<float>(kTileH) - inset) / texH;
+}
+
 void TerrainGfx::GetUV(TerrainKind kind, float& u0, float& v0, float& u1, float& v1) {
+	if (g_atlas.loaded) {
+		GetUVAt(TileFor(kind, 0, 0), u0, v0, u1, v1);
+		return;
+	}
+	// 回退：程序化纹理（5 种 tile，32×16）
 	const int idx = static_cast<int>(kind);
-	const float texW = static_cast<float>(kCols * kTileW);
+	const float texW = static_cast<float>(5 * kTileW);
 	const float texH = static_cast<float>(kTileH);
-	// inset 1/128 像素（OpenRA Sprite 语义）：避免 GL 在 tile 边界采样到相邻 tile 的像素（黑边）
 	const float inset = 1.0f / 128.0f;
 	u0 = (static_cast<float>(idx * kTileW) + inset) / texW;
 	v0 = inset / texH;

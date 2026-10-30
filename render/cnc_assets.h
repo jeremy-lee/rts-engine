@@ -7,6 +7,7 @@
 #include "render/sheet.h"
 
 #include <cstdint>
+#include <cstdio>
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -89,12 +90,11 @@ public:
 		return t;
 	}
 	static std::vector<std::string>& NameTable() {
-		static std::vector<std::string> t = [] {
-			std::vector<std::string> v;
+		static std::vector<std::string> t;
+		if (t.empty()) {
 			for (int i = 0; i < static_cast<int>(CncSpriteId::Count); ++i)
-				v.emplace_back(SpriteName(static_cast<CncSpriteId>(i)));
-			return v;
-		}();
+				t.emplace_back(SpriteName(static_cast<CncSpriteId>(i)));
+		}
 		return t;
 	}
 	static int Count() { return static_cast<int>(MetaTable().size()); }

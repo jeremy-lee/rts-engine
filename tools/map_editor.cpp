@@ -281,15 +281,24 @@ int main() {
 	const std::vector<uint8_t> fontPixels = BitmapFont::BuildTextureData(fontW, fontH);
 	const uint32_t fontTex = renderer.UploadTexture(fontPixels, fontW, fontH);
 
+
+
 	int terrW = 0, terrH = 0;
 	const std::vector<uint8_t> terrPixels = TerrainGfx::Build(terrW, terrH);
+
 	const uint32_t terrainTex = renderer.UploadTexture(terrPixels, terrW, terrH);
 
+
+
 	CncAtlas::LoadMeta("assets/cnc_atlas.txt");
+
 	std::vector<uint8_t> atlasPixels;
 	int atlasW = 0, atlasH = 0;
+
 	bool cncOk = CncAtlas::Load("assets/cnc_atlas.bmp", atlasPixels, atlasW, atlasH);
+
 	uint32_t cncTex = cncOk ? renderer.UploadTexture(atlasPixels, atlasW, atlasH) : 0;
+
 
 	Map map = Map::GenerateTestMap(128, 128, 2024);
 	std::vector<PlacedEntity> placed;
@@ -347,7 +356,9 @@ int main() {
 						status = msg;
 					} else {
 						// 重载图集（纹理 + 元数据）
-						CncAtlas::LoadMeta("assets/cnc_atlas.txt");
+					
+	CncAtlas::LoadMeta("assets/cnc_atlas.txt");
+
 						std::vector<uint8_t> px;
 						int w = 0, h = 0;
 						if (CncAtlas::Load("assets/cnc_atlas.bmp", px, w, h)) {
