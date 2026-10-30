@@ -121,32 +121,12 @@ TerrainKind TerrainOf(const Map& map, CellCoord c) {
 	return TerrainKind::Grass;
 }
 
-// 编辑器放置的实体（不进入 sim，纯编辑数据）
+// 编辑器放置的实体（不进入 sim，纯编辑数据）。spriteIndex = CncAtlas 动态索引。
 struct PlacedEntity {
-	CncSpriteId sprite = CncSpriteId::Infantry;
+	int spriteIndex = 0;
 	uint8_t player = 0;
 	CellCoord cell;
 };
-
-const CncSpriteId kSprites[] = {
-	CncSpriteId::Infantry, CncSpriteId::Rocket, CncSpriteId::Tank,
-	CncSpriteId::LightTank, CncSpriteId::Harvester, CncSpriteId::Barracks,
-	CncSpriteId::Factory,
-};
-constexpr int kSpriteCount = static_cast<int>(sizeof(kSprites) / sizeof(kSprites[0]));
-
-const char* SpriteName(CncSpriteId id) {
-	switch (id) {
-		case CncSpriteId::Infantry:  return "INFANTRY";
-		case CncSpriteId::Rocket:    return "ROCKET";
-		case CncSpriteId::Tank:      return "TANK";
-		case CncSpriteId::LightTank: return "LIGHTTANK";
-		case CncSpriteId::Harvester: return "HARVESTER";
-		case CncSpriteId::Barracks:  return "BARRACKS";
-		case CncSpriteId::Factory:   return "FACTORY";
-		default:                     return "?";
-	}
-}
 
 // ---- 拖放导入：把拖入的 PNG 作为新精灵追加到 assets/sprites.txt，然后调用 rts_import ----
 // 返回 true 表示成功（调用方据此重载图集）。
@@ -241,9 +221,10 @@ bool RunImportTool(const std::string& framesDir, std::string& status) {
 bool SaveEntities(const char* path, const std::vector<PlacedEntity>& list) {
 	FILE* f = std::fopen(path, "w");
 	if (!f) return false;
-	std::fprintf(f, "RTSENT 1\n");
+	std::fprintf(f, "RTSENT 2\n");
 	for (const auto& e : list) {
-		std::fprintf(f, "%d %d %d %d\n", static_cast<int>(e.sprite), static_cast<int>(e.player), e.cell.x, e.cell.y);
+		// 用精灵名保存（跨重启/重新导入稳定）
+		std::fprintf(f, "%s %d %d %d\n", CncAtlas::NameAt(e.spriteIndex), static_cast<int>(e.player), e.cell.x, e.cell.y);
 	}
 	std::fclose(f);
 	return true;
@@ -258,13 +239,27 @@ bool LoadEntities(const char* path, std::vector<PlacedEntity>& out) {
 	int version = 0;
 	if (std::fscanf(f, "%d", &version) != 1) { std::fclose(f); return false; }
 	out.clear();
-	int sprite = 0, player = 0, cx = 0, cy = 0;
-	while (std::fscanf(f, "%d %d %d %d", &sprite, &player, &cx, &cy) == 4) {
-		PlacedEntity e;
-		e.sprite = static_cast<CncSpriteId>(sprite);
-		e.player = static_cast<uint8_t>(player);
-		e.cell = CellCoord(cx, cy);
-		out.push_back(e);
+	char name[128] = {};
+	int player = 0, cx = 0, cy = 0;
+	if (version >= 2) {
+		while (std::fscanf(f, "%127s %d %d %d", name, &player, &cx, &cy) == 4) {
+			const int idx = CncAtlas::FindByName(name);
+			if (idx < 0) continue;
+			PlacedEntity e;
+			e.spriteIndex = idx;
+			e.player = static_cast<uint8_t>(player);
+			e.cell = CellCoord(cx, cy);
+			out.push_back(e);
+		}
+	} else {
+		int sprite = 0;
+		while (std::fscanf(f, "%d %d %d %d", &sprite, &player, &cx, &cy) == 4) {
+			PlacedEntity e;
+			e.spriteIndex = sprite;
+			e.player = static_cast<uint8_t>(player);
+			e.cell = CellCoord(cx, cy);
+			out.push_back(e);
+		}
 	}
 	std::fclose(f);
 	return true;
@@ -392,13 +387,20 @@ int main() {
 		const bool inCanvas = (mx < canvasW && my > topH && my < static_cast<float>(H) - botH);
 		const bool inPanel = (mx >= canvasW && my > topH && my < static_cast<float>(H) - botH);
 
-		// ---- 图集面板（右侧）----
-		ui::Rect spriteRects[kSpriteCount];
+		// ---- 图集面板（右侧，动态：只显示有元数据的精灵，包含运行时导入的）----
+		std::vector<int> panelSprites;
+		for (int i = 0; i < CncAtlas::Count(); ++i) {
+			int w = 0, h = 0;
+			CncAtlas::GetSizeAt(i, w, h);
+			if (w > 0 && h > 0) panelSprites.push_back(i);
+		}
+		const int spriteCount = static_cast<int>(panelSprites.size());
+		std::vector<ui::Rect> spriteRects(static_cast<size_t>(std::max(0, spriteCount)));
 		{
 			const float itemH = 52.0f;
-			for (int i = 0; i < kSpriteCount; ++i) {
+			for (int i = 0; i < spriteCount; ++i) {
 				const float y0 = topH + 8.0f + static_cast<float>(i) * (itemH + 6.0f);
-				spriteRects[i] = ui::Rect{canvasW + 8.0f, y0, panelW - 16.0f, itemH};
+				spriteRects[static_cast<size_t>(i)] = ui::Rect{canvasW + 8.0f, y0, panelW - 16.0f, itemH};
 			}
 		}
 
@@ -407,10 +409,10 @@ int main() {
 		const bool leftNow = window.IsMouseDown(0);
 		if (leftNow) {
 			if (inPanel) {
-				for (int i = 0; i < kSpriteCount; ++i) {
-					if (spriteRects[i].Contains(mx, my)) {
-						selectedSprite = i;
-						status = std::string("Place: ") + SpriteName(kSprites[i]);
+				for (int i = 0; i < spriteCount; ++i) {
+					if (spriteRects[static_cast<size_t>(i)].Contains(mx, my)) {
+						selectedSprite = panelSprites[static_cast<size_t>(i)];
+						status = std::string("Place: ") + CncAtlas::NameAt(selectedSprite);
 					}
 				}
 			} else if (inCanvas && map.InBounds(hoverCell)) {
@@ -422,7 +424,7 @@ int main() {
 					}
 					if (!exists) {
 						PlacedEntity e;
-						e.sprite = kSprites[selectedSprite];
+						e.spriteIndex = selectedSprite;
 						e.player = 0;
 						e.cell = hoverCell;
 						placed.push_back(e);
@@ -533,9 +535,9 @@ int main() {
 				});
 				for (const auto& e : sorted) {
 					float u0 = 0, v0 = 0, u1 = 1, v1 = 1;
-					CncAtlas::GetUV(e.sprite, e.player, WAngle(0), 0, u0, v0, u1, v1);
+					CncAtlas::GetUVAt(e.spriteIndex, e.player, WAngle(0), 0, u0, v0, u1, v1);
 					int sw = 0, sh = 0;
-					CncAtlas::GetSize(e.sprite, sw, sh);
+					CncAtlas::GetSizeAt(e.spriteIndex, sw, sh);
 					const ScreenPos p = ProjectCell(e.cell, map.TerrainHeight(e.cell));
 					entityBatch.AddSprite(static_cast<float>(p.x) - static_cast<float>(sw) * 0.5f,
 						static_cast<float>(p.y) - static_cast<float>(sh) * 0.5f,
@@ -594,22 +596,24 @@ int main() {
 		}
 
 		// 图集面板项（背景 + 选中高亮）
-		for (int i = 0; i < kSpriteCount; ++i) {
+		for (int i = 0; i < spriteCount; ++i) {
 			const bool active = (selectedSprite == i);
-			ui::BuildPanel(uiVerts, spriteRects[i], active ? 0xFF3A5A7A : 0xFF262626);
-			ui::BuildPanel(uiVerts, ui::Rect{spriteRects[i].x, spriteRects[i].y, spriteRects[i].w, 1.0f},
-				active ? 0xFF80C0FF : 0xFF404040);
+			const ui::Rect& r = spriteRects[static_cast<size_t>(i)];
+			ui::BuildPanel(uiVerts, r, active ? 0xFF3A5A7A : 0xFF262626);
+			ui::BuildPanel(uiVerts, ui::Rect{r.x, r.y, r.w, 1.0f}, active ? 0xFF80C0FF : 0xFF404040);
 		}
 
 		// 图集图标（屏幕坐标精灵，cncTex）
 		std::vector<SpriteVertex> iconVerts;
 		if (cncOk) {
-			for (int i = 0; i < kSpriteCount; ++i) {
+			for (int i = 0; i < spriteCount; ++i) {
+				const int si = panelSprites[static_cast<size_t>(i)];
 				float u0 = 0, v0 = 0, u1 = 1, v1 = 1;
-				CncAtlas::GetUV(kSprites[i], 0, WAngle(0), 0, u0, v0, u1, v1);
+				CncAtlas::GetUVAt(si, 0, WAngle(0), 0, u0, v0, u1, v1);
+				const ui::Rect& r = spriteRects[static_cast<size_t>(i)];
 				const float iconSize = 44.0f;
-				const float ix = spriteRects[i].x + 8.0f;
-				const float iy = spriteRects[i].y + (spriteRects[i].h - iconSize) * 0.5f;
+				const float ix = r.x + 8.0f;
+				const float iy = r.y + (r.h - iconSize) * 0.5f;
 				SpriteVertex v[6];
 				BuildQuad(ix, iy, iconSize, iconSize, u0, v0, u1, v1, 0xFFFFFFFFu, v);
 				iconVerts.insert(iconVerts.end(), v, v + 6);
@@ -625,9 +629,11 @@ int main() {
 				(selectedSprite < 0 && static_cast<int>(brush) == i) ? 0xFFFFFFFF : 0xFFB0B0B0);
 		}
 		text::Build(textVerts, "ATLAS  (click to place, Q=terrain)", canvasW + 10.0f, topH + 8.0f, 1.0f, 0xFF80C0FF);
-		for (int i = 0; i < kSpriteCount; ++i) {
-			text::Build(textVerts, SpriteName(kSprites[i]), spriteRects[i].x + 60.0f,
-				spriteRects[i].y + 20.0f, 1.0f, (selectedSprite == i) ? 0xFFFFFFFF : 0xFFB0B0B0);
+		for (int i = 0; i < spriteCount; ++i) {
+			const ui::Rect& r = spriteRects[static_cast<size_t>(i)];
+			const int si = panelSprites[static_cast<size_t>(i)];
+			text::Build(textVerts, CncAtlas::NameAt(si), r.x + 60.0f, r.y + 20.0f, 1.0f,
+				(selectedSprite == si) ? 0xFFFFFFFF : 0xFFB0B0B0);
 		}
 		{
 			char info[512];
@@ -635,7 +641,7 @@ int main() {
 				"CELL (%d,%d)  RES %d  MODE %s  BRUSH_R %d  SIZE %dx%d  ENTITIES %zu  |  %s  |  Q terrain  RMB delete  [ ] radius  G grid  N new  CTRL+S save  CTRL+O load",
 				hoverCell.x, hoverCell.y,
 				map.InBounds(hoverCell) ? map.ResourceAmount(hoverCell) : 0,
-				(selectedSprite >= 0) ? SpriteName(kSprites[selectedSprite]) : BrushName(brush),
+				(selectedSprite >= 0) ? CncAtlas::NameAt(selectedSprite) : BrushName(brush),
 				brushRadius, map.Width(), map.Height(), placed.size(), status.c_str());
 			text::Build(textVerts, info, 10.0f, static_cast<float>(H) - botH + 7.0f, 0.95f, 0xFFD0D0D0);
 		}

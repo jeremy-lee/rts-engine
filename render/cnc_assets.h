@@ -52,9 +52,9 @@ public:
 	// 尺寸/布局不再硬编码：从 assets/cnc_atlas.txt 加载（图集变化时无需改代码）。
 	struct SpriteMeta {
 		int row = 0;
-		int w = 16;
-		int h = 16;
-		int facings = 8; // 8 或 32；建筑 = 1
+		int w = 0; // 0 = 未加载（面板据此过滤）
+		int h = 0;
+		int facings = 8; // 8 / 32 / 0（建筑）
 		int frames = 1;  // 动画帧数
 	};
 
@@ -83,12 +83,34 @@ public:
 		return CncSpriteId::Count;
 	}
 
+	// ---- 动态精灵表：前 CncSpriteId::Count 项是引擎内置精灵，运行时导入的追加在后面 ----
 	static std::vector<SpriteMeta>& MetaTable() {
 		static std::vector<SpriteMeta> t(static_cast<size_t>(CncSpriteId::Count));
 		return t;
 	}
+	static std::vector<std::string>& NameTable() {
+		static std::vector<std::string> t = [] {
+			std::vector<std::string> v;
+			for (int i = 0; i < static_cast<int>(CncSpriteId::Count); ++i)
+				v.emplace_back(SpriteName(static_cast<CncSpriteId>(i)));
+			return v;
+		}();
+		return t;
+	}
+	static int Count() { return static_cast<int>(MetaTable().size()); }
+	static const char* NameAt(int i) {
+		const auto& t = NameTable();
+		return (i >= 0 && i < static_cast<int>(t.size())) ? t[static_cast<size_t>(i)].c_str() : "";
+	}
+	static int FindByName(const std::string& n) {
+		const auto& t = NameTable();
+		for (int i = 0; i < static_cast<int>(t.size()); ++i) {
+			if (t[static_cast<size_t>(i)] == n) return i;
+		}
+		return -1;
+	}
 
-	// 加载图集元数据（OpenRA sequences 的等价物）。返回是否成功。
+	// 加载图集元数据（OpenRA sequences 的等价物）。未知精灵名会被注册（动态追加）。
 	static bool LoadMeta(const std::string& path) {
 		std::ifstream in(path);
 		if (!in) return false;
@@ -98,22 +120,35 @@ public:
 			std::istringstream iss(line);
 			std::string key;
 			iss >> key;
+			if (key == "rows") {
+				int rows = 0;
+				if (iss >> rows && rows > 0) {
+					ImgSheet().width = kCols * kCellW;
+					ImgSheet().height = rows * kCellH;
+				}
+				continue;
+			}
 			if (key != "sprite") continue;
 			std::string name;
 			SpriteMeta m;
 			if (!(iss >> name >> m.row >> m.w >> m.h >> m.facings >> m.frames)) continue;
-			const CncSpriteId id = SpriteIdFromName(name);
-			if (id == CncSpriteId::Count) continue;
-			MetaTable()[static_cast<size_t>(id)] = m;
+			int idx = FindByName(name);
+			if (idx < 0) {
+				idx = Count();
+				MetaTable().push_back(m);
+				NameTable().push_back(name);
+			} else {
+				MetaTable()[static_cast<size_t>(idx)] = m;
+			}
 		}
 		return true;
 	}
 
-	// 精灵 UV（[0,1]）：team 0=蓝方, 1=红方；facing 为 WAngle；frame 0=stand,1-6=run
-	// 布局来源：assets/cnc_atlas.txt（row/w/h/facings/frames）
-	static void GetUV(CncSpriteId id, int team, WAngle facing, int frame, float& u0, float& v0, float& u1, float& v1) {
+	// 精灵 UV（按动态索引）
+	static void GetUVAt(int index, int team, WAngle facing, int frame, float& u0, float& v0, float& u1, float& v1) {
+		if (index < 0 || index >= Count()) { u0 = 0; v0 = 0; u1 = 1; v1 = 1; return; }
 		const int t = (team == 1) ? 1 : 0;
-		const SpriteMeta& m = MetaTable()[static_cast<size_t>(id)];
+		const SpriteMeta& m = MetaTable()[static_cast<size_t>(index)];
 		const int k = (frame < 0) ? 0 : (frame >= m.frames ? m.frames - 1 : frame);
 		int row = m.row;
 		int col = 0;
@@ -140,20 +175,20 @@ public:
 		u0 = r.u0; v0 = r.v0; u1 = r.u1; v1 = r.v1;
 	}
 
-	// 精灵尺寸 = 元数据里的 bounds（OpenRA TrimmedFrame 的最大 bbox）
-	static void GetContentSize(CncSpriteId id, int& w, int& h) {
-		const SpriteMeta& m = MetaTable()[static_cast<size_t>(id)];
+	// 精灵尺寸（按动态索引）
+	static void GetSizeAt(int index, int& w, int& h) {
+		if (index < 0 || index >= Count()) { w = 16; h = 16; return; }
+		const SpriteMeta& m = MetaTable()[static_cast<size_t>(index)];
 		w = m.w;
 		h = m.h;
 	}
 
-	// OpenRA 语义：Sprite.Size = 帧 bounds 尺寸（1:1 像素），放大由相机 zoom 负责
-	static void GetSize(CncSpriteId id, int& w, int& h) {
-		int cw = 50, ch = 39;
-		GetContentSize(id, cw, ch);
-		w = cw;
-		h = ch;
+	// 兼容 CncSpriteId 的便捷包装
+	static void GetUV(CncSpriteId id, int team, WAngle facing, int frame, float& u0, float& v0, float& u1, float& v1) {
+		GetUVAt(static_cast<int>(id), team, facing, frame, u0, v0, u1, v1);
 	}
+	static void GetContentSize(CncSpriteId id, int& w, int& h) { GetSizeAt(static_cast<int>(id), w, h); }
+	static void GetSize(CncSpriteId id, int& w, int& h) { GetSizeAt(static_cast<int>(id), w, h); }
 };
 
 } // namespace rts
