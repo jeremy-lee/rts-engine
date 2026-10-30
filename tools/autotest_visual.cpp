@@ -15,6 +15,7 @@
 #include "sim/map.h"
 #include "render/snapshot.h"
 #include "render/tileset.h"
+#include "render/render_graph.h"
 #include "render/sprite_batch.h"
 #include "render/camera.h"
 #include "render/gl_renderer.h"
@@ -449,18 +450,28 @@ int main(int argc, char** argv) {
 		// 顶部 HUD 条
 		ui::BuildPanel(uiVerts, ui::Rect{0, 0, static_cast<float>(W), 40}, 0xE0202020);
 
+		// ---- 帧图（UE5 RDG 风格）：World → UI → Text ----
 		renderer.BeginFrame(W, H);
-		// 地形（程序化纹理）+ 单位（RA 图集）
-		renderer.DrawTexturedBatch(terrainBatch.Vertices(), camera, terrainTex);
-		if (cncOk) {
-			renderer.DrawTexturedBatch(unitBatch.Vertices(), camera, cncTex);
-		}
-
-		renderer.DrawScreenBatch(uiVerts);
+		RenderGraph graph;
+		graph.AddPass("World", [&](PassContext& ctx) {
+			renderer.DrawTexturedBatch(terrainBatch.Vertices(), camera, terrainTex);
+			ctx.stats.drawCalls = 1;
+			ctx.stats.vertices = static_cast<uint32_t>(terrainBatch.Vertices().size());
+			if (cncOk) {
+				renderer.DrawTexturedBatch(unitBatch.Vertices(), camera, cncTex);
+				ctx.stats.drawCalls += 1;
+				ctx.stats.vertices += static_cast<uint32_t>(unitBatch.Vertices().size());
+			}
+		});
+		graph.AddPass("UI", [&](PassContext& ctx) {
+			renderer.DrawScreenBatch(uiVerts);
+			ctx.stats.drawCalls = 1;
+			ctx.stats.vertices = static_cast<uint32_t>(uiVerts.size());
+		});
 
 		// 文字
+		std::vector<SpriteVertex> tv;
 		{
-			std::vector<SpriteVertex> tv;
 			char line[200];
 			int u0 = 0, u1 = 0;
 			for (const auto& a : vs.sim.GetWorld().Entities().All()) {
@@ -485,8 +496,13 @@ int main(int argc, char** argv) {
 				text::Build(tv, hint, static_cast<float>(W) * 0.5f - text::Measure(hint, 1.6f) * 0.5f,
 					static_cast<float>(H) * 0.4f + 60.0f, 1.6f, 0xFFC0C0C0);
 			}
-			renderer.DrawScreenTextured(tv, fontTex);
 		}
+		graph.AddPass("Text", [&](PassContext& ctx) {
+			renderer.DrawScreenTextured(tv, fontTex);
+			ctx.stats.drawCalls = 1;
+			ctx.stats.vertices = static_cast<uint32_t>(tv.size());
+		});
+		graph.Execute(W, H, dt);
 		// 自动截图（调试/验证）
 		if (autoshot) {
 			static int frameCount = 0;
