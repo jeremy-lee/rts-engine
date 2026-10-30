@@ -540,7 +540,9 @@ int main() {
 				}
 			}
 			std::sort(cells.begin(), cells.end(), [](const CellCoord& a, const CellCoord& b) {
-				return (a.x + a.y) < (b.x + b.y);
+				// 画家算法：正交网格按屏幕 Y（= 格 y）从上到下绘制
+			if (a.y != b.y) return a.y < b.y;
+			return a.x < b.x;
 			});
 			for (const CellCoord& c : cells) {
 				if (!map.InBounds(c)) continue;

@@ -139,7 +139,7 @@ void TerrainGfx::GetUVAt(int tile, float& u0, float& v0, float& u1, float& v1) {
 		return;
 	}
 	// OpenRA 语义：TMP tile 的 Offset = 0、Size = 整个画布，TerrainSpriteLayer 直接画满幅
-	// （xyz = Screen3DPosition(cell) + Offset - 0.5*Size）。所以这里也取满幅 UV，不要裁菱形。
+	// （xyz = Screen3DPosition(cell) + Offset - 0.5*Size）。正交网格下一格正好一个 tile。
 	const float inset = 1.0f / 128.0f;
 	const float x0 = static_cast<float>(tile * kTileW);
 	u0 = (x0 + inset) / texW;

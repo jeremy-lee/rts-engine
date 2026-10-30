@@ -20,18 +20,19 @@ TEST(projection_cell_center_roundtrip) {
 }
 
 TEST(projection_formula_values) {
-	// (0,0) -> (0,0)
-	CHECK_EQ(ProjectCell(CellCoord(0, 0), 0).x, 0);
-	CHECK_EQ(ProjectCell(CellCoord(0, 0), 0).y, 0);
-	// (1,0) -> (32, 16)
-	CHECK_EQ(ProjectCell(CellCoord(1, 0), 0).x, 32);
+	// 正交网格（OpenRA MapGrid.Rectangular）：格中心 = 格坐标 * 32 + 半格
+	// (0,0) -> (16, 16)
+	CHECK_EQ(ProjectCell(CellCoord(0, 0), 0).x, 16);
+	CHECK_EQ(ProjectCell(CellCoord(0, 0), 0).y, 16);
+	// (1,0) -> (48, 16)
+	CHECK_EQ(ProjectCell(CellCoord(1, 0), 0).x, 48);
 	CHECK_EQ(ProjectCell(CellCoord(1, 0), 0).y, 16);
-	// (0,1) -> (-32, 16)
-	CHECK_EQ(ProjectCell(CellCoord(0, 1), 0).x, -32);
-	CHECK_EQ(ProjectCell(CellCoord(0, 1), 0).y, 16);
-	// (1,1) -> (0, 32)
-	CHECK_EQ(ProjectCell(CellCoord(1, 1), 0).x, 0);
-	CHECK_EQ(ProjectCell(CellCoord(1, 1), 0).y, 32);
+	// (0,1) -> (16, 48)
+	CHECK_EQ(ProjectCell(CellCoord(0, 1), 0).x, 16);
+	CHECK_EQ(ProjectCell(CellCoord(0, 1), 0).y, 48);
+	// (1,1) -> (48, 48)
+	CHECK_EQ(ProjectCell(CellCoord(1, 1), 0).x, 48);
+	CHECK_EQ(ProjectCell(CellCoord(1, 1), 0).y, 48);
 }
 
 TEST(projection_height_affects_y_only) {
@@ -42,18 +43,25 @@ TEST(projection_height_affects_y_only) {
 }
 
 TEST(projection_subcell_fixed) {
-	// 子格中心 (0.5, 0.5) 格 = (512, 512) 子格
+	// 子格中心 (0.5, 0.5) 格 = (512, 512) 子格 → 屏幕半格（正交）
 	const SubCoord s(512, 512);
 	const Fixed sx = ProjectCellXFixed(s);
 	const Fixed sy = ProjectCellYFixed(s, 0);
-	// (0.5 - 0.5) * 32 = 0； (0.5 + 0.5) * 16 = 16
-	CHECK_EQ(sx.Round(), 0);
+	// 512 * 32 / 1024 = 16
+	CHECK_EQ(sx.Round(), 16);
 	CHECK_EQ(sy.Round(), 16);
 
-	// 1.5 格 x, 0.5 格 y -> (1.5-0.5)*32 = 32, (1.5+0.5)*16 = 32
+	// 1.5 格 x, 0.5 格 y -> (48, 16)
 	const SubCoord s2(1536, 512);
-	CHECK_EQ(ProjectCellXFixed(s2).Round(), 32);
-	CHECK_EQ(ProjectCellYFixed(s2, 0).Round(), 32);
+	CHECK_EQ(ProjectCellXFixed(s2).Round(), 48);
+	CHECK_EQ(ProjectCellYFixed(s2, 0).Round(), 16);
+
+	// ProjectCell 必须与 ProjectSub(格中心) 一致
+	const ScreenPos cellCenter = ProjectCell(CellCoord(3, 5), 0);
+	const ScreenPos subCenter = ProjectSub(SubCoord(3 * kSubPerCell + kSubPerCell / 2,
+		5 * kSubPerCell + kSubPerCell / 2), 0);
+	CHECK_EQ(cellCenter.x, subCenter.x);
+	CHECK_EQ(cellCenter.y, subCenter.y);
 }
 
 TEST(projection_adjacent_cells_distinct) {

@@ -29,14 +29,8 @@ public:
 	// 图集里每个 tile 的采样尺寸（C&C TMP = 24×24）
 	static constexpr int kTileW = 24;
 	static constexpr int kTileH = 24;
-	// TMP tile 的有效菱形区域：画布 24×24 内居中 24×12（y 6..18）。
-	// 只采样这块 → 渲染 32×16（放大 4/3）= 格间距，边对边无缝。
-	static constexpr int kContentY0 = 6;
-	static constexpr int kContentH = 12;
-	// 屏幕绘制尺寸 = 64×32（菱形 2× 格间距）。
-	// 等距网格里相邻格中心相距 (32,16)，只有 64×32 的菱形能边对边铺满；
-	// 32×16 的矩形在相邻格之间只角点相接 → 会留出棋盘状黑缝。
-	static constexpr int kRenderW = 64;
+	// 屏幕绘制尺寸 = 32×32（正交网格，一格一 tile，与 OpenRA Rectangular 一致）
+	static constexpr int kRenderW = 32;
 	static constexpr int kRenderH = 32;
 	// 程序化回退纹理的 tile 尺寸（32×16）
 	static constexpr int kProceduralW = 32;
@@ -52,11 +46,8 @@ public:
 	static bool HasAtlas();
 
 	// 地形种类 → tile 索引（TMP 图集区间）：
-	//   Grass   : 0-15（clear1 的 16 个变体，按格位置散列）
-	//   Water   : 16（w1）
-	//   Rock    : 17-36（sh01/sh02 变体）
-	//   Sand    : 0（复用 clear1）
-	//   Highland: 17（复用 sh01）
+	//   Grass/Sand/Rock/Highland : 0-15（clear1 的 16 个变体，按格位置散列；地面类型靠顶点 tint 区分）
+	//   Water : 36（w1）
 	// 图集布局（生成的 terrain_atlas.png，37 × 24×24 tile）：
 	//   0-15  clear1（草地，16 变体，全部有内容）
 	//   16-35 sh01（峭壁，其中 16/17/18/20/30/31/33/34/35 是空 tile → 必须跳过）
@@ -70,9 +61,9 @@ public:
 			case TerrainKind::Grass:    return variant;                              // clear1 0-15
 			case TerrainKind::Water:    return 36;                                   // w1
 			case TerrainKind::Sand:     return variant;                              // 复用 clear1（RA 无独立沙 tile）
-			// 峭壁 tile（sh01）内部有大片阴影，直接铺会变成黑菱形；
-			// 用草地变体 + 顶点 tint 区分地面类型，视觉连续且无洞。
-			case TerrainKind::Rock:     return variant;
+			// 石头地面用 sh01 里偏亮的 tile（平均 R 78..103，比草地 44 亮），不加 tint；
+			// 草地基色太暗，乘任何 tint 都会趋黑。
+			case TerrainKind::Rock:     return kCliffTiles[variant % kCliffCount];
 			case TerrainKind::Highland: return variant;
 			default:                    return 0;
 		}
@@ -83,9 +74,10 @@ public:
 		switch (kind) {
 			case TerrainKind::Grass:    return 0xFFFFFFFFu;
 			case TerrainKind::Water:    return 0xFFFFFFFFu; // 水用自己的蓝色 tile
-			case TerrainKind::Sand:     return 0xFFD8C890u; // 偏黄
-			case TerrainKind::Rock:     return 0xFFA0A0A8u; // 偏灰
-			case TerrainKind::Highland: return 0xFFC8E0B0u; // 偏亮绿
+			// 草地基色较暗（~44,43,43），tint 低于 ~0.8 会变成黑块
+			case TerrainKind::Sand:     return 0xFFFFE8B0u; // 偏黄
+			case TerrainKind::Rock:     return 0xFFFFFFFFu; // 石头 tile 自带颜色
+			case TerrainKind::Highland: return 0xFFC8E8A8u; // 偏亮绿
 			default:                    return 0xFFFFFFFFu;
 		}
 	}

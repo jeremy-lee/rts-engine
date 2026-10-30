@@ -349,8 +349,10 @@ int main(int argc, char** argv) {
 			// OpenRA Viewport.ClampToBounds：限制相机在地图内
 			const int32_t mw = sim.GetWorld().Width();
 			const int32_t mh = sim.GetWorld().Height();
-			camera.ClampToBounds(static_cast<float>(mw) * -16.0f, 0.0f,
-				static_cast<float>(mw) * 16.0f, static_cast<float>(mw + mh) * 16.0f);
+			// 正交网格：世界范围 = [0, w*32] × [0, h*32]
+			camera.ClampToBounds(0.0f, 0.0f,
+				static_cast<float>(mw) * static_cast<float>(kTileW),
+				static_cast<float>(mh) * static_cast<float>(kTileH));
 		}
 		const float panSpeed = 500.0f * static_cast<float>(dt) / camera.zoom;
 		if (window.IsKeyDown('W') || window.IsKeyDown(VK_UP)) camera.centerY -= panSpeed;
@@ -536,8 +538,9 @@ int main(int argc, char** argv) {
 					} else {
 						cmd.type = CommandType::Move;
 						cmd.entityId = id;
-						cmd.x = static_cast<int32_t>(mp.x / kTileW * 2) * kSubPerCell / 2;
-						cmd.y = static_cast<int32_t>(mp.y / kTileH * 2) * kSubPerCell / 2;
+						// 正交：屏幕像素 → 子格坐标（每格 kTileW/kTileH 像素）
+						cmd.x = static_cast<int32_t>(mp.x) * kSubPerCell / kTileW;
+						cmd.y = static_cast<int32_t>(mp.y) * kSubPerCell / kTileH;
 					}
 					pushCommand(cmd);
 				}

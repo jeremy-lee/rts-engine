@@ -270,7 +270,7 @@ int main(int argc, char** argv) {
 		std::vector<TmpTile> tiles;
 		if (!ParseTmp(buf, tiles)) { std::fprintf(stderr, "[terrain] %s parse failed\n", src.name); return 1; }
 		std::printf("[terrain] %s: %zu tiles (expected %d)\n", src.name, tiles.size(), src.expect);
-		for (const TmpTile& t : tiles) atlasTiles.push_back(TileToRgba(t, pal, true));
+		for (const TmpTile& t : tiles) atlasTiles.push_back(TileToRgba(t, pal, false));
 	}
 
 	// 拼图集（横向排列，每格取最大尺寸）
