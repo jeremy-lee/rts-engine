@@ -7,6 +7,9 @@
 #include <windows.h>
 #include <GL/gl.h>
 
+#include <string>
+#include <vector>
+
 namespace rts {
 
 class Win32Window {
@@ -31,6 +34,13 @@ public:
 	int MouseY() const { return m_mouseY; }
 	int ConsumeWheel() { const int w = m_wheel; m_wheel = 0; return w; }
 
+	// 文件拖放（WM_DROPFILES）：取出并清空本次拖入的文件路径
+	std::vector<std::string> ConsumeDroppedFiles() {
+		std::vector<std::string> out;
+		out.swap(m_dropped);
+		return out;
+	}
+
 private:
 	static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -45,6 +55,7 @@ private:
 	int m_mouseX = 0;
 	int m_mouseY = 0;
 	int m_wheel = 0;
+	std::vector<std::string> m_dropped;
 };
 
 } // namespace rts

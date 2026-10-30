@@ -43,6 +43,19 @@ LRESULT CALLBACK Win32Window::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
 			self->m_width = LOWORD(lParam);
 			self->m_height = HIWORD(lParam);
 			return 0;
+		case WM_DROPFILES: {
+			// 文件拖放：收集所有拖入路径（ANSI），供编辑器导入资源
+			HDROP drop = reinterpret_cast<HDROP>(wParam);
+			const UINT count = DragQueryFileA(drop, 0xFFFFFFFF, nullptr, 0);
+			for (UINT i = 0; i < count; ++i) {
+				char path[MAX_PATH] = {};
+				if (DragQueryFileA(drop, i, path, MAX_PATH) > 0) {
+					self->m_dropped.emplace_back(path);
+				}
+			}
+			DragFinish(drop);
+			return 0;
+		}
 		default:
 			return DefWindowProc(hwnd, msg, wParam, lParam);
 	}
@@ -108,6 +121,7 @@ bool Win32Window::Create(const char* title, int width, int height) {
 		return false;
 	}
 
+	DragAcceptFiles(m_hwnd, TRUE); // 允许文件拖放到窗口
 	ShowWindow(m_hwnd, SW_SHOW);
 	UpdateWindow(m_hwnd);
 	return true;

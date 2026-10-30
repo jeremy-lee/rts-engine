@@ -21,6 +21,9 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <map>
+#include <cctype>
+#include <cstdlib>
 #include <vector>
 
 #include "core/core.h"
@@ -145,6 +148,96 @@ const char* SpriteName(CncSpriteId id) {
 	}
 }
 
+// ---- 拖放导入：把拖入的 PNG 作为新精灵追加到 assets/sprites.txt，然后调用 rts_import ----
+// 返回 true 表示成功（调用方据此重载图集）。
+bool AppendSpritesConfig(const std::vector<std::string>& files, std::string& status) {
+	// 按文件名分组：prefix = 去掉 "-数字.png" 的部分
+	struct Group {
+		std::string prefix;
+		std::string dir;
+		int count = 0;
+	};
+	std::map<std::string, Group> groups;
+	for (const auto& f : files) {
+		const size_t slash = f.find_last_of("\\/");
+		const std::string dir = (slash == std::string::npos) ? std::string(".") : f.substr(0, slash);
+		std::string base = (slash == std::string::npos) ? f : f.substr(slash + 1);
+		const size_t dot = base.find_last_of('.');
+		const std::string ext = (dot == std::string::npos) ? std::string() : base.substr(dot);
+		if (ext != ".png" && ext != ".PNG") continue;
+		std::string stem = base.substr(0, dot);
+		std::string prefix = stem;
+		const size_t dash = stem.find_last_of('-');
+		if (dash != std::string::npos) {
+			bool digits = true;
+			for (size_t i = dash + 1; i < stem.size(); ++i) {
+				if (stem[i] < '0' || stem[i] > '9') { digits = false; break; }
+			}
+			if (digits) prefix = stem.substr(0, dash);
+		}
+		auto& g = groups[prefix];
+		g.prefix = prefix;
+		g.dir = dir;
+		g.count++;
+	}
+	if (groups.empty()) {
+		status = "Drop ignored: no PNG files";
+		return false;
+	}
+	// 读现有配置
+	std::vector<std::string> lines;
+	int maxRow = 0;
+	{
+		std::ifstream in("assets/sprites.txt");
+		std::string line;
+		while (std::getline(in, line)) {
+			lines.push_back(line);
+			if (line.rfind("sprite ", 0) == 0) {
+				int row = 0;
+				if (std::sscanf(line.c_str() + 7, "%*s %*s %*d %*d %*s %*d %*d %*d %d", &row) == 1) {
+					maxRow = std::max(maxRow, row + 2);
+				}
+			}
+		}
+		if (lines.empty()) {
+			lines = {"cell 80 64", "cols 64", "team 2", "team0 70 90 255", "team1 235 60 60", ""};
+		}
+	}
+	// 追加新精灵（单张 = 1 帧；多张 = 帧序列）
+	int row = maxRow;
+	int added = 0;
+	for (const auto& [prefix, g] : groups) {
+		// 精灵名：前缀大写（引擎 SpriteIdFromName 只认已知名；未知名会被忽略但仍生成图集）
+		std::string name = prefix;
+		for (char& ch : name) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+		char lineBuf[256];
+		// sprite <name> <prefix> <facings> <frames> <mode> <standStart> <runStart> <turretStart> <row>
+		std::snprintf(lineBuf, sizeof(lineBuf), "sprite %s %s 1 %d building 0 -1 -1 %d",
+			name.c_str(), prefix.c_str(), std::max(1, g.count), row);
+		lines.push_back(lineBuf);
+		row += 1;
+		++added;
+	}
+	lines.push_back("");
+	{
+		std::ofstream out("assets/sprites.txt");
+		for (const auto& l : lines) out << l << "\n";
+	}
+	status = "Import: " + std::to_string(added) + " sprite(s)";
+	return true;
+}
+
+// 运行 rts_import（同步）
+bool RunImportTool(const std::string& framesDir, std::string& status) {
+	std::string cmd = "build\\rts_import.exe \"" + framesDir + "\" assets\\sprites.txt assets\\cnc_atlas.bmp assets\\cnc_atlas.txt";
+	const int rc = std::system(cmd.c_str());
+	if (rc != 0) {
+		status = "rts_import failed (rc=" + std::to_string(rc) + ")";
+		return false;
+	}
+	return true;
+}
+
 bool SaveEntities(const char* path, const std::vector<PlacedEntity>& list) {
 	FILE* f = std::fopen(path, "w");
 	if (!f) return false;
@@ -200,8 +293,8 @@ int main() {
 	CncAtlas::LoadMeta("assets/cnc_atlas.txt");
 	std::vector<uint8_t> atlasPixels;
 	int atlasW = 0, atlasH = 0;
-	const bool cncOk = CncAtlas::Load("assets/cnc_atlas.bmp", atlasPixels, atlasW, atlasH);
-	const uint32_t cncTex = cncOk ? renderer.UploadTexture(atlasPixels, atlasW, atlasH) : 0;
+	bool cncOk = CncAtlas::Load("assets/cnc_atlas.bmp", atlasPixels, atlasW, atlasH);
+	uint32_t cncTex = cncOk ? renderer.UploadTexture(atlasPixels, atlasW, atlasH) : 0;
 
 	Map map = Map::GenerateTestMap(128, 128, 2024);
 	std::vector<PlacedEntity> placed;
@@ -244,6 +337,39 @@ int main() {
 		if (wheel != 0) camera.ZoomAt((wheel > 0) ? 1.1f : 1.0f / 1.1f, mx, my);
 		camera.viewW = W;
 		camera.viewH = H;
+
+		// ---- 拖放导入（PNG 拖进窗口）----
+		{
+			const auto dropped = window.ConsumeDroppedFiles();
+			if (!dropped.empty()) {
+				std::string msg;
+				if (AppendSpritesConfig(dropped, msg)) {
+					// 用第一个文件的目录作为帧目录
+					const std::string& first = dropped.front();
+					const size_t slash = first.find_last_of("\\/");
+					const std::string dir = (slash == std::string::npos) ? std::string(".") : first.substr(0, slash);
+					if (!RunImportTool(dir, msg)) {
+						status = msg;
+					} else {
+						// 重载图集（纹理 + 元数据）
+						CncAtlas::LoadMeta("assets/cnc_atlas.txt");
+						std::vector<uint8_t> px;
+						int w = 0, h = 0;
+						if (CncAtlas::Load("assets/cnc_atlas.bmp", px, w, h)) {
+							const uint32_t newTex = renderer.UploadTexture(px, w, h);
+							if (newTex != 0) {
+								glDeleteTextures(1, reinterpret_cast<const GLuint*>(&cncTex));
+								cncTex = newTex;
+								cncOk = true;
+							}
+						}
+						status = msg;
+					}
+				} else {
+					status = msg;
+				}
+			}
+		}
 
 		// ---- 笔刷切换 ----
 		static const int keyMap[kBrushCount] = {'1', '2', '3', '4', '5', '6', '0'};
