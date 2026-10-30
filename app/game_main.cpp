@@ -163,10 +163,14 @@ int main(int argc, char** argv) {
 
 	// 地形纹理（程序化 64×32，与网格 1:1）
 	int terrW = 0, terrH = 0;
-	const auto terrPixels = TerrainGfx::Build(terrW, terrH);
+	std::vector<uint8_t> terrPixels;
+	if (!TerrainGfx::Load("assets/terrain_atlas.png", terrPixels, terrW, terrH)) {
+		terrPixels = TerrainGfx::Build(terrW, terrH); // 回退：程序化纯色
+	}
 	const uint32_t terrainTex = renderer.UploadTexture(terrPixels, terrW, terrH);
 
 	// M16：C&C 素材图集（占位美术，OpenRA 提取）
+	CncAtlas::LoadMeta("assets/cnc_atlas.txt"); // 精灵尺寸/布局（缺失会让单位尺寸为 0）
 	std::vector<uint8_t> cncPixels;
 	int cncW = 0, cncH = 0;
 	const bool cncOk = CncAtlas::Load("assets/cnc_atlas.bmp", cncPixels, cncW, cncH);
@@ -697,7 +701,7 @@ int main(int argc, char** argv) {
 			} else if (!softwareMode && s.spriteIndex >= 0) {
 				// 地形：程序化 64×32 纹理（1:1）
 				float u0 = 0.0f, v0 = 0.0f, u1 = 1.0f, v1 = 1.0f;
-				TerrainGfx::GetUV(static_cast<TerrainKind>(s.spriteIndex), u0, v0, u1, v1);
+				TerrainGfx::GetUVAt(s.spriteIndex, u0, v0, u1, v1);
 				terrainBatch.AddSprite(s.worldX, s.worldY, s.w, s.h, u0, v0, u1, v1, s.color);
 			} else {
 				uint32_t color = s.color;

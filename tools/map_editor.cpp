@@ -284,7 +284,10 @@ int main() {
 
 
 	int terrW = 0, terrH = 0;
-	const std::vector<uint8_t> terrPixels = TerrainGfx::Build(terrW, terrH);
+	std::vector<uint8_t> terrPixels;
+	if (!TerrainGfx::Load("assets/terrain_atlas.png", terrPixels, terrW, terrH)) {
+		terrPixels = TerrainGfx::Build(terrW, terrH); // 回退：程序化纯色
+	}
 
 	const uint32_t terrainTex = renderer.UploadTexture(terrPixels, terrW, terrH);
 
@@ -517,11 +520,11 @@ int main() {
 				if (!map.InBounds(c)) continue;
 				const ScreenPos p = ProjectCell(c, map.TerrainHeight(c));
 				const TerrainKind tk = TerrainOf(map, c);
-				const float tw = static_cast<float>(TerrainGfx::kTileW) * 2.0f;
-				const float th = static_cast<float>(TerrainGfx::kTileH) * 2.0f;
+				const float tw = static_cast<float>(TerrainGfx::kRenderW);
+				const float th = static_cast<float>(TerrainGfx::kRenderH);
 				// 白色 tint：颜色来自 TerrainGfx 纹理（顶点色 × 纹理色会双重着色变黑）
 				float tu0 = 0, tv0 = 0, tu1 = 1, tv1 = 1;
-				TerrainGfx::GetUV(tk, tu0, tv0, tu1, tv1);
+				TerrainGfx::GetUVAt(TerrainGfx::TileFor(tk, c.x, c.y), tu0, tv0, tu1, tv1);
 				terrainBatch.AddSprite(static_cast<float>(p.x) - tw * 0.5f,
 					static_cast<float>(p.y) - th * 0.5f, tw, th, tu0, tv0, tu1, tv1, 0xFFFFFFFFu);
 				if (map.ResourceAmount(c) > 0) {

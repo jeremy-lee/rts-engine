@@ -134,16 +134,17 @@ void TerrainGfx::GetUVAt(int tile, float& u0, float& v0, float& u1, float& v1) {
 	const float texW = static_cast<float>(g_atlas.width);
 	const float texH = static_cast<float>(g_atlas.height);
 	if (!g_atlas.loaded || texW <= 0.0f || texH <= 0.0f) {
-		u0 = 0.0f; v0 = 0.0f; u1 = 1.0f; v1 = 1.0f;
+		// 无图集：退化为程序化纹理（tile 索引按 kind 区间取模）
+		GetUV(static_cast<TerrainKind>(tile % 5), u0, v0, u1, v1);
 		return;
 	}
+	// 只采样 tile 内的有效菱形区域（y 6..18），避免把画布上下填充画出来
 	const float inset = 1.0f / 128.0f;
 	const float x0 = static_cast<float>(tile * kTileW);
-	const float y0 = 0.0f;
 	u0 = (x0 + inset) / texW;
-	v0 = (y0 + inset) / texH;
+	v0 = (static_cast<float>(kContentY0) + inset) / texH;
 	u1 = (x0 + static_cast<float>(kTileW) - inset) / texW;
-	v1 = (y0 + static_cast<float>(kTileH) - inset) / texH;
+	v1 = (static_cast<float>(kContentY0 + kContentH) - inset) / texH;
 }
 
 void TerrainGfx::GetUV(TerrainKind kind, float& u0, float& v0, float& u1, float& v1) {
@@ -153,12 +154,12 @@ void TerrainGfx::GetUV(TerrainKind kind, float& u0, float& v0, float& u1, float&
 	}
 	// 回退：程序化纹理（5 种 tile，32×16）
 	const int idx = static_cast<int>(kind);
-	const float texW = static_cast<float>(5 * kTileW);
-	const float texH = static_cast<float>(kTileH);
+	const float texW = static_cast<float>(5 * kProceduralW);
+	const float texH = static_cast<float>(kProceduralH);
 	const float inset = 1.0f / 128.0f;
-	u0 = (static_cast<float>(idx * kTileW) + inset) / texW;
+	u0 = (static_cast<float>(idx * kProceduralW) + inset) / texW;
 	v0 = inset / texH;
-	u1 = (static_cast<float>((idx + 1) * kTileW) - inset) / texW;
+	u1 = (static_cast<float>((idx + 1) * kProceduralW) - inset) / texW;
 	v1 = (texH - inset) / texH;
 }
 

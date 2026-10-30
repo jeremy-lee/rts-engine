@@ -70,19 +70,18 @@ struct RenderSnapshot {
 
 				const ScreenPos p = ProjectCell(c, map.TerrainHeight(c));
 				RenderSprite s;
-				s.worldX = static_cast<float>(p.x) - kTileW * 0.5f;
-				s.worldY = static_cast<float>(p.y) - kTileH * 0.5f;
-				s.w = static_cast<float>(kTileW);
-				s.h = static_cast<float>(kTileH);
-				// 地形用程序化 64×32 纹理（与矩形网格 1:1）
 				TerrainKind tk = TerrainKind::Grass;
 				if (map.Water(c)) tk = TerrainKind::Water;
 				else if (!map.Walkable(c)) tk = TerrainKind::Rock;
 				else if (map.TerrainHeight(c) > 0) tk = TerrainKind::Highland;
-				s.spriteIndex = static_cast<int>(tk); // 地形种类（渲染时映射到 TMP tile）
-				s.cncSprite = -1; // 地形不用 C&C 图集
-				s.w = static_cast<float>(TerrainGfx::kTileW) * 2.0f; // 2× 覆盖，避免亚像素缝隙
-				s.h = static_cast<float>(TerrainGfx::kTileH) * 2.0f;
+				// TMP 图集 tile 索引（按位置散列选变体）；渲染时用 GetUVAt(spriteIndex)
+				s.spriteIndex = TerrainGfx::TileFor(tk, x, y);
+				s.cncSprite = -1; // 地形不用 C&C 单位图集
+				// 渲染尺寸 = 32×32（24×24 画布放大 4/3，菱形 32×16 = 格间距，边对边无缝）
+				s.w = static_cast<float>(TerrainGfx::kRenderW);
+				s.h = static_cast<float>(TerrainGfx::kRenderH);
+				s.worldX = static_cast<float>(p.x) - s.w * 0.5f;
+				s.worldY = static_cast<float>(p.y) - s.h * 0.5f;
 				s.color = 0xFFFFFFFFu;
 				s.prevX = s.worldX; // 地形不插值
 				s.prevY = s.worldY;
