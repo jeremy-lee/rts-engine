@@ -70,6 +70,21 @@ TerrainKind BrushTerrain(Brush b) {
 	}
 }
 
+// 用户在图集面板里选中的具体模板（-1 = 用地形笔刷模式）
+static int g_selectedTemplate = -1;
+static int g_selectedIndex = 0;
+
+// 刷一个具体模板：tile 数据 + 由 tileset 派生出的通行/可建造标志
+void ApplyTemplateBrush(Map& map, CellCoord c, int templateId, int index) {
+	if (!map.InBounds(c)) return;
+	map.SetTile(c, static_cast<uint16_t>(templateId), static_cast<uint8_t>(index));
+	const std::string& terr = TileSet::TerrainOf(templateId, index);
+	uint8_t flags = kWalkable | kBuildable;
+	if (terr == "Water" || terr == "River") flags = kWater;
+	else if (!TileSet::Walkable(templateId, index)) flags = kBuildable;
+	map.SetFlags(c, flags);
+}
+
 void ApplyBrush(Map& map, CellCoord c, Brush b, int radius); // 前向声明
 
 // Bresenham 连线：拖拽时从上一格到当前格逐格落笔，避免快速拖动漏格
@@ -95,33 +110,46 @@ void ApplyBrush(Map& map, CellCoord c, Brush b, int radius) {
 			if (dx * dx + dy * dy > radius * radius) continue;
 			const CellCoord cell(c.x + dx, c.y + dy);
 			if (!map.InBounds(cell)) continue;
+			if (g_selectedTemplate >= 0) {
+				// 直接刷用户在图集面板里选中的具体模板（templateId + 变体 index）
+				ApplyTemplateBrush(map, cell, g_selectedTemplate, g_selectedIndex);
+				continue;
+			}
 			switch (b) {
 				case Brush::Grass:
+					// clear1（模板 255）：随机挑一个变体，保存后变体不会丢（index 存在地图里）
+					map.SetTile(cell, 255, static_cast<uint8_t>((cell.x * 7 + cell.y * 13) & 0x0F));
 					map.SetFlags(cell, kWalkable | kBuildable);
 					map.SetTerrainHeight(cell, 0);
 					break;
 				case Brush::Water:
+					map.SetTile(cell, 1, 0); // w1.tem
 					map.SetFlags(cell, kWater);
 					map.SetTerrainHeight(cell, 0);
 					break;
 				case Brush::Rock:
+					map.SetTile(cell, 103, 0); // p01.tem（Rock）
 					map.SetFlags(cell, kBuildable);
 					map.SetTerrainHeight(cell, 0);
 					break;
 				case Brush::Sand:
+					map.SetTile(cell, 255, 3); // 复用 clear1 的一个变体
 					map.SetFlags(cell, kWalkable | kBuildable);
 					map.SetTerrainHeight(cell, 0);
 					break;
 				case Brush::Highland:
+					map.SetTile(cell, 255, static_cast<uint8_t>((cell.x + cell.y) & 0x0F));
 					map.SetFlags(cell, kWalkable | kBuildable);
 					map.SetTerrainHeight(cell, 2);
 					break;
 				case Brush::Resource:
+					map.SetTile(cell, 255, 0);
 					map.SetResourceAmount(cell, 2000);
 					map.SetFlags(cell, kWalkable | kBuildable);
 					map.SetTerrainHeight(cell, 0);
 					break;
 				case Brush::Eraser:
+					map.SetTile(cell, 255, 0);
 					map.SetResourceAmount(cell, 0);
 					map.SetFlags(cell, kWalkable | kBuildable);
 					map.SetTerrainHeight(cell, 0);
