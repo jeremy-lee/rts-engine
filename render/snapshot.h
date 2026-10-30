@@ -76,8 +76,9 @@ struct RenderSnapshot {
 				if (map.Water(c)) tk = TerrainKind::Water;
 				else if (!map.Walkable(c)) tk = TerrainKind::Rock;
 				else if (map.TerrainHeight(c) > 0) tk = TerrainKind::Highland;
-				// TMP 图集 tile 索引（按位置散列选变体）；渲染时用 GetUVAt(spriteIndex)
-				s.spriteIndex = TerrainGfx::TileFor(tk, x, y);
+				// 地图里存的 (templateId, index) 打包成 spriteIndex，渲染时拆开查 tileset
+				const TileRef tr = map.Tile(c);
+				s.spriteIndex = (static_cast<int>(tr.templateId) << 8) | static_cast<int>(tr.index);
 				s.cncSprite = -1; // 地形不用 C&C 单位图集
 				// 渲染尺寸 = 32×32（24×24 画布放大 4/3，菱形 32×16 = 格间距，边对边无缝）
 				s.w = static_cast<float>(TerrainGfx::kRenderW);

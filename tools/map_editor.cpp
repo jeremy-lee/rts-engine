@@ -33,6 +33,7 @@
 #include "render/camera.h"
 #include "render/gl_renderer.h"
 #include "render/terrain_gfx.h"
+#include "render/tileset.h"
 #include "render/cnc_assets.h"
 #include "render/text.h"
 #include "render/ui.h"
@@ -303,7 +304,8 @@ int main() {
 
 	int terrW = 0, terrH = 0;
 	std::vector<uint8_t> terrPixels;
-	if (!TerrainGfx::Load("assets/terrain_atlas.bmp", terrPixels, terrW, terrH)) {
+	TileSet::Load("assets/tileset.txt"); // 模板表（templateId,index → UV / 地形属性）
+	if (!TerrainGfx::Load("assets/tileset.bmp", terrPixels, terrW, terrH)) {
 		terrPixels = TerrainGfx::Build(terrW, terrH); // 回退：程序化纯色
 	}
 

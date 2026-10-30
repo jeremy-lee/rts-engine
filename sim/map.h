@@ -16,6 +16,18 @@ enum TerrainFlags : uint8_t {
 	kWater = 1 << 2,      // 水域（不可通行）
 };
 
+// 地图格子的瓦片引用（对齐 OpenRA 的 TerrainTile：模板 + 变体索引）。
+//   templateId = TileSet 的模板（对应一个 TMP 文件，如 255 → clear1.tem 草地）
+//   index      = 该模板下的变体号（多格模板时是子格序号，行优先）
+struct TileRef {
+	uint16_t templateId = 255; // 255 = clear1（默认草地）
+	uint8_t index = 0;
+	constexpr bool operator==(const TileRef& o) const {
+		return templateId == o.templateId && index == o.index;
+	}
+	constexpr bool operator!=(const TileRef& o) const { return !(*this == o); }
+};
+
 class Map {
 public:
 	Map() = default;
@@ -27,6 +39,16 @@ public:
 	int32_t Height() const { return m_height; }
 	bool InBounds(CellCoord c) const { return m_heightLayer.InBounds(c); }
 	size_t CellCount() const { return m_heightLayer.CellCount(); }
+
+	// ---- 瓦片（OpenRA 同构：每格存 (templateId, index)）----
+	TileRef Tile(CellCoord c) const {
+		const uint32_t v = m_tiles.Get(c, 0xFF00u);
+		return TileRef{static_cast<uint16_t>(v >> 8), static_cast<uint8_t>(v & 0xFFu)};
+	}
+	void SetTile(CellCoord c, uint16_t templateId, uint8_t index) {
+		m_tiles.Set(c, (static_cast<uint32_t>(templateId) << 8) | static_cast<uint32_t>(index));
+	}
+	void SetTile(CellCoord c, TileRef t) { SetTile(c, t.templateId, t.index); }
 
 	// ---- 地形查询 ----
 	uint8_t TerrainHeight(CellCoord c) const { return m_heightLayer.Get(c); }
@@ -104,6 +126,18 @@ public:
 	bool LoadFromText(const std::string& path);
 	bool SaveToText(const std::string& path) const;
 
+	// ---- 二进制格式（与 OpenRA 的 map.bin 同构）----
+	//   u8  format = 2
+	//   u16 width, height
+	//   u32 tilesOffset      (= 17)
+	//   u32 heightsOffset    (= 17 + w*h*3)
+	//   u32 resourcesOffset  (= heightsOffset + w*h)
+	//   [w*h*3] u16 templateId + u8 index
+	//   [w*h*1] u8 height
+	//   [w*h*1] u8 resource amount
+	bool SaveBinary(const std::string& path) const;
+	bool LoadBinary(const std::string& path);
+
 	// ---- 测试地图生成（确定性，给定 seed 可复现）----
 	static Map GenerateTestMap(int32_t width, int32_t height, uint64_t seed);
 
@@ -128,6 +162,7 @@ public:
 private:
 	int32_t m_width = 0;
 	int32_t m_height = 0;
+	CellLayer<uint32_t> m_tiles;      // 打包的 (templateId << 8) | index
 	CellLayer<uint8_t> m_heightLayer; // 地形高度 0..255
 	CellLayer<uint8_t> m_flags;       // TerrainFlags 位集
 	CellLayer<uint8_t> m_fog;         // 迷雾 0..255

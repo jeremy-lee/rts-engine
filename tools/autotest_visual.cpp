@@ -14,6 +14,7 @@
 #include "sim/gamedefs.h"
 #include "sim/map.h"
 #include "render/snapshot.h"
+#include "render/tileset.h"
 #include "render/sprite_batch.h"
 #include "render/camera.h"
 #include "render/gl_renderer.h"
@@ -198,7 +199,8 @@ int main(int argc, char** argv) {
 	// 地形纹理（程序化 64×32）
 	int terrW = 0, terrH = 0;
 	std::vector<uint8_t> terrPixels;
-	if (!TerrainGfx::Load("assets/terrain_atlas.bmp", terrPixels, terrW, terrH)) {
+	TileSet::Load("assets/tileset.txt"); // 模板表（templateId,index → UV / 地形属性）
+	if (!TerrainGfx::Load("assets/tileset.bmp", terrPixels, terrW, terrH)) {
 		terrPixels = TerrainGfx::Build(terrW, terrH); // 回退：程序化纯色
 	}
 	const uint32_t terrainTex = renderer.UploadTexture(terrPixels, terrW, terrH);
@@ -382,7 +384,7 @@ int main(int argc, char** argv) {
 			} else if (s.spriteIndex >= 0) {
 				// 地形：程序化 64×32 纹理（1:1）
 				float u0 = 0, v0 = 0, u1 = 1, v1 = 1;
-				TerrainGfx::GetUVAt(s.spriteIndex, u0, v0, u1, v1);
+				TileSet::GetUV(s.spriteIndex >> 8, s.spriteIndex & 0xFF, u0, v0, u1, v1);
 				terrainBatch.AddSprite(s.worldX, s.worldY, s.w, s.h, u0, v0, u1, v1, s.color);
 			} else {
 				terrainBatch.AddSolid(s.worldX, s.worldY, s.w, s.h, s.color);
