@@ -82,7 +82,7 @@ struct RenderSnapshot {
 				s.h = static_cast<float>(TerrainGfx::kRenderH);
 				s.worldX = static_cast<float>(p.x) - s.w * 0.5f;
 				s.worldY = static_cast<float>(p.y) - s.h * 0.5f;
-				s.color = 0xFFFFFFFFu;
+				s.color = TerrainGfx::TintFor(tk);
 				s.prevX = s.worldX; // 地形不插值
 				s.prevY = s.worldY;
 				// 已探索但不可见：变暗

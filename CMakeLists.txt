@@ -132,6 +132,9 @@ if(WIN32)
     add_executable(rts_import tools/import_assets.cpp)
     target_include_directories(rts_import PRIVATE third_party)
 
+    # 地形导入工具（MIX → TMP → 调色板 → 带 alpha 的图集）
+    add_executable(rts_import_terrain tools/import_terrain.cpp)
+
     add_executable(rts_autotest_visual tools/autotest_visual.cpp)
     target_link_libraries(rts_autotest_visual PRIVATE rts_render)
 endif()

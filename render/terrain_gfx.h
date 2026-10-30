@@ -70,9 +70,23 @@ public:
 			case TerrainKind::Grass:    return variant;                              // clear1 0-15
 			case TerrainKind::Water:    return 36;                                   // w1
 			case TerrainKind::Sand:     return variant;                              // 复用 clear1（RA 无独立沙 tile）
-			case TerrainKind::Rock:     return kCliffTiles[variant % kCliffCount];   // sh01 有内容的
-			case TerrainKind::Highland: return variant;                              // clear1（高地用高度偏移表现）
+			// 峭壁 tile（sh01）内部有大片阴影，直接铺会变成黑菱形；
+			// 用草地变体 + 顶点 tint 区分地面类型，视觉连续且无洞。
+			case TerrainKind::Rock:     return variant;
+			case TerrainKind::Highland: return variant;
 			default:                    return 0;
+		}
+	}
+
+	// 地面类型的顶点 tint（白色 = 原始 tile 颜色）
+	static uint32_t TintFor(TerrainKind kind) {
+		switch (kind) {
+			case TerrainKind::Grass:    return 0xFFFFFFFFu;
+			case TerrainKind::Water:    return 0xFFFFFFFFu; // 水用自己的蓝色 tile
+			case TerrainKind::Sand:     return 0xFFD8C890u; // 偏黄
+			case TerrainKind::Rock:     return 0xFFA0A0A8u; // 偏灰
+			case TerrainKind::Highland: return 0xFFC8E0B0u; // 偏亮绿
+			default:                    return 0xFFFFFFFFu;
 		}
 	}
 

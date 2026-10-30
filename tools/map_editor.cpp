@@ -303,7 +303,7 @@ int main() {
 
 	int terrW = 0, terrH = 0;
 	std::vector<uint8_t> terrPixels;
-	if (!TerrainGfx::Load("assets/terrain_atlas.png", terrPixels, terrW, terrH)) {
+	if (!TerrainGfx::Load("assets/terrain_atlas.bmp", terrPixels, terrW, terrH)) {
 		terrPixels = TerrainGfx::Build(terrW, terrH); // 回退：程序化纯色
 	}
 
@@ -552,7 +552,8 @@ int main() {
 				float tu0 = 0, tv0 = 0, tu1 = 1, tv1 = 1;
 				TerrainGfx::GetUVAt(TerrainGfx::TileFor(tk, c.x, c.y), tu0, tv0, tu1, tv1);
 				terrainBatch.AddSprite(static_cast<float>(p.x) - tw * 0.5f,
-					static_cast<float>(p.y) - th * 0.5f, tw, th, tu0, tv0, tu1, tv1, 0xFFFFFFFFu);
+					static_cast<float>(p.y) - th * 0.5f, tw, th, tu0, tv0, tu1, tv1,
+					TerrainGfx::TintFor(tk));
 				if (map.ResourceAmount(c) > 0) {
 					terrainBatch.AddSolid(static_cast<float>(p.x) - 8.0f,
 						static_cast<float>(p.y) - 4.0f, 16.0f, 8.0f, 0xE0D4A017u);

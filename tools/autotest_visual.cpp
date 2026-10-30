@@ -198,7 +198,7 @@ int main(int argc, char** argv) {
 	// 地形纹理（程序化 64×32）
 	int terrW = 0, terrH = 0;
 	std::vector<uint8_t> terrPixels;
-	if (!TerrainGfx::Load("assets/terrain_atlas.png", terrPixels, terrW, terrH)) {
+	if (!TerrainGfx::Load("assets/terrain_atlas.bmp", terrPixels, terrW, terrH)) {
 		terrPixels = TerrainGfx::Build(terrW, terrH); // 回退：程序化纯色
 	}
 	const uint32_t terrainTex = renderer.UploadTexture(terrPixels, terrW, terrH);
