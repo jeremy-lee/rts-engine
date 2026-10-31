@@ -82,8 +82,9 @@ bool TileSet::Load(const std::string& metaPath) {
 		s_templateIndex[s_templates[i].id] = static_cast<int>(i);
 	}
 	s_loaded = !s_templates.empty();
-	std::printf("[tileset] loaded %zu templates, %zu terrain types, atlas %dx%d\n",
-		s_templates.size(), s_terrains.size(), s_tileCols, s_rows);
+	std::printf("[tileset] loaded %zu templates, %zu terrain types, atlas %dx%d (rows=%d cols=%d)\n",
+		s_templates.size(), s_terrains.size(), s_tileCols, s_rows, s_rows, s_tileCols);
+	std::fflush(stdout);
 	return s_loaded;
 }
 

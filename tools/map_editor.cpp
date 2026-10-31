@@ -367,6 +367,26 @@ int main() {
 	Brush brush = Brush::Grass;
 	int brushRadius = 1;
 	int selectedSprite = -1; // -1 = 地形模式
+	int panelTab = 0;        // 0 = UNITS（C&C 单位图集）, 1 = TERRAIN（tileset 模板）
+
+	// 地形面板的候选项：每种 TerrainType 取第一个 1×1 模板作为代表
+	struct TerrainChoice {
+		int templateId = 0;
+		std::string label;
+	};
+	std::vector<TerrainChoice> terrainChoices;
+	if (TileSet::Loaded()) {
+		for (const auto& tt : TileSet::AllTerrains()) {
+			for (const auto& t : TileSet::AllTemplates()) {
+				if (t.sizeW != 1 || t.sizeH != 1) continue;
+				auto it = t.terrain.find(0);
+				if (it != t.terrain.end() && it->second == tt.name) {
+					terrainChoices.push_back(TerrainChoice{t.id, tt.name});
+					break;
+				}
+			}
+		}
+	}
 	bool showGrid = false;
 	std::string status = "Ready";
 	CellCoord hoverCell(-1, -1);
@@ -458,13 +478,32 @@ int main() {
 			if (w > 0 && h > 0) panelSprites.push_back(i);
 		}
 		const int spriteCount = static_cast<int>(panelSprites.size());
+		// 面板 tab 栏（UNITS / TERRAIN）
+		const float tabH = 26.0f;
+		const ui::Rect tabUnits{canvasW + 8.0f, topH + 6.0f, (panelW - 20.0f) * 0.5f, tabH};
+		const ui::Rect tabTerrain{tabUnits.x + tabUnits.w + 4.0f, topH + 6.0f, (panelW - 20.0f) * 0.5f, tabH};
+		const float contentTop = topH + 6.0f + tabH + 8.0f;
+
 		std::vector<ui::Rect> spriteRects(static_cast<size_t>(std::max(0, spriteCount)));
 		{
 			const float itemH = 52.0f;
 			for (int i = 0; i < spriteCount; ++i) {
-				const float y0 = topH + 8.0f + static_cast<float>(i) * (itemH + 6.0f);
+				const float y0 = contentTop + static_cast<float>(i) * (itemH + 6.0f);
 				spriteRects[static_cast<size_t>(i)] = ui::Rect{canvasW + 8.0f, y0, panelW - 16.0f, itemH};
 			}
+		}
+		// TERRAIN 面板：3 列网格，每项 62×62（缩略图 + 名字）
+		const int terrainCount = static_cast<int>(terrainChoices.size());
+		const float terrCellW = (panelW - 24.0f) / 3.0f;
+		const float terrCellH = 62.0f;
+		std::vector<ui::Rect> terrainRects(static_cast<size_t>(std::max(0, terrainCount)));
+		for (int i = 0; i < terrainCount; ++i) {
+			const int col = i % 3;
+			const int row = i / 3;
+			terrainRects[static_cast<size_t>(i)] = ui::Rect{
+				canvasW + 8.0f + static_cast<float>(col) * terrCellW,
+				contentTop + static_cast<float>(row) * (terrCellH + 4.0f),
+				terrCellW - 4.0f, terrCellH};
 		}
 
 		// ---- 左键：面板选择 / 画布绘制 ----
@@ -474,10 +513,31 @@ int main() {
 		if (!leftNow) lastBrushCell = CellCoord(-99999, -99999);
 		if (leftNow) {
 			if (inPanel) {
-				for (int i = 0; i < spriteCount; ++i) {
-					if (spriteRects[static_cast<size_t>(i)].Contains(mx, my)) {
-						selectedSprite = panelSprites[static_cast<size_t>(i)];
-						status = std::string("Place: ") + CncAtlas::NameAt(selectedSprite);
+				// tab 切换
+				if (tabUnits.Contains(mx, my)) {
+					panelTab = 0;
+					g_selectedTemplate = -1; // 回到单位模式
+				} else if (tabTerrain.Contains(mx, my)) {
+					panelTab = 1;
+					selectedSprite = -1; // 回到地形模式
+				}
+				if (panelTab == 0) {
+					for (int i = 0; i < spriteCount; ++i) {
+						if (spriteRects[static_cast<size_t>(i)].Contains(mx, my)) {
+							selectedSprite = panelSprites[static_cast<size_t>(i)];
+							g_selectedTemplate = -1;
+							status = std::string("Place: ") + CncAtlas::NameAt(selectedSprite);
+						}
+					}
+				} else {
+					for (int i = 0; i < terrainCount; ++i) {
+						if (terrainRects[static_cast<size_t>(i)].Contains(mx, my)) {
+							g_selectedTemplate = terrainChoices[static_cast<size_t>(i)].templateId;
+							g_selectedIndex = 0;
+							selectedSprite = -1;
+							status = "Terrain: " + terrainChoices[static_cast<size_t>(i)].label +
+								" (template " + std::to_string(g_selectedTemplate) + ")";
+						}
 					}
 				}
 			} else if (inCanvas && map.InBounds(hoverCell)) {
@@ -581,9 +641,10 @@ int main() {
 				const TerrainKind tk = TerrainOf(map, c);
 				const float tw = static_cast<float>(TerrainGfx::kRenderW);
 				const float th = static_cast<float>(TerrainGfx::kRenderH);
-				// 白色 tint：颜色来自 TerrainGfx 纹理（顶点色 × 纹理色会双重着色变黑）
+				// 地图里存的 (templateId, index) → tileset 图集 UV
+				const TileRef tr = map.Tile(c);
 				float tu0 = 0, tv0 = 0, tu1 = 1, tv1 = 1;
-				TerrainGfx::GetUVAt(TerrainGfx::TileFor(tk, c.x, c.y), tu0, tv0, tu1, tv1);
+				TileSet::GetUV(tr.templateId, tr.index, tu0, tv0, tu1, tv1);
 				terrainBatch.AddSprite(static_cast<float>(p.x) - tw * 0.5f,
 					static_cast<float>(p.y) - th * 0.5f, tw, th, tu0, tv0, tu1, tv1,
 					TerrainGfx::TintFor(tk));
@@ -670,16 +731,26 @@ int main() {
 		}
 
 		// 图集面板项（背景 + 选中高亮）
-		for (int i = 0; i < spriteCount; ++i) {
-			const bool active = (selectedSprite == i);
-			const ui::Rect& r = spriteRects[static_cast<size_t>(i)];
-			ui::BuildPanel(uiVerts, r, active ? 0xFF3A5A7A : 0xFF262626);
-			ui::BuildPanel(uiVerts, ui::Rect{r.x, r.y, r.w, 1.0f}, active ? 0xFF80C0FF : 0xFF404040);
+		if (panelTab == 0) {
+			for (int i = 0; i < spriteCount; ++i) {
+				const bool active = (selectedSprite == panelSprites[static_cast<size_t>(i)]);
+				const ui::Rect& r = spriteRects[static_cast<size_t>(i)];
+				ui::BuildPanel(uiVerts, r, active ? 0xFF3A5A7A : 0xFF262626);
+				ui::BuildPanel(uiVerts, ui::Rect{r.x, r.y, r.w, 1.0f}, active ? 0xFF80C0FF : 0xFF404040);
+			}
+		} else {
+			for (int i = 0; i < terrainCount; ++i) {
+				const bool active = (g_selectedTemplate == terrainChoices[static_cast<size_t>(i)].templateId);
+				const ui::Rect& r = terrainRects[static_cast<size_t>(i)];
+				ui::BuildPanel(uiVerts, r, active ? 0xFF3A5A7A : 0xFF262626);
+				ui::BuildPanel(uiVerts, ui::Rect{r.x, r.y, r.w, 1.0f}, active ? 0xFF80C0FF : 0xFF404040);
+			}
 		}
 
 		// 图集图标（屏幕坐标精灵，cncTex）
 		std::vector<SpriteVertex> iconVerts;
-		if (cncOk) {
+		std::vector<SpriteVertex> terrainIconVerts;
+		if (cncOk && panelTab == 0) {
 			for (int i = 0; i < spriteCount; ++i) {
 				const int si = panelSprites[static_cast<size_t>(i)];
 				float u0 = 0, v0 = 0, u1 = 1, v1 = 1;
@@ -693,6 +764,20 @@ int main() {
 				iconVerts.insert(iconVerts.end(), v, v + 6);
 			}
 		}
+		if (panelTab == 1 && TileSet::Loaded()) {
+			// 地形缩略图走 tileset 图集（terrTex），不能混进单位图集的 iconVerts
+			for (int i = 0; i < terrainCount; ++i) {
+				const auto& tc = terrainChoices[static_cast<size_t>(i)];
+				float u0 = 0, v0 = 0, u1 = 1, v1 = 1;
+				TileSet::GetUV(tc.templateId, 0, u0, v0, u1, v1);
+				const ui::Rect& r = terrainRects[static_cast<size_t>(i)];
+				const float iconSize = 40.0f;
+				SpriteVertex v[6];
+				BuildQuad(r.x + (r.w - iconSize) * 0.5f, r.y + 4.0f, iconSize, iconSize,
+					u0, v0, u1, v1, 0xFFFFFFFFu, v);
+				terrainIconVerts.insert(terrainIconVerts.end(), v, v + 6);
+			}
+		}
 
 		// 文字
 		std::vector<SpriteVertex> textVerts;
@@ -702,12 +787,30 @@ int main() {
 			text::Build(textVerts, label, brushRects[i].x + 8.0f, brushRects[i].y + 7.0f, 1.0f,
 				(selectedSprite < 0 && static_cast<int>(brush) == i) ? 0xFFFFFFFF : 0xFFB0B0B0);
 		}
-		text::Build(textVerts, "ATLAS  (click to place, Q=terrain)", canvasW + 10.0f, topH + 8.0f, 1.0f, 0xFF80C0FF);
-		for (int i = 0; i < spriteCount; ++i) {
-			const ui::Rect& r = spriteRects[static_cast<size_t>(i)];
-			const int si = panelSprites[static_cast<size_t>(i)];
-			text::Build(textVerts, CncAtlas::NameAt(si), r.x + 60.0f, r.y + 20.0f, 1.0f,
-				(selectedSprite == si) ? 0xFFFFFFFF : 0xFFB0B0B0);
+		// tab 栏
+		ui::BuildPanel(uiVerts, tabUnits, (panelTab == 0) ? 0xFF3A5A7A : 0xFF262626);
+		ui::BuildPanel(uiVerts, tabTerrain, (panelTab == 1) ? 0xFF3A5A7A : 0xFF262626);
+		text::Build(textVerts, "UNITS", tabUnits.x + 12.0f, tabUnits.y + 17.0f, 1.0f,
+			(panelTab == 0) ? 0xFFFFFFFF : 0xFFA0A0A0);
+		text::Build(textVerts, "TERRAIN", tabTerrain.x + 12.0f, tabTerrain.y + 17.0f, 1.0f,
+			(panelTab == 1) ? 0xFFFFFFFF : 0xFFA0A0A0);
+
+		if (panelTab == 0) {
+			text::Build(textVerts, "C&C UNITS (click to place, Q=terrain)", canvasW + 10.0f, contentTop + 6.0f, 0.9f, 0xFF80C0FF);
+			for (int i = 0; i < spriteCount; ++i) {
+				const ui::Rect& r = spriteRects[static_cast<size_t>(i)];
+				const int si = panelSprites[static_cast<size_t>(i)];
+				text::Build(textVerts, CncAtlas::NameAt(si), r.x + 60.0f, r.y + 20.0f, 1.0f,
+					(selectedSprite == si) ? 0xFFFFFFFF : 0xFFB0B0B0);
+			}
+		} else {
+			text::Build(textVerts, "TERRAIN TILES (click to paint)", canvasW + 10.0f, contentTop + 6.0f, 0.9f, 0xFF80C0FF);
+			for (int i = 0; i < terrainCount; ++i) {
+				const ui::Rect& r = terrainRects[static_cast<size_t>(i)];
+				const bool active = (g_selectedTemplate == terrainChoices[static_cast<size_t>(i)].templateId);
+				text::Build(textVerts, terrainChoices[static_cast<size_t>(i)].label,
+					r.x + 4.0f, r.y + r.h - 6.0f, 0.85f, active ? 0xFFFFFFFF : 0xFFB0B0B0);
+			}
 		}
 		{
 			char info[512];
@@ -726,9 +829,18 @@ int main() {
 			ctx.stats.vertices = static_cast<uint32_t>(uiVerts.size());
 		});
 		graph.AddPass("Icons", [&](PassContext& ctx) {
-			if (!iconVerts.empty()) renderer.DrawScreenTextured(iconVerts, cncTex);
-			ctx.stats.drawCalls = iconVerts.empty() ? 0u : 1u;
-			ctx.stats.vertices = static_cast<uint32_t>(iconVerts.size());
+			ctx.stats.drawCalls = 0;
+			ctx.stats.vertices = 0;
+			if (!iconVerts.empty()) {
+				renderer.DrawScreenTextured(iconVerts, cncTex);
+				ctx.stats.drawCalls += 1;
+				ctx.stats.vertices += static_cast<uint32_t>(iconVerts.size());
+			}
+			if (!terrainIconVerts.empty()) {
+				renderer.DrawScreenTextured(terrainIconVerts, terrainTex);
+				ctx.stats.drawCalls += 1;
+				ctx.stats.vertices += static_cast<uint32_t>(terrainIconVerts.size());
+			}
 		});
 		graph.AddPass("Text", [&](PassContext& ctx) {
 			renderer.DrawScreenTextured(textVerts, fontTex);
