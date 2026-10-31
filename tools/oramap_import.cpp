@@ -16,6 +16,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
 #include <map>
 #include <string>
 #include <vector>
@@ -284,48 +285,58 @@ int main(int argc, char** argv) {
 	const char* inPath = argv[1];
 	const std::string outBase = argv[2];
 
-	std::vector<uint8_t> zip;
-	if (!ReadWholeFile(inPath, zip)) {
-		std::fprintf(stderr, "[oramap] cannot read %s\n", inPath);
-		return 1;
-	}
-	std::vector<ZipEntry> entries;
-	if (!ParseZip(zip, entries)) {
-		std::fprintf(stderr, "[oramap] not a zip (or corrupt central directory)\n");
-		return 1;
-	}
-	std::printf("[oramap] %zu entries\n", entries.size());
-
-	const ZipEntry* binEntry = nullptr;
-	const ZipEntry* yamlEntry = nullptr;
-	for (const ZipEntry& e : entries) {
-		if (e.name == "map.bin") binEntry = &e;
-		else if (e.name == "map.yaml") yamlEntry = &e;
-	}
-	if (binEntry == nullptr) {
-		std::fprintf(stderr, "[oramap] no map.bin\n");
-		return 1;
-	}
-
 	std::vector<uint8_t> binData;
-	if (!ExtractEntry(zip, *binEntry, binData)) {
-		std::fprintf(stderr, "[oramap] failed to extract map.bin\n");
-		return 1;
+	std::vector<uint8_t> yamlData;
+	bool haveYaml = false;
+
+	const std::filesystem::path inPathObj(inPath);
+	if (std::filesystem::is_directory(inPathObj)) {
+		// 解压形式的地图目录（OpenRA 的 mods/ra/maps/<name>/ 就是这种）
+		const std::string binPath = (inPathObj / "map.bin").string();
+		const std::string yamlPath = (inPathObj / "map.yaml").string();
+		if (!ReadWholeFile(binPath.c_str(), binData)) {
+			std::fprintf(stderr, "[oramap] cannot read %s\n", binPath.c_str());
+			return 1;
+		}
+		haveYaml = ReadWholeFile(yamlPath.c_str(), yamlData);
+		std::printf("[oramap] directory mode: %s\n", inPath);
+	} else {
+		std::vector<uint8_t> zip;
+		if (!ReadWholeFile(inPath, zip)) {
+			std::fprintf(stderr, "[oramap] cannot read %s\n", inPath);
+			return 1;
+		}
+		std::vector<ZipEntry> entries;
+		if (!ParseZip(zip, entries)) {
+			std::fprintf(stderr, "[oramap] not a zip (or corrupt central directory)\n");
+			return 1;
+		}
+		std::printf("[oramap] %zu entries\n", entries.size());
+		const ZipEntry* binEntry = nullptr;
+		const ZipEntry* yamlEntry = nullptr;
+		for (const ZipEntry& e : entries) {
+			if (e.name == "map.bin") binEntry = &e;
+			else if (e.name == "map.yaml") yamlEntry = &e;
+		}
+		if (binEntry == nullptr) {
+			std::fprintf(stderr, "[oramap] no map.bin\n");
+			return 1;
+		}
+		if (!ExtractEntry(zip, *binEntry, binData)) {
+			std::fprintf(stderr, "[oramap] failed to extract map.bin\n");
+			return 1;
+		}
+		if (yamlEntry != nullptr) haveYaml = ExtractEntry(zip, *yamlEntry, yamlData);
 	}
 
 	MapYaml meta;
-	if (yamlEntry != nullptr) {
-		std::vector<uint8_t> yamlData;
-		if (ExtractEntry(zip, *yamlEntry, yamlData)) {
-			if (!ParseMapYaml(yamlData, meta)) {
-				std::fprintf(stderr, "[oramap] map.yaml parse failed (continuing)\n");
-			} else {
-				std::printf("[oramap] yaml: tileset=%s size=%dx%d bounds=%d,%d,%d,%d actors=%zu\n",
-					meta.tileset.c_str(), meta.sizeX, meta.sizeY,
-					meta.boundsX, meta.boundsY, meta.boundsW, meta.boundsH, meta.actors.size());
-			}
+	if (haveYaml) {
+		if (!ParseMapYaml(yamlData, meta)) {
+			std::fprintf(stderr, "[oramap] map.yaml parse failed (continuing)\n");
 		} else {
-			std::fprintf(stderr, "[oramap] failed to extract map.yaml (continuing)\n");
+			std::printf("[oramap] yaml: tileset=%s size=%dx%d bounds=%d,%d,%d,%d actors=%zu\n",
+				meta.tileset.c_str(), meta.sizeX, meta.sizeY,
+				meta.boundsX, meta.boundsY, meta.boundsW, meta.boundsH, meta.actors.size());
 		}
 	}
 

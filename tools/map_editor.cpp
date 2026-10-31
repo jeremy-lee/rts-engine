@@ -335,7 +335,11 @@ bool LoadEntities(const char* path, std::vector<PlacedEntity>& out) {
 
 } // namespace
 
-int main() {
+int main(int argc, char** argv) {
+	// 可选：命令行直接指定要加载的地图（省得模拟按键）
+	std::string cliMapPath;
+	if (argc > 1) cliMapPath = argv[1];
+
 	Win32Window window;
 	if (!window.Create("RTS Engine — Map Editor", 1400, 800)) return 1;
 
@@ -367,6 +371,7 @@ int main() {
 
 
 	CncAtlas::LoadMeta("assets/cnc_atlas.txt");
+
 
 	std::vector<uint8_t> atlasPixels;
 	int atlasW = 0, atlasH = 0;
@@ -413,6 +418,30 @@ int main() {
 	}
 	bool showGrid = false;
 	std::string status = "Ready";
+
+	// 命令行指定地图：直接加载（省得模拟 Ctrl+O）
+	if (!cliMapPath.empty()) {
+		if (map.LoadBinary(cliMapPath)) {
+			map.LoadMeta("map_meta.txt");
+			if (TileSet::UseSet(map.TilesetName())) {
+				std::vector<uint8_t> px;
+				int tw = 0, th = 0;
+				if (TerrainGfx::Load(TileSet::CurrentBitmapPath(), px, tw, th)) {
+					const uint32_t newTex = renderer.UploadTexture(px, tw, th);
+					if (newTex != 0) {
+						glDeleteTextures(1, reinterpret_cast<const GLuint*>(&terrainTex));
+						terrainTex = newTex;
+					}
+				}
+			}
+			status = "Loaded " + cliMapPath;
+			std::printf("[editor] loaded %s (%dx%d, tileset=%s)\n", cliMapPath.c_str(),
+				map.Width(), map.Height(), map.TilesetName().c_str());
+			std::fflush(stdout);
+		} else {
+			std::fprintf(stderr, "[editor] failed to load %s\n", cliMapPath.c_str());
+		}
+	}
 	CellCoord hoverCell(-1, -1);
 
 	const float topH = 40.0f;
@@ -454,6 +483,7 @@ int main() {
 						// 重载图集（纹理 + 元数据）
 					
 	CncAtlas::LoadMeta("assets/cnc_atlas.txt");
+
 
 						std::vector<uint8_t> px;
 						int w = 0, h = 0;
