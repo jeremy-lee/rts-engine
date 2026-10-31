@@ -4,6 +4,7 @@
 
 #ifdef _WIN32
 
+#include <cmath>
 #include <cstdio>
 
 namespace rts {
@@ -117,6 +118,43 @@ void GLRenderer::DrawTexturedBatch(const std::vector<SpriteVertex>& verts, const
 	glDisableClientState(GL_TEXTURE_COORD_ARRAY);
 	rhi::GetDevice().SetTexture2D(false);
 	if (opaque) rhi::GetDevice().SetBlendAlpha(true); // 恢复默认混合
+
+	{
+		// TEMP 诊断：统计本批次里异常的屏幕坐标（NaN / 超大）
+		static int dbgTex = 0;
+		if (dbgTex < 3) {
+			int nanCnt = 0, hugeCnt = 0, offscreen = 0;
+			float minX = 1e9f, maxX = -1e9f, minY = 1e9f, maxY = -1e9f;
+			for (const GLVertex& v : m_screenVerts) {
+				if (std::isnan(v.x) || std::isnan(v.y)) { ++nanCnt; continue; }
+				if (std::fabs(v.x) > 100000.0f || std::fabs(v.y) > 100000.0f) { ++hugeCnt; continue; }
+				if (v.x < -1000.0f || v.y < -1000.0f || v.x > 4000.0f || v.y > 4000.0f) ++offscreen;
+				if (v.x < minX) minX = v.x;
+				if (v.x > maxX) maxX = v.x;
+				if (v.y < minY) minY = v.y;
+				if (v.y > maxY) maxY = v.y;
+			}
+			// 额外：检查每个 quad 的两个三角形是否退化（零面积 → GL 不会光栅化）
+			int degenerate = 0;
+			int firstDegenerate = -1;
+			for (size_t i = 0; i + 5 < m_screenVerts.size(); i += 6) {
+				const GLVertex& a = m_screenVerts[i + 0];
+				const GLVertex& b = m_screenVerts[i + 1];
+				const GLVertex& c = m_screenVerts[i + 2];
+				const float cr = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+				if (std::fabs(cr) < 0.5f) {
+					++degenerate;
+					if (firstDegenerate < 0) firstDegenerate = static_cast<int>(i / 6);
+				}
+			}
+			std::fprintf(stderr,
+				"[gl] textured batch verts=%zu nan=%d huge=%d offscreen=%d degenerate=%d firstDeg=%d x[%.0f,%.0f] y[%.0f,%.0f]\n",
+				m_screenVerts.size(), nanCnt, hugeCnt, offscreen, degenerate, firstDegenerate,
+				minX, maxX, minY, maxY);
+			std::fflush(stderr);
+			++dbgTex;
+		}
+	}
 }
 
 void GLRenderer::UpdateTexture(uint32_t textureId, const std::vector<uint8_t>& rgba, int width, int height) {
