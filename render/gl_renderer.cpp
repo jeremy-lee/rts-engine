@@ -174,6 +174,7 @@ void GLRenderer::DrawCurrentBatch(uint32_t textureId, bool useTexture) {
 	}
 
 	glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(m_screenVerts.size()));
+
 	gl33::g.BindVertexArray(0);
 }
 
