@@ -360,19 +360,7 @@ int main(int argc, char** argv) {
 		SpriteBatch terrainBatch, unitBatch;
 		terrainBatch.Begin();
 		unitBatch.Begin();
-		{
-			static bool dbgUnit = false;
-			if (!dbgUnit) {
-				for (const auto& s : snapshot.sprites) {
-					if (s.cncSprite >= 0) {
-						std::printf("[unit] cnc=%d x=%.0f y=%.0f w=%.0f h=%.0f player=%d facing=%d\n",
-							s.cncSprite, s.worldX, s.worldY, s.w, s.h, s.player, s.facing);
-						fflush(stdout);
-					}
-				}
-				dbgUnit = true;
-			}
-		}
+
 		for (const auto& s : snapshot.sprites) {
 			const float ix = s.prevX + (s.worldX - s.prevX) * interp;
 			const float iy = s.prevY + (s.worldY - s.prevY) * interp;
