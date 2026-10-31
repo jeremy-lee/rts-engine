@@ -1,5 +1,6 @@
 // RTS Engine — render/gl_renderer.cpp
 #include "gl_renderer.h"
+#include "rhi.h"
 
 #ifdef _WIN32
 
@@ -24,9 +25,14 @@ void GLRenderer::Shutdown() {
 }
 
 void GLRenderer::BeginFrame(int width, int height) {
-	glViewport(0, 0, width, height);
-	glClearColor(m_clearR, m_clearG, m_clearB, 1.0f);
-	glClear(GL_COLOR_BUFFER_BIT);
+	// 视口/清屏走 RHI（UE5 里对应 RHICommandList::SetViewport + ClearRenderTargetView）
+	rhi::Device& rhiDevice = rhi::GetDevice();
+	rhiDevice.Init();
+	rhiDevice.SetViewport(width, height);
+	rhiDevice.Clear((0xFFu << 24) |
+		(static_cast<uint32_t>(m_clearR * 255.0f) << 16) |
+		(static_cast<uint32_t>(m_clearG * 255.0f) << 8) |
+		static_cast<uint32_t>(m_clearB * 255.0f));
 
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
@@ -64,7 +70,7 @@ void GLRenderer::FillScreenVerts(const std::vector<SpriteVertex>& verts, bool us
 void GLRenderer::DrawBatch(const std::vector<SpriteVertex>& verts, const Camera& camera) {
 	if (verts.empty()) return;
 	FillScreenVerts(verts, true, &camera);
-	glDisable(GL_TEXTURE_2D);
+	rhi::GetDevice().SetTexture2D(false);
 	glDisableClientState(GL_TEXTURE_COORD_ARRAY);
 	glVertexPointer(2, GL_FLOAT, sizeof(GLVertex), &m_screenVerts[0].x);
 	glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(GLVertex), &m_screenVerts[0].r);
@@ -74,7 +80,7 @@ void GLRenderer::DrawBatch(const std::vector<SpriteVertex>& verts, const Camera&
 void GLRenderer::DrawScreenBatch(const std::vector<SpriteVertex>& verts) {
 	if (verts.empty()) return;
 	FillScreenVerts(verts, false, nullptr);
-	glDisable(GL_TEXTURE_2D);
+	rhi::GetDevice().SetTexture2D(false);
 	glDisableClientState(GL_TEXTURE_COORD_ARRAY);
 	glVertexPointer(2, GL_FLOAT, sizeof(GLVertex), &m_screenVerts[0].x);
 	glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(GLVertex), &m_screenVerts[0].r);
@@ -84,7 +90,7 @@ void GLRenderer::DrawScreenBatch(const std::vector<SpriteVertex>& verts) {
 void GLRenderer::DrawScreenTextured(const std::vector<SpriteVertex>& verts, uint32_t textureId) {
 	if (verts.empty() || textureId == 0) return;
 	FillScreenVerts(verts, false, nullptr);
-	glEnable(GL_TEXTURE_2D);
+	rhi::GetDevice().SetTexture2D(true);
 	glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(textureId));
 	glTexCoordPointer(2, GL_FLOAT, sizeof(GLVertex), &m_screenVerts[0].u);
 	glEnableClientState(GL_TEXTURE_COORD_ARRAY);
@@ -92,13 +98,13 @@ void GLRenderer::DrawScreenTextured(const std::vector<SpriteVertex>& verts, uint
 	glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(GLVertex), &m_screenVerts[0].r);
 	glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(m_screenVerts.size()));
 	glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-	glDisable(GL_TEXTURE_2D);
+	rhi::GetDevice().SetTexture2D(false);
 }
 
 void GLRenderer::DrawTexturedBatch(const std::vector<SpriteVertex>& verts, const Camera& camera, uint32_t textureId) {
 	if (verts.empty() || textureId == 0) return;
 	FillScreenVerts(verts, true, &camera);
-	glEnable(GL_TEXTURE_2D);
+	rhi::GetDevice().SetTexture2D(true);
 	glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(textureId));
 	glTexCoordPointer(2, GL_FLOAT, sizeof(GLVertex), &m_screenVerts[0].u);
 	glEnableClientState(GL_TEXTURE_COORD_ARRAY);
@@ -106,7 +112,7 @@ void GLRenderer::DrawTexturedBatch(const std::vector<SpriteVertex>& verts, const
 	glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(GLVertex), &m_screenVerts[0].r);
 	glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(m_screenVerts.size()));
 	glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-	glDisable(GL_TEXTURE_2D);
+	rhi::GetDevice().SetTexture2D(false);
 }
 
 void GLRenderer::UpdateTexture(uint32_t textureId, const std::vector<uint8_t>& rgba, int width, int height) {

@@ -34,6 +34,7 @@
 #include "render/gl_renderer.h"
 #include "render/terrain_gfx.h"
 #include "render/tileset.h"
+#include "render/render_graph.h"
 #include "render/cnc_assets.h"
 #include "render/text.h"
 #include "render/ui.h"
@@ -632,18 +633,18 @@ int main() {
 		entityBatch.End();
 
 		renderer.BeginFrame(W, H);
-		{
-			static int dbgN = 0;
-			if (dbgN < 2) {
-				std::printf("[ed] terrTex=%u terrainVerts=%zu entityVerts=%zu cam=(%.0f,%.0f) zoom=%.2f tex=%dx%d\n",
-					terrainTex, terrainBatch.Vertices().size(), entityBatch.Vertices().size(),
-					camera.centerX, camera.centerY, camera.zoom, terrW, terrH);
-				std::fflush(stdout);
-				++dbgN;
+		// ---- 帧图（UE5 RDG 风格）：World → UI → Icons → Text ----
+		RenderGraph graph;
+		graph.AddPass("World", [&](PassContext& ctx) {
+			renderer.DrawTexturedBatch(terrainBatch.Vertices(), camera, terrainTex);
+			ctx.stats.drawCalls = 1;
+			ctx.stats.vertices = static_cast<uint32_t>(terrainBatch.Vertices().size());
+			if (cncOk && !entityBatch.Vertices().empty()) {
+				renderer.DrawTexturedBatch(entityBatch.Vertices(), camera, cncTex);
+				ctx.stats.drawCalls += 1;
+				ctx.stats.vertices += static_cast<uint32_t>(entityBatch.Vertices().size());
 			}
-		}
-		renderer.DrawTexturedBatch(terrainBatch.Vertices(), camera, terrainTex);
-		if (cncOk && !entityBatch.Vertices().empty()) renderer.DrawTexturedBatch(entityBatch.Vertices(), camera, cncTex);
+		});
 
 		// ---- UI：顶部工具栏 + 右侧图集面板 + 底部状态栏 ----
 		std::vector<SpriteVertex> uiVerts;
@@ -719,9 +720,22 @@ int main() {
 			text::Build(textVerts, info, 10.0f, static_cast<float>(H) - botH + 7.0f, 0.95f, 0xFFD0D0D0);
 		}
 
-		if (!uiVerts.empty()) renderer.DrawScreenBatch(uiVerts);
-		if (!iconVerts.empty()) renderer.DrawScreenTextured(iconVerts, cncTex);
-		renderer.DrawScreenTextured(textVerts, fontTex);
+		graph.AddPass("UI", [&](PassContext& ctx) {
+			if (!uiVerts.empty()) renderer.DrawScreenBatch(uiVerts);
+			ctx.stats.drawCalls = uiVerts.empty() ? 0u : 1u;
+			ctx.stats.vertices = static_cast<uint32_t>(uiVerts.size());
+		});
+		graph.AddPass("Icons", [&](PassContext& ctx) {
+			if (!iconVerts.empty()) renderer.DrawScreenTextured(iconVerts, cncTex);
+			ctx.stats.drawCalls = iconVerts.empty() ? 0u : 1u;
+			ctx.stats.vertices = static_cast<uint32_t>(iconVerts.size());
+		});
+		graph.AddPass("Text", [&](PassContext& ctx) {
+			renderer.DrawScreenTextured(textVerts, fontTex);
+			ctx.stats.drawCalls = 1;
+			ctx.stats.vertices = static_cast<uint32_t>(textVerts.size());
+		});
+		graph.Execute(W, H, 0.0f);
 		renderer.EndFrame();
 	}
 

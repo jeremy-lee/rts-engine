@@ -106,6 +106,7 @@ if(WIN32)
         render/cnc_assets.cpp
         render/terrain_gfx.cpp
         render/tileset.cpp
+        render/rhi.cpp
         render/screenshot.cpp
     )
     target_include_directories(rts_render PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/third_party)

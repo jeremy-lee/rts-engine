@@ -18,6 +18,7 @@
 #include "sim/gamedefs.h"
 #include "render/snapshot.h"
 #include "render/tileset.h"
+#include "render/render_graph.h"
 #include "render/sprite_batch.h"
 #include "render/camera.h"
 #include "render/gl_renderer.h"
@@ -832,6 +833,8 @@ int main(int argc, char** argv) {
 		}
 
 		// M14：世界渲染（GL 或软件后端）
+		// 帧图（UE5 RDG 风格）：World → UI → Text
+		RenderGraph graph;
 		if (softwareMode) {
 			const auto t0 = std::chrono::steady_clock::now();
 			swRenderer.Resize(W, H);
@@ -855,19 +858,27 @@ int main(int argc, char** argv) {
 			swFrameMs = std::chrono::duration<double, std::milli>(t1 - t0).count();
 
 			renderer.BeginFrame(W, H);
-			std::vector<SpriteVertex> worldQuad(6);
-			BuildQuad(0.0f, 0.0f, static_cast<float>(W), static_cast<float>(H),
-				0.0f, 0.0f, 1.0f, 1.0f, 0xFFFFFFFF, worldQuad.data());
-			renderer.DrawScreenTextured(worldQuad, swTex);
+			graph.AddPass("World", [&](PassContext& ctx) {
+				std::vector<SpriteVertex> worldQuad(6);
+				BuildQuad(0.0f, 0.0f, static_cast<float>(W), static_cast<float>(H),
+					0.0f, 0.0f, 1.0f, 1.0f, 0xFFFFFFFF, worldQuad.data());
+				renderer.DrawScreenTextured(worldQuad, swTex);
+				ctx.stats.drawCalls = 1;
+				ctx.stats.vertices = 6;
+			});
 		} else {
 			renderer.BeginFrame(W, H);
-			// 地形用程序化纹理，单位用 C&C 图集
-			renderer.DrawTexturedBatch(terrainBatch.Vertices(), camera, terrainTex);
-			if (cncOk) {
-				renderer.DrawTexturedBatch(unitBatch.Vertices(), camera, cncTex);
-			}
+			graph.AddPass("World", [&](PassContext& ctx) {
+				renderer.DrawTexturedBatch(terrainBatch.Vertices(), camera, terrainTex);
+				ctx.stats.drawCalls = 1;
+				ctx.stats.vertices = static_cast<uint32_t>(terrainBatch.Vertices().size());
+				if (cncOk) {
+					renderer.DrawTexturedBatch(unitBatch.Vertices(), camera, cncTex);
+					ctx.stats.drawCalls += 1;
+					ctx.stats.vertices += static_cast<uint32_t>(unitBatch.Vertices().size());
+				}
+			});
 		}
-		renderer.DrawScreenBatch(uiVerts);
 
 		// 文字
 		std::vector<SpriteVertex> textVerts;
@@ -915,7 +926,47 @@ int main(int argc, char** argv) {
 				text::Build(textVerts, prodText, px, py + 18.0f, 1.2f, 0xFFA0C0FF);
 			}
 		}
-		renderer.DrawScreenTextured(textVerts, fontTex);
+		graph.AddPass("UI", [&](PassContext& ctx) {
+			renderer.DrawScreenBatch(uiVerts);
+			ctx.stats.drawCalls = 1;
+			ctx.stats.vertices = static_cast<uint32_t>(uiVerts.size());
+		});
+		graph.AddPass("Text", [&](PassContext& ctx) {
+			renderer.DrawScreenTextured(textVerts, fontTex);
+			ctx.stats.drawCalls = 1;
+			ctx.stats.vertices = static_cast<uint32_t>(textVerts.size());
+		});
+		graph.Execute(W, H, dt);
+
+		// ---- 帧图统计 HUD（F3，对应 UE5 的 stat rhi）----
+		{
+			static bool showStats = false;
+			static bool prevF3 = false;
+			const bool f3 = window.IsKeyDown(VK_F3) != 0;
+			if (f3 && !prevF3) showStats = !showStats;
+			prevF3 = f3;
+			if (showStats) {
+				const auto& stats = graph.Stats();
+				const float panelH = 26.0f + 16.0f * static_cast<float>(stats.size());
+				std::vector<SpriteVertex> panelVerts;
+				ui::BuildPanel(panelVerts, ui::Rect{8.0f, 44.0f, 400.0f, panelH}, 0xD0101010);
+				renderer.DrawScreenBatch(panelVerts);
+
+				std::vector<SpriteVertex> statsVerts;
+				char buf[192];
+				std::snprintf(buf, sizeof(buf), "FRAME %.2f ms   %zu passes   F3 toggle",
+					graph.Totals().cpuMs, stats.size());
+				text::Build(statsVerts, buf, 14.0f, 50.0f, 1.1f, 0xFFFFD060);
+				float y = 66.0f;
+				for (const auto& r : stats) {
+					std::snprintf(buf, sizeof(buf), "%-6s %6.2fms  dc %-3u  vtx %-6u",
+						r.name.c_str(), r.stats.cpuMs, r.stats.drawCalls, r.stats.vertices);
+					text::Build(statsVerts, buf, 14.0f, y, 1.0f, 0xFFA0E0A0);
+					y += 16.0f;
+				}
+				renderer.DrawScreenTextured(statsVerts, fontTex);
+			}
+		}
 		renderer.EndFrame();
 
 		// ---- FPS ----

@@ -503,6 +503,32 @@ int main(int argc, char** argv) {
 			ctx.stats.vertices = static_cast<uint32_t>(tv.size());
 		});
 		graph.Execute(W, H, dt);
+		// 帧图统计（F3，对应 UE5 stat rhi）
+		{
+			static bool showStats = false;
+			static bool prevF3 = false;
+			const bool f3 = window.IsKeyDown(VK_F3) != 0;
+			if (f3 && !prevF3) showStats = !showStats;
+			prevF3 = f3;
+			if (showStats) {
+				const auto& stats = graph.Stats();
+				std::vector<SpriteVertex> panelVerts;
+				ui::BuildPanel(panelVerts, ui::Rect{8.0f, 44.0f, 400.0f, 26.0f + 16.0f * static_cast<float>(stats.size())}, 0xD0101010);
+				renderer.DrawScreenBatch(panelVerts);
+				std::vector<SpriteVertex> sv;
+				char buf[192];
+				std::snprintf(buf, sizeof(buf), "FRAME %.2f ms   %zu passes   F3", graph.Totals().cpuMs, stats.size());
+				text::Build(sv, buf, 14.0f, 50.0f, 1.1f, 0xFFFFD060);
+				float yy = 66.0f;
+				for (const auto& r : stats) {
+					std::snprintf(buf, sizeof(buf), "%-6s %6.2fms  dc %-3u  vtx %-6u",
+						r.name.c_str(), r.stats.cpuMs, r.stats.drawCalls, r.stats.vertices);
+					text::Build(sv, buf, 14.0f, yy, 1.0f, 0xFFA0E0A0);
+					yy += 16.0f;
+				}
+				renderer.DrawScreenTextured(sv, fontTex);
+			}
+		}
 		// 自动截图（调试/验证）
 		if (autoshot) {
 			static int frameCount = 0;
