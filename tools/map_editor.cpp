@@ -782,6 +782,7 @@ int main(int argc, char** argv) {
 				terrainBatch.AddSolid(static_cast<float>(p.x) - 1.0f, static_cast<float>(p.y) - 8.0f, 2.0f, 16.0f, 0xFFFF4040u);
 			}
 		}
+
 		terrainBatch.End();
 		entityBatch.End();
 
