@@ -14,6 +14,7 @@ using namespace rts;
 TEST(unit_builder_respects_cash_floor) {
 	UnitBuilderBot b;
 	b.productionMinCashRequirement = 500;
+	b.feedbackTime = 1;   // 测试里每 tick 都评估（生产环境默认 30，对应 OpenRA FeedbackTime）
 	b.unitsToBuild["E1"] = 10;
 	std::set<std::string> queues{"Infantry"};
 	std::map<std::string, int32_t> counts;
@@ -26,6 +27,7 @@ TEST(unit_builder_respects_cash_floor) {
 TEST(unit_builder_respects_target_count) {
 	UnitBuilderBot b;
 	b.productionMinCashRequirement = 0;
+	b.feedbackTime = 1;
 	b.unitsToBuild["E1"] = 3;
 	std::set<std::string> queues{"Infantry"};
 	std::map<std::string, int32_t> counts{{"E1", 3}};
@@ -38,6 +40,7 @@ TEST(unit_builder_respects_target_count) {
 TEST(unit_builder_respects_hard_limit) {
 	UnitBuilderBot b;
 	b.productionMinCashRequirement = 0;
+	b.feedbackTime = 1;
 	b.unitsToBuild["E1"] = 100;   // 目标 100
 	b.unitLimits["E1"] = 2;       // 硬上限 2
 	std::set<std::string> queues{"Infantry"};
@@ -48,6 +51,7 @@ TEST(unit_builder_respects_hard_limit) {
 TEST(unit_builder_priority_request) {
 	UnitBuilderBot b;
 	b.productionMinCashRequirement = 0;
+	b.feedbackTime = 1;
 	b.unitsToBuild["E1"] = 100;
 	b.queuedRequests.push_back("HTNK");
 	std::set<std::string> queues{"Vehicle", "Infantry"};
@@ -60,6 +64,7 @@ TEST(unit_builder_priority_request) {
 TEST(unit_builder_rotates_queues) {
 	UnitBuilderBot b;
 	b.productionMinCashRequirement = 0;
+	b.feedbackTime = 1;
 	b.unitsToBuild["E1"] = 100;
 	std::set<std::string> queues{"Infantry"};
 	std::set<std::string> none;

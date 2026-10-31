@@ -126,11 +126,13 @@ public:
 	// 我们两者都存：type 进地图文件（同构），amount 是运行时状态。
 	uint8_t ResourceType(CellCoord c) const { return m_resTypes.Get(c, 0); }
 	int32_t ResourceAmount(CellCoord c) const { return m_resources.Get(c, 0); }
+	// 只设类型，储量留 0：对齐 OpenRA 的 map.bin 语义（文件里只有 resourceType，
+	// 具体 density 由 ResourceLayer 在加载后播种，且上限是 ResourceTypeInfo.MaxDensity）。
 	void SetResourceType(CellCoord c, uint8_t type) {
 		m_resTypes.Set(c, type);
-		// 1 = Ore：默认播 2000（RA 的一个矿格典型储量）
-		m_resources.Set(c, type == 0 ? 0 : 2000);
+		m_resources.Set(c, type == 0 ? 0 : kDefaultResourceDensity);
 	}
+	static constexpr int32_t kDefaultResourceDensity = 10; // = OpenRA ResourceTypeInfo.MaxDensity 默认值
 	void SetResourceAmount(CellCoord c, int32_t v) {
 		m_resources.Set(c, v);
 		m_resTypes.Set(c, v > 0 ? 1 : 0);

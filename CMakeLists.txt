@@ -23,6 +23,7 @@ add_library(rts_sim STATIC
     sim/production.cpp
     sim/economy.cpp
     sim/bot.cpp
+    sim/traits.cpp
     sim/map.cpp
     sim/activity.cpp
     sim/pathfinder.cpp
@@ -77,6 +78,8 @@ set(RTS_TEST_SOURCES
     tests/test_gamedefs.cpp
     tests/test_economy.cpp
     tests/test_bot.cpp
+    tests/test_traits.cpp
+    tests/test_verify_edge.cpp
     tests/test_ai.cpp
     tests/test_building.cpp
     tests/test_fog.cpp

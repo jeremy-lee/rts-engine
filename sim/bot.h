@@ -38,7 +38,9 @@ public:
 	std::map<std::string, int32_t> unitDelays;
 	int32_t productionMinCashRequirement = 500;
 	int32_t idleBaseUnitsMaximum = -1;
-	int32_t feedbackTime = 1;
+	// OpenRA UnitBuilderBotModule.FeedbackTime = 30（硬编码常量，"a bit over 1s"），
+	// 每 30 tick 才下一次单，避免把生产队列瞬间灌满。
+	int32_t feedbackTime = 30;
 
 	// 外部请求（对应 IBotRequestUnitProduction）
 	std::vector<std::string> queuedRequests;

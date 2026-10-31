@@ -30,6 +30,9 @@ public:
 	virtual const char* TypeName() const = 0;
 	// 从 yaml 节点填充字段（对应 OpenRA 的 FieldLoader）
 	virtual void LoadFrom(const YamlNode& node) { (void)node; }
+	// 深拷贝：trait 继承（Inherits）需要把父 actor 的 trait 复制给子 actor。
+	// C# 里靠引用共享 + 不可变 Info，C++ 侧用 unique_ptr 所以必须显式克隆。
+	virtual std::unique_ptr<TraitInfo> Clone() const = 0;
 };
 
 // ---- trait 工厂注册表（替代反射）----

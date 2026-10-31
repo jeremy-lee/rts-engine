@@ -21,6 +21,7 @@ class UnknownTrait : public TraitInfo {
 public:
 	explicit UnknownTrait(std::string n) : name(std::move(n)) {}
 	const char* TypeName() const override { return name.c_str(); }
+	std::unique_ptr<TraitInfo> Clone() const override { return std::make_unique<UnknownTrait>(name); }
 	std::string name;
 };
 }
@@ -102,6 +103,31 @@ void Ruleset::LoadFromNodes(const YamlNode& root) {
 		for (const std::string& p : kv.second) {
 			if (std::find(dst.begin(), dst.end(), p) == dst.end()) dst.push_back(p);
 		}
+	}
+
+	// 合并继承：把父 actor 的 trait 克隆给子 actor（子已定义的同类型 trait 优先，不覆盖）。
+	// 迭代到稳定，以处理 ^Infantry → ^Soldier → E1 这样的多级继承链。
+	for (int round = 0; round < 64; ++round) {
+		bool changed = false;
+		for (const auto& kv : m_pendingInherits) {
+			const auto childIt = actors.find(kv.first);
+			if (childIt == actors.end()) continue;
+			ActorInfo& child = childIt->second;
+			for (const std::string& parent : kv.second) {
+				const auto parentIt = actors.find(parent);
+				if (parentIt == actors.end()) continue;
+				const ActorInfo& p = parentIt->second;
+				for (const auto& pt : p.traits) {
+					if (child.Find(pt->TypeName()) != nullptr) continue; // 子覆盖父
+					auto cloned = pt->Clone();
+					if (cloned) {
+						child.traits.push_back(std::move(cloned));
+						changed = true;
+					}
+				}
+			}
+		}
+		if (!changed) break;
 	}
 }
 
