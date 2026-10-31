@@ -16,6 +16,8 @@ endif()
 # ---- 模拟层（core + sim）----
 add_library(rts_sim STATIC
     sim/world.cpp
+    sim/miniyaml.cpp
+    sim/rules.cpp
     sim/map.cpp
     sim/activity.cpp
     sim/pathfinder.cpp
@@ -52,6 +54,7 @@ set(RTS_TEST_SOURCES
     tests/test_cell_layer.cpp
     tests/test_determinism.cpp
     tests/test_map.cpp
+    tests/test_rules.cpp
     tests/test_projection.cpp
     tests/test_actor.cpp
     tests/test_activity.cpp
