@@ -21,6 +21,7 @@ add_library(rts_sim STATIC
     sim/locomotor.cpp
     sim/weapon.cpp
     sim/production.cpp
+    sim/economy.cpp
     sim/map.cpp
     sim/activity.cpp
     sim/pathfinder.cpp
