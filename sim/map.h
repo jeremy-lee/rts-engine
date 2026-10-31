@@ -19,6 +19,18 @@ enum TerrainFlags : uint8_t {
 // 地图格子的瓦片引用（对齐 OpenRA 的 TerrainTile：模板 + 变体索引）。
 //   templateId = TileSet 的模板（对应一个 TMP 文件，如 255 → clear1.tem 草地）
 //   index      = 该模板下的变体号（多格模板时是子格序号，行优先）
+// 可玩区域（对应 OpenRA map.yaml 的 Bounds: x,y,w,h）。
+// 战役图常把 128×128 的地图缩到 30×36 的可玩区。
+struct MapBounds {
+	int32_t x = 0;
+	int32_t y = 0;
+	int32_t w = 0;
+	int32_t h = 0;
+	bool Contains(CellCoord c) const {
+		return c.x >= x && c.y >= y && c.x < x + w && c.y < y + h;
+	}
+};
+
 struct TileRef {
 	uint16_t templateId = 255; // 255 = clear1（默认草地）
 	uint8_t index = 0;
@@ -33,6 +45,12 @@ public:
 	Map() = default;
 	Map(int32_t width, int32_t height, uint8_t fillHeight = 0,
 		uint8_t fillFlags = kWalkable | kBuildable);
+
+	// ---- 元数据（对应 OpenRA 的 map.yaml：Bounds / Tileset）----
+	const MapBounds& Bounds() const { return m_bounds; }
+	void SetBounds(const MapBounds& b) { m_bounds = b; }
+	const std::string& TilesetName() const { return m_tileset; }
+	void SetTilesetName(const std::string& name) { m_tileset = name; }
 
 	// ---- 尺寸 ----
 	int32_t Width() const { return m_width; }
@@ -103,9 +121,20 @@ public:
 		}
 	}
 
-	// ---- 资源（矿点数量，0 = 无）----
+	// ---- 资源 ----
+	// OpenRA 的 map.bin 只存 resourceType（u8），具体数量由运行时 ResourceLayer 播种。
+	// 我们两者都存：type 进地图文件（同构），amount 是运行时状态。
+	uint8_t ResourceType(CellCoord c) const { return m_resTypes.Get(c, 0); }
 	int32_t ResourceAmount(CellCoord c) const { return m_resources.Get(c, 0); }
-	void SetResourceAmount(CellCoord c, int32_t v) { m_resources.Set(c, v); }
+	void SetResourceType(CellCoord c, uint8_t type) {
+		m_resTypes.Set(c, type);
+		// 1 = Ore：默认播 2000（RA 的一个矿格典型储量）
+		m_resources.Set(c, type == 0 ? 0 : 2000);
+	}
+	void SetResourceAmount(CellCoord c, int32_t v) {
+		m_resources.Set(c, v);
+		m_resTypes.Set(c, v > 0 ? 1 : 0);
+	}
 	int32_t TakeResource(CellCoord c, int32_t want) {
 		int32_t have = m_resources.Get(c, 0);
 		if (have <= 0) return 0;
@@ -138,6 +167,14 @@ public:
 	bool SaveBinary(const std::string& path) const;
 	bool LoadBinary(const std::string& path);
 
+	// ---- 地图元数据（对应 OpenRA map.yaml；二进制 map.bin 里没有这些字段）----
+	//   格式（每行 key value）：
+	//     RTSMETA 1
+	//     tileset TEMPERAT
+	//     bounds 0 0 128 128
+	bool SaveMeta(const std::string& path) const;
+	bool LoadMeta(const std::string& path);
+
 	// ---- 测试地图生成（确定性，给定 seed 可复现）----
 	static Map GenerateTestMap(int32_t width, int32_t height, uint64_t seed);
 
@@ -162,11 +199,14 @@ public:
 private:
 	int32_t m_width = 0;
 	int32_t m_height = 0;
+	MapBounds m_bounds;               // 可玩区域
+	std::string m_tileset = "TEMPERAT";
 	CellLayer<uint32_t> m_tiles;      // 打包的 (templateId << 8) | index
 	CellLayer<uint8_t> m_heightLayer; // 地形高度 0..255
 	CellLayer<uint8_t> m_flags;       // TerrainFlags 位集
 	CellLayer<uint8_t> m_fog;         // 迷雾 0..255
-	CellLayer<int32_t> m_resources;   // 矿点剩余量
+	CellLayer<uint8_t> m_resTypes;    // 资源类型（0 = 无，1 = Ore）——进地图文件
+	CellLayer<int32_t> m_resources;   // 矿点剩余量（运行时）
 	CellLayer<uint32_t> m_occupancy;  // 建筑占用（EntityId）
 };
 

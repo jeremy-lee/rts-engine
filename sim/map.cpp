@@ -16,8 +16,15 @@ Map::Map(int32_t width, int32_t height, uint8_t fillHeight, uint8_t fillFlags)
 	, m_heightLayer(width, height, fillHeight)
 	, m_flags(width, height, fillFlags)
 	, m_fog(width, height, 0)
+	, m_resTypes(width, height, 0)
 	, m_resources(width, height, 0)
-	, m_occupancy(width, height, 0u) {}
+	, m_occupancy(width, height, 0u) {
+	// 默认可玩区 = 全图
+	m_bounds.x = 0;
+	m_bounds.y = 0;
+	m_bounds.w = width;
+	m_bounds.h = height;
+}
 
 // ---- 二进制地图（与 OpenRA map.bin 同构）----
 bool Map::SaveBinary(const std::string& path) const {
@@ -50,14 +57,40 @@ bool Map::SaveBinary(const std::string& path) const {
 	}
 	for (int32_t y = 0; y < m_height; ++y) {
 		for (int32_t x = 0; x < m_width; ++x) {
-			int32_t amount = ResourceAmount(CellCoord(x, y));
-			if (amount < 0) amount = 0;
-			if (amount > 255) amount = 255;
-			const uint8_t r = static_cast<uint8_t>(amount);
-			std::fwrite(&r, 1, 1, f);
+			const uint8_t type = ResourceType(CellCoord(x, y));
+			std::fwrite(&type, 1, 1, f);
 		}
 	}
 	std::fclose(f);
+	return true;
+}
+
+bool Map::SaveMeta(const std::string& path) const {
+	std::ofstream out(path);
+	if (!out) return false;
+	out << "RTSMETA 1\n";
+	out << "tileset " << m_tileset << "\n";
+	out << "bounds " << m_bounds.x << " " << m_bounds.y << " "
+		<< m_bounds.w << " " << m_bounds.h << "\n";
+	return out.good();
+}
+
+bool Map::LoadMeta(const std::string& path) {
+	std::ifstream in(path);
+	if (!in) return false;
+	std::string magic;
+	int version = 0;
+	in >> magic >> version;
+	if (magic != "RTSMETA" || version != 1) return false;
+	std::string key;
+	while (in >> key) {
+		if (key == "tileset") {
+			std::string name;
+			if (in >> name) m_tileset = name;
+		} else if (key == "bounds") {
+			in >> m_bounds.x >> m_bounds.y >> m_bounds.w >> m_bounds.h;
+		}
+	}
 	return true;
 }
 
@@ -104,7 +137,7 @@ bool Map::LoadBinary(const std::string& path) {
 	if (resourcesOffset != 0 && resourcesOffset + cells <= buf.size()) {
 		for (int32_t y = 0; y < h; ++y) {
 			for (int32_t x = 0; x < w; ++x) {
-				loaded.SetResourceAmount(CellCoord(x, y),
+				loaded.SetResourceType(CellCoord(x, y),
 					buf[resourcesOffset + static_cast<size_t>(y) * w + x]);
 			}
 		}
@@ -131,12 +164,14 @@ bool Map::LoadFromText(const std::string& path) {
 		for (int32_t x = 0; x < w; ++x) {
 			const CellCoord c(x, y);
 			if (version >= 2) {
-				int tid = 255, idx = 0, hv = 0, fv = 0, gv = 255;
+				int tid = 255, idx = 0, hv = 0, fv = 0, gv = 255, rt = 0;
 				if (!(in >> tid >> idx >> hv >> fv >> gv)) return false;
 				loaded.SetTile(c, static_cast<uint16_t>(tid), static_cast<uint8_t>(idx));
 				loaded.SetTerrainHeight(c, static_cast<uint8_t>(hv));
 				loaded.SetFlags(c, static_cast<uint8_t>(fv));
 				loaded.SetFog(c, static_cast<uint8_t>(gv));
+				// resourceType 是可选的第 6 个字段（旧 v2 文件没有）
+				if (in >> rt) loaded.SetResourceType(c, static_cast<uint8_t>(rt));
 			} else {
 				int hv = 0, fv = 0, gv = 255;
 				if (!(in >> hv >> fv >> gv)) return false;
@@ -163,7 +198,8 @@ bool Map::SaveToText(const std::string& path) const {
 				<< static_cast<int>(t.index) << " "
 				<< static_cast<int>(TerrainHeight(c)) << " "
 				<< static_cast<int>(Flags(c)) << " "
-				<< static_cast<int>(Fog(c)) << "\n";
+				<< static_cast<int>(Fog(c)) << " "
+				<< static_cast<int>(ResourceType(c)) << "\n";
 		}
 	}
 	return out.good();
@@ -226,6 +262,7 @@ uint64_t Map::Hash() const {
 		h *= 1099511628211ull;
 	};
 	mix(m_tiles.Hash(h));
+	mix(m_resTypes.Hash(h));
 	mix(m_heightLayer.Hash(h));
 	mix(m_flags.Hash(h));
 	mix(m_fog.Hash(h));

@@ -584,12 +584,17 @@ int main() {
 			const bool sNow = window.IsKeyDown('S');
 			const bool oNow = window.IsKeyDown('O');
 			if (ctrl && sNow && !ctrlSPrev) {
-				const bool okMap = map.SaveToText("map_export.map");
+				// 二进制（与 OpenRA map.bin 同构：头 17B + tiles/heights/resources 三段）
+				const bool okMap = map.SaveBinary("map_export.map");
+				const bool okMeta = map.SaveMeta("map_meta.txt");
 				const bool okEnt = SaveEntities("map_entities.txt", placed);
-				status = (okMap && okEnt) ? "Saved map_export.map + map_entities.txt" : "Save failed";
+				status = (okMap && okMeta && okEnt)
+					? "Saved map_export.map (binary) + map_meta.txt + map_entities.txt" : "Save failed";
 			}
 			if (ctrl && oNow && !ctrlOPrev) {
-				const bool okMap = map.LoadFromText("demo_map.map");
+				bool okMap = map.LoadBinary("map_export.map");
+				if (!okMap) okMap = map.LoadFromText("map_export.map"); // 兼容旧的文本地图
+				map.LoadMeta("map_meta.txt"); // bounds / tileset
 				const bool okEnt = LoadEntities("map_entities.txt", placed);
 				status = okMap ? (okEnt ? "Loaded map + entities" : "Loaded map (no entities)")
 					: (okEnt ? "Loaded entities (no map)" : "Load failed");
@@ -851,7 +856,8 @@ int main() {
 		renderer.EndFrame();
 	}
 
-	map.SaveToText("map_export.map");
+	map.SaveBinary("map_export.map");
+	map.SaveMeta("map_meta.txt");
 	SaveEntities("map_entities.txt", placed);
 	renderer.Shutdown();
 	window.Destroy();

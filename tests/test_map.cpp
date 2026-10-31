@@ -2,6 +2,7 @@
 #include "test_framework.h"
 #include "sim/map.h"
 #include <cstdio>
+#include <cstring>
 
 using namespace rts;
 
@@ -83,4 +84,56 @@ TEST(map_generate_has_obstacles) {
 		}
 	}
 	CHECK(blocked > 0);
+}
+
+// ---- 二进制地图（与 OpenRA map.bin 同构）往返 ----
+TEST(map_binary_roundtrip) {
+	const Map src = Map::GenerateTestMap(24, 18, 12345);
+	CHECK(src.SaveBinary("test_map_roundtrip.bin"));
+
+	Map dst;
+	CHECK(dst.LoadBinary("test_map_roundtrip.bin"));
+	CHECK_EQ(dst.Width(), src.Width());
+	CHECK_EQ(dst.Height(), src.Height());
+
+	int tileMismatch = 0, heightMismatch = 0, resMismatch = 0;
+	for (int32_t y = 0; y < src.Height(); ++y) {
+		for (int32_t x = 0; x < src.Width(); ++x) {
+			const CellCoord c(x, y);
+			if (dst.Tile(c) != src.Tile(c)) ++tileMismatch;
+			if (dst.TerrainHeight(c) != src.TerrainHeight(c)) ++heightMismatch;
+			// OpenRA 语义：地图文件只存 resourceType，数量是运行时播种的（1 → 2000）
+			if (dst.ResourceType(c) != src.ResourceType(c)) ++resMismatch;
+		}
+	}
+	CHECK_EQ(tileMismatch, 0);
+	CHECK_EQ(heightMismatch, 0);
+	CHECK_EQ(resMismatch, 0);
+	std::remove("test_map_roundtrip.bin");
+}
+
+// 二进制头必须与 OpenRA 的 BinaryDataHeader 一致：
+//   u8 format=2, u16 w, u16 h, u32 tilesOffset, u32 heightsOffset, u32 resourcesOffset
+TEST(map_binary_header_layout) {
+	Map m(10, 6);
+	m.SaveBinary("test_map_header.bin");
+	std::FILE* f = std::fopen("test_map_header.bin", "rb");
+	CHECK(f != nullptr);
+	uint8_t buf[17] = {};
+	CHECK_EQ(std::fread(buf, 1, sizeof(buf), f), sizeof(buf));
+	std::fclose(f);
+	CHECK_EQ(static_cast<int>(buf[0]), 2); // format
+	uint16_t w = 0, h = 0;
+	std::memcpy(&w, &buf[1], 2);
+	std::memcpy(&h, &buf[3], 2);
+	CHECK_EQ(static_cast<int>(w), 10);
+	CHECK_EQ(static_cast<int>(h), 6);
+	uint32_t tilesOffset = 0, heightsOffset = 0, resourcesOffset = 0;
+	std::memcpy(&tilesOffset, &buf[5], 4);
+	std::memcpy(&heightsOffset, &buf[9], 4);
+	std::memcpy(&resourcesOffset, &buf[13], 4);
+	CHECK_EQ(tilesOffset, 17u);
+	CHECK_EQ(heightsOffset, 17u + 10u * 6u * 3u);
+	CHECK_EQ(resourcesOffset, heightsOffset + 10u * 6u);
+	std::remove("test_map_header.bin");
 }
