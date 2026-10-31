@@ -689,6 +689,7 @@ int main(int argc, char** argv) {
 			ctrlOPrev = oNow;
 		}
 		if (window.IsKeyDown('G')) showGrid = true;
+		if (autoShot) showGrid = true; // 截图时强制打开网格
 		if (window.IsKeyDown('N')) {
 			map = Map::GenerateTestMap(128, 128, static_cast<uint64_t>(hoverCell.x * 31 + hoverCell.y * 17 + 1));
 			placed.clear();
@@ -745,13 +746,20 @@ int main(int argc, char** argv) {
 					terrainBatch.AddSolid(static_cast<float>(p.x) - 8.0f,
 						static_cast<float>(p.y) - 4.0f, 16.0f, 8.0f, 0xE0D4A017u);
 			}
+			// debug 网格：完整格子边框（4 条边），洋红色。有框但内部露清屏色 = 该格没画上。
 			if (showGrid) {
+				const uint32_t gridCol = 0xFFFF00FFu;
 				for (const CellCoord& c : cells) {
 					if (!map.InBounds(c)) continue;
 					const ScreenPos p = ProjectCell(c, map.TerrainHeight(c));
-					terrainBatch.AddSolid(static_cast<float>(p.x) - 1.0f,
-						static_cast<float>(p.y) - static_cast<float>(kTileH) * 0.5f, 1.0f,
-						static_cast<float>(kTileH), 0x30FFFFFFu);
+					const float gx = static_cast<float>(p.x) - static_cast<float>(kTileW) * 0.5f;
+					const float gy = static_cast<float>(p.y) - static_cast<float>(kTileH) * 0.5f;
+					const float gw = static_cast<float>(kTileW);
+					const float gh = static_cast<float>(kTileH);
+					terrainBatch.AddSolid(gx, gy, gw, 1.0f, gridCol);
+					terrainBatch.AddSolid(gx, gy + gh - 1.0f, gw, 1.0f, gridCol);
+					terrainBatch.AddSolid(gx, gy, 1.0f, gh, gridCol);
+					terrainBatch.AddSolid(gx + gw - 1.0f, gy, 1.0f, gh, gridCol);
 				}
 			}
 			// æ”¾ç½®çš„å®žä½“ï¼ˆC&C ç²¾çµï¼ŒæŒ‰ x+y æŽ’åºï¼‰
