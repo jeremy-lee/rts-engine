@@ -71,11 +71,13 @@ TEST(locomotor_parse_from_yaml) {
 }
 
 TEST(apply_percentage_modifiers) {
-	// OpenRA Util.ApplyPercentageModifiers: base * (100 + sum) / 100
-	CHECK_EQ(ApplyPercentageModifiers(100, {}), 100);
-	CHECK_EQ(ApplyPercentageModifiers(100, {50}), 150);
-	CHECK_EQ(ApplyPercentageModifiers(100, {-50}), 50);
-	CHECK_EQ(ApplyPercentageModifiers(56, {89, -20}), 94); // 56 * 169/100 = 94.64 → 94
+	// OpenRA Util.ApplyPercentageModifiers 是连乘：base * Π(p/100)
+	CHECK_EQ(ApplyPercentageModifiers(100, {}), 100);     // 无修正
+	CHECK_EQ(ApplyPercentageModifiers(100, {50}), 50);    // 50%
+	CHECK_EQ(ApplyPercentageModifiers(100, {200}), 200);  // 200%
+	CHECK_EQ(ApplyPercentageModifiers(56, {89}), 49);     // 56*0.89 = 49.84 → 49
+	// 连乘：100 * 0.5 * 2.0 = 100（不是 (100+50+200)/100）
+	CHECK_EQ(ApplyPercentageModifiers(100, {50, 200}), 100);
 }
 
 TEST(locomotor_load_real_ra_world) {

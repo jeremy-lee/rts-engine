@@ -63,7 +63,8 @@ public:
 	void LoadFrom(const YamlNode& worldNode);
 };
 
-// OpenRA 的 Util.ApplyPercentageModifiers：result = base * (100 + Σmods) / 100
-int32_t ApplyPercentageModifiers(int32_t baseValue, const std::vector<int32_t>& modifiers);
+// 对齐 OpenRA.Mods.Common/Util.cs 的 Util.ApplyPercentageModifiers：连乘，result = base * Π(p/100)
+// 语义：100 = 不变，50 = 半伤/半速，116 = 116%。不是 "(100 + Σ)/100"。
+int32_t ApplyPercentageModifiers(int32_t baseValue, const std::vector<int32_t>& percentages);
 
 } // namespace rts

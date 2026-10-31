@@ -19,6 +19,7 @@ add_library(rts_sim STATIC
     sim/miniyaml.cpp
     sim/rules.cpp
     sim/locomotor.cpp
+    sim/weapon.cpp
     sim/map.cpp
     sim/activity.cpp
     sim/pathfinder.cpp
@@ -57,6 +58,7 @@ set(RTS_TEST_SOURCES
     tests/test_map.cpp
     tests/test_rules.cpp
     tests/test_locomotor.cpp
+    tests/test_weapon.cpp
     tests/test_projection.cpp
     tests/test_actor.cpp
     tests/test_activity.cpp

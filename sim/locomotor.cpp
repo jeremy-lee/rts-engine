@@ -7,11 +7,15 @@
 
 namespace rts {
 
-int32_t ApplyPercentageModifiers(int32_t baseValue, const std::vector<int32_t>& modifiers) {
-	// OpenRA Util.ApplyPercentageModifiers：base * (100 + sum(mods)) / 100，整数除法
-	int32_t sum = 100;
-	for (const int32_t m : modifiers) sum += m;
-	return static_cast<int32_t>(static_cast<int64_t>(baseValue) * sum / 100);
+int32_t ApplyPercentageModifiers(int32_t baseValue, const std::vector<int32_t>& percentages) {
+	// 对齐 OpenRA.Mods.Common/Util.cs 的真实实现：连乘，不是 (100 + sum)/100
+	//   var a = (decimal)number;
+	//   foreach (var p in percentages) a *= p / 100m;
+	// 用一个 int64 累加分子、每次除 100，保持确定性（OpenRA 用 decimal，最后才取整，
+	// 多次修正时两边会有亚单位差异，但这里每次取整对 sim 更稳妥）。
+	int64_t a = baseValue;
+	for (const int32_t p : percentages) a = a * p / 100;
+	return static_cast<int32_t>(a);
 }
 
 bool Locomotor::LoadFrom(const YamlNode& node) {
