@@ -280,6 +280,24 @@ int main(int argc, char** argv) {
 			c.y = 62 * kSubPerCell;
 			pushCommand(c);
 		}
+		{
+			// 起始基地：一个兵营（buildingId 1 = barracks）。没有它 BUILD 恒为 0，
+			// 玩家也没有能下 Produce 命令的建筑（Spawn 只能造单位，建筑要走 Build）。
+			Command c;
+			c.type = CommandType::Build;
+			c.playerId = 0;
+			c.x = 57 * kSubPerCell;
+			c.y = 57 * kSubPerCell;
+			c.targetId = 1;
+			pushCommand(c);
+
+			// AI 也给它一个兵营，避免开局就被玩家单方面碾压
+			c.playerId = 1;
+			c.x = 78 * kSubPerCell;
+			c.y = 78 * kSubPerCell;
+			pushCommand(c);
+
+		}
 		campaign = Campaign(levelDef, 0, 1);
 		selection.clear();
 		gameState = GameState::Playing;
@@ -356,11 +374,13 @@ int main(int argc, char** argv) {
 
 		// ---- 相机 ----
 		{
-			// OpenRA Viewport.ClampToBounds：限制相机在地图内
+			// OpenRA Viewport.ClampToBounds：限制相机在地图内。
+		// 注意等距投影：世界 X = (x-y)*kStepX ∈ [-mh*12, mw*12]，Y = (x+y+1)*kStepY ∈ [0,(mw+mh)*12]。
+		// 之前传的是正交公式 (0,0,mw*32,mh*32)，既用错了 tile 尺寸也没有负半轴，夹不住。
 			const int32_t mw = sim.GetWorld().Width();
 			const int32_t mh = sim.GetWorld().Height();
 			// 正交网格：世界范围 = [0, w*32] × [0, h*32]
-			camera.ClampToBounds(0.0f, 0.0f,
+			camera.ClampToBounds(-static_cast<float>(mh) * static_cast<float>(kStepX), 0.0f,
 				static_cast<float>(mw) * static_cast<float>(kTileW),
 				static_cast<float>(mh) * static_cast<float>(kTileH));
 		}
@@ -934,6 +954,7 @@ int main(int argc, char** argv) {
 			}
 		}
 		graph.AddPass("UI", [&](PassContext& ctx) {
+
 			renderer.DrawScreenBatch(uiVerts);
 			ctx.stats.drawCalls = 1;
 			ctx.stats.vertices = static_cast<uint32_t>(uiVerts.size());

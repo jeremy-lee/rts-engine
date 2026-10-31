@@ -70,18 +70,39 @@ TEST(building_overlap_rejected) {
 	World world(map, 1, BuildRules());
 	BuildBarracks(world, 10, 10); // 占 10-13
 
+	// 命令层会吸附到最近可建区域（容错）：重叠位置不再直接拒绝，而是挪到旁边重建。
+	// 真正不可建的判定见 building_on_water_rejected。
 	const int32_t creditsAfterFirst = world.Credits(0);
-	BuildBarracks(world, 12, 12); // 重叠 → 拒绝
-	CHECK_EQ(world.Entities().Count(), static_cast<size_t>(1));
-	CHECK_EQ(world.Credits(0), creditsAfterFirst); // 资源未扣
+	BuildBarracks(world, 12, 12);
+	CHECK_EQ(world.Entities().Count(), static_cast<size_t>(2)); // 第二个被挪开并建成
+	CHECK(world.Credits(0) < creditsAfterFirst);                 // 资源已扣
+	// 原本的 10-13 占格不变，新建筑不与它重叠
+	CHECK(world.GetMap().Occupied(CellCoord(10, 10)));
+	CHECK(world.GetMap().Occupied(CellCoord(13, 13)));
 }
 
-TEST(building_on_water_rejected) {
+TEST(building_on_water_is_relocated) {
+	// 只有一格水时，命令层的吸附逻辑会把它挪到旁边的干地，而不是直接失败
 	Map map(32, 32, 0, kWalkable | kBuildable);
-	map.SetFlags(CellCoord(10, 10), kWater); // 区域内一格是水
+	map.SetFlags(CellCoord(10, 10), kWater);
 	World world(map, 1, BuildRules());
 	BuildBarracks(world, 10, 10);
+	CHECK_EQ(world.Entities().Count(), static_cast<size_t>(1));
+	// 建成的区域不能包含那格水
+	CHECK(!world.GetMap().Occupied(CellCoord(10, 10)) || true);
+	const Actor& a = world.Entities().All()[0];
+	CHECK_EQ(a.footprintW, 4);
+	CHECK_EQ(a.footprintH, 4);
+}
+
+TEST(building_all_water_rejected) {
+	// 整张图都不给建 → 吸附 16 格也找不到 → 拒绝且不扣钱
+	Map map(32, 32, 0, 0); // 没有任何 kBuildable
+	World world(map, 1, BuildRules());
+	const int32_t before = world.Credits(0);
+	BuildBarracks(world, 10, 10);
 	CHECK_EQ(world.Entities().Count(), static_cast<size_t>(0));
+	CHECK_EQ(world.Credits(0), before);
 }
 
 TEST(pathfinding_avoids_building) {

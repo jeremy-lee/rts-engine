@@ -1,5 +1,6 @@
 // RTS Engine — sim/world.cpp
 #include "world.h"
+#include <cstdio>
 #include <sstream>
 #include "activity.h"
 #include "fog.h"
@@ -63,6 +64,7 @@ void World::AddCredits(int player, int32_t amount) {
 }
 
 void World::ApplyCommand(const Command& cmd) {
+
 	switch (cmd.type) {
 		case CommandType::Spawn: {
 			const uint8_t components =
@@ -145,13 +147,30 @@ void World::ApplyCommand(const Command& cmd) {
 			if (cmd.targetId < m_rules.buildingIds.size()) {
 				def = m_rules.FindBuilding(m_rules.buildingIds[cmd.targetId]);
 			}
+
 			if (def == nullptr) break;
 			// M11：检查占地（宽高来自数据定义）
 			const int32_t fw = (def->width > 0) ? def->width : 1;
 			const int32_t fh = (def->height > 0) ? def->height : 1;
 			CellCoord origin = SubCoord(cmd.x, cmd.y).ToCell();
 			// 吸附到最近可建区域（简化：尝试原位置，失败则放弃）
-			if (!m_map.CanBuildAt(origin, fw, fh)) break;
+			// 吸附到最近可建区域（命令层容错：玩家点偏一点不应该整条命令失效）
+			if (!m_map.CanBuildAt(origin, fw, fh)) {
+				bool found = false;
+				for (int32_t r = 1; r <= 16 && !found; ++r) {
+					for (int32_t dy = -r; dy <= r && !found; ++dy) {
+						for (int32_t dx = -r; dx <= r && !found; ++dx) {
+							if (dx > -r && dx < r && dy > -r && dy < r) continue;
+							const CellCoord cand(origin.x + dx, origin.y + dy);
+							if (m_map.CanBuildAt(cand, fw, fh)) {
+								origin = cand;
+								found = true;
+							}
+						}
+					}
+				}
+				if (!found) break;
+			}
 			if (!SpendCredits(cmd.playerId, def->cost)) break;
 
 			// 建筑中心 = 占格区域中心
@@ -206,6 +225,7 @@ void World::ApplyCommand(const Command& cmd) {
 			Actor* a = m_entities.Get(cmd.entityId);
 			if (a == nullptr || !a->Has(kCompBuilding)) break;
 			const UnitDef* def = m_rules.FindUnitByNumeric(static_cast<int32_t>(cmd.targetId));
+
 			if (def == nullptr) break;
 			if (!SpendCredits(a->playerId, def->cost)) break;
 			a->producer.unitNumericId = static_cast<int32_t>(cmd.targetId);
