@@ -76,14 +76,34 @@ static int g_selectedTemplate = -1;
 static int g_selectedIndex = 0;
 
 // 刷一个具体模板：tile 数据 + 由 tileset 派生出的通行/可建造标志
+// 把模板放在 origin：模板可能占 N×M 格（sh01.tem 是 4×5，w2.tem 是 2×2），
+// 一次覆盖 N×M 并在每格写入对应的子格 index（行优先：y*sizeW + x），与 OpenRA 的
+// TileTemplate.Size / TerrainTile(type,index) 语义一致。
+void PlaceTemplate(Map& map, CellCoord origin, int templateId, int variant) {
+	const TileSet::Template* t = TileSet::Find(templateId);
+	const int sw = (t != nullptr && t->sizeW > 0) ? t->sizeW : 1;
+	const int sh = (t != nullptr && t->sizeH > 0) ? t->sizeH : 1;
+	// variant 只对 1×1 模板有意义（多格模板的 index 就是子格序号）
+	const bool multi = (sw > 1 || sh > 1) && t != nullptr && t->frameCount >= sw * sh;
+	for (int dy = 0; dy < sh; ++dy) {
+		for (int dx = 0; dx < sw; ++dx) {
+			const CellCoord c(origin.x + dx, origin.y + dy);
+			if (!map.InBounds(c)) continue;
+			const int index = multi ? (dy * sw + dx) : variant;
+			map.SetTile(c, static_cast<uint16_t>(templateId),
+				static_cast<uint8_t>(index < 0 ? 0 : (index > 255 ? 255 : index)));
+			const std::string& terr = TileSet::TerrainOf(templateId, index);
+			uint8_t flags = kWalkable | kBuildable;
+			if (terr == "Water" || terr == "River") flags = kWater;
+			else if (!TileSet::Walkable(templateId, index)) flags = kBuildable;
+			map.SetFlags(c, flags);
+		}
+	}
+}
+
+// 单格刷（半径内的每一格都放一个模板；多格模板会按自身尺寸覆盖）
 void ApplyTemplateBrush(Map& map, CellCoord c, int templateId, int index) {
-	if (!map.InBounds(c)) return;
-	map.SetTile(c, static_cast<uint16_t>(templateId), static_cast<uint8_t>(index));
-	const std::string& terr = TileSet::TerrainOf(templateId, index);
-	uint8_t flags = kWalkable | kBuildable;
-	if (terr == "Water" || terr == "River") flags = kWater;
-	else if (!TileSet::Walkable(templateId, index)) flags = kBuildable;
-	map.SetFlags(c, flags);
+	PlaceTemplate(map, c, templateId, index);
 }
 
 void ApplyBrush(Map& map, CellCoord c, Brush b, int radius); // 前向声明

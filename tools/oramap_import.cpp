@@ -22,6 +22,9 @@
 
 namespace {
 
+// 中立（Neutral / NonCombatant）的 actor 不导入
+constexpr int kNeutralPlayer = 255;
+
 // ---------------- ZIP ----------------
 struct ZipEntry {
 	std::string name;
@@ -121,6 +124,15 @@ struct MapYaml {
 		std::string owner;
 	};
 	std::vector<Actor> actors;
+
+	// Players: 段（决定 owner → player 序号）
+	struct PlayerRef {
+		std::string name;
+		std::string faction;
+		bool nonCombatant = false;
+		bool playable = false;
+	};
+	std::vector<PlayerRef> players;
 };
 
 std::string Trim(const std::string& s) {
@@ -162,6 +174,24 @@ bool ParseMapYaml(const std::vector<uint8_t>& text, MapYaml& out) {
 					out.hasBounds = true;
 				}
 			}
+			continue;
+		}
+
+		if (section == "Players") {
+			// PlayerReference@USSR: 开头新玩家；缩进两层的 Name:/NonCombatant:/Playable:/Faction:
+			if (raw.size() >= 2 && raw[1] != '\t' && line.rfind("PlayerReference", 0) == 0) {
+				out.players.push_back(MapYaml::PlayerRef{});
+				continue;
+			}
+			const size_t colon = line.find(':');
+			if (colon == std::string::npos || out.players.empty()) continue;
+			const std::string key = Trim(line.substr(0, colon));
+			const std::string val = Trim(line.substr(colon + 1));
+			MapYaml::PlayerRef& p = out.players.back();
+			if (key == "Name") p.name = val;
+			else if (key == "Faction") p.faction = val;
+			else if (key == "NonCombatant") p.nonCombatant = (val == "True" || val == "true");
+			else if (key == "Playable") p.playable = (val == "True" || val == "true");
 			continue;
 		}
 
@@ -325,20 +355,46 @@ int main(int argc, char** argv) {
 	}
 
 	// actors → RTSENT 2（名字 player x y）
+	// owner → player 序号：按 Players 段顺序，跳过 NonCombatant（Neutral 是地图装饰）
+	std::map<std::string, int> ownerToPlayer;
+	{
+		int next = 0;
+		for (const auto& p : meta.players) {
+			if (p.nonCombatant) {
+				ownerToPlayer[p.name] = kNeutralPlayer;
+			} else if (next < 2) { // 引擎当前只驱动 2 方
+				ownerToPlayer[p.name] = next++;
+			} else {
+				ownerToPlayer[p.name] = kNeutralPlayer;
+			}
+		}
+		std::printf("[oramap] players:");
+		for (const auto& [name, idx] : ownerToPlayer) {
+			std::printf(" %s->%d", name.c_str(), idx);
+		}
+		std::printf("\n");
+	}
+
 	const std::string actPath = outBase + "_actors.txt";
 	{
 		std::FILE* f = std::fopen(actPath.c_str(), "w");
 		if (f != nullptr) {
 			std::fprintf(f, "RTSENT 2\n");
+			int written = 0, skipped = 0;
 			for (const auto& a : meta.actors) {
-				// OpenRA 的 Owner 名 → player 序号（Neutral=1，其余默认 0/1）
-				int player = 0;
-				if (a.owner == "Neutral") player = 1;
-				else if (a.owner == "USSR" || a.owner == "Russia" || a.owner == "Ukraine") player = 1;
+				auto it = ownerToPlayer.find(a.owner);
+				int player = (it == ownerToPlayer.end()) ? 0 : it->second;
+				// 中立装饰（树/岩石/残骸）保留为 player 0，否则地图会丢掉大量视觉内容
+				if (player == kNeutralPlayer) {
+					player = 0;
+					++skipped; // 统计的是"中立"数量，不是丢弃数量
+				}
 				std::fprintf(f, "%s %d %d %d\n", a.type.c_str(), player, a.x, a.y);
+				++written;
 			}
 			std::fclose(f);
-			std::printf("[oramap] wrote %s (%zu actors)\n", actPath.c_str(), meta.actors.size());
+			std::printf("[oramap] wrote %s (%d actors, %d of them neutral->player0)\n",
+				actPath.c_str(), written, skipped);
 		}
 	}
 	return 0;

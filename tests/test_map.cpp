@@ -137,3 +137,26 @@ TEST(map_binary_header_layout) {
 	CHECK_EQ(resourcesOffset, heightsOffset + 10u * 6u);
 	std::remove("test_map_header.bin");
 }
+// 多格模板放置：一次覆盖 N×M，每格 index = y*sizeW + x（对齐 OpenRA TileTemplate.Size）
+TEST(map_multi_cell_template_placement) {
+	Map m(16, 16);
+	// 手工铺一个 2×3 的模板（模拟 sh01.tem 这种多格模板）
+	const uint16_t templateId = 3;
+	const int sw = 2, sh = 3;
+	for (int dy = 0; dy < sh; ++dy) {
+		for (int dx = 0; dx < sw; ++dx) {
+			m.SetTile(CellCoord(4 + dx, 5 + dy), templateId,
+				static_cast<uint8_t>(dy * sw + dx));
+		}
+	}
+	for (int dy = 0; dy < sh; ++dy) {
+		for (int dx = 0; dx < sw; ++dx) {
+			const TileRef t = m.Tile(CellCoord(4 + dx, 5 + dy));
+			CHECK_EQ(static_cast<int>(t.templateId), static_cast<int>(templateId));
+			CHECK_EQ(static_cast<int>(t.index), dy * sw + dx);
+		}
+	}
+	// 模板覆盖范围之外的格子必须没被碰到
+	CHECK_EQ(static_cast<int>(m.Tile(CellCoord(6, 5)).templateId), 255);
+	CHECK_EQ(static_cast<int>(m.Tile(CellCoord(4, 8)).templateId), 255);
+}
