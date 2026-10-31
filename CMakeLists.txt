@@ -80,6 +80,7 @@ set(RTS_TEST_SOURCES
     tests/test_bot.cpp
     tests/test_traits.cpp
     tests/test_verify_edge.cpp
+    tests/test_ui_layout.cpp
     tests/test_ai.cpp
     tests/test_building.cpp
     tests/test_fog.cpp

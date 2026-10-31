@@ -600,9 +600,48 @@ int main(int argc, char** argv) {
 			}
 		}
 
-		// 左键按下：UI 按钮 or 开始框选
+		// 左键按下：UI 按钮 or 放置 or 框选
+		// 注意顺序：侧栏按钮必须最先判定。按钮的 y 落在游戏区范围内，
+		// 如果放在"顶部栏之外"的分支里会被框选分支吞掉（侧栏改版后踩过这个坑）。
 		if (left && !prevLeft) {
-			if (placingBuilding && my >= topBarH && my <= static_cast<float>(H) - bottomH) {
+			const bool inSidebar = (mx >= sideX - 12.0f);
+			const bool inMinimap = (mx >= mmX && mx <= mmX + mmSize && my >= mmY && my <= mmY + mmSize);
+
+			if (inMinimap && !placingBuilding) {
+				const float fx = (mx - mmX) / mmSize;
+				const float fy = (my - mmY) / mmSize;
+				const CellCoord target(static_cast<int32_t>(fx * sim.GetWorld().Width()),
+					static_cast<int32_t>(fy * sim.GetWorld().Height()));
+				const ScreenPos p = ProjectCell(target, 0);
+				camera.centerX = static_cast<float>(p.x);
+				camera.centerY = static_cast<float>(p.y);
+			} else if (inSidebar && btnBuild.Hit(mx, my)) {
+				// 进入放置模式（不再要求 myBuildings==0，开局有兵营也应该能继续建）
+				placingBuilding = true;
+				placingBuildingId = 0;
+				lastPlacedCell = CellCoord(-1, -1);
+				audio.Play(Sfx::Click);
+			} else if (inSidebar && btnTurret.Hit(mx, my)) {
+				placingBuilding = true;
+				placingBuildingId = 1;
+				lastPlacedCell = CellCoord(-1, -1);
+				audio.Play(Sfx::Click);
+			} else if (inSidebar && btnTank.Hit(mx, my) && idleBarracks != 0) {
+				Command cmd;
+				cmd.type = CommandType::Produce;
+				cmd.entityId = idleBarracks;
+				cmd.targetId = 2;
+				pushCommand(cmd);
+				audio.Play(Sfx::Produce);
+			} else if (inSidebar && btnInfantry.Hit(mx, my) && idleBarracks != 0) {
+				Command cmd;
+				cmd.type = CommandType::Produce;
+				cmd.entityId = idleBarracks;
+				cmd.targetId = 1;
+				pushCommand(cmd);
+				audio.Play(Sfx::Produce);
+			} else if (placingBuilding && !inSidebar &&
+				my >= topBarH && my <= static_cast<float>(H) - bottomH) {
 				// 放置模式：点击处就是建筑落点
 				WorldPoint mp;
 				camera.ScreenToWorld(mx, my, mp.x, mp.y);
@@ -616,55 +655,14 @@ int main(int argc, char** argv) {
 				pushCommand(cmd);
 				audio.Play(Sfx::Build);
 				lastPlacedCell = cell;
-			} else if (my < topBarH || my > static_cast<float>(H) - bottomH) {
-				// 小地图点击：移动相机
-				if (mx >= mmX && mx <= mmX + mmSize && my >= mmY && my <= mmY + mmSize) {
-					const float fx = (mx - mmX) / mmSize;
-					const float fy = (my - mmY) / mmSize;
-					const CellCoord target(static_cast<int32_t>(fx * sim.GetWorld().Width()),
-						static_cast<int32_t>(fy * sim.GetWorld().Height()));
-					const ScreenPos p = ProjectCell(target, 0);
-					camera.centerX = static_cast<float>(p.x);
-					camera.centerY = static_cast<float>(p.y);
-				} else if (btnBuild.Hit(mx, my) && myBuildings == 0) {
-					// 进入放置模式，不再立刻在相机中心建造
-					placingBuilding = true;
-					placingBuildingId = 0;
-					audio.Play(Sfx::Click);
-				} else if (btnTank.Hit(mx, my) && idleBarracks != 0) {
-					Command cmd;
-					cmd.type = CommandType::Produce;
-					cmd.entityId = idleBarracks;
-					cmd.targetId = 2;
-					pushCommand(cmd);
-					audio.Play(Sfx::Produce);
-				} else if (btnInfantry.Hit(mx, my) && idleBarracks != 0) {
-					Command cmd;
-					cmd.type = CommandType::Produce;
-					cmd.entityId = idleBarracks;
-					cmd.targetId = 1;
-					pushCommand(cmd);
-					audio.Play(Sfx::Produce);
-				} else if (btnTurret.Hit(mx, my)) {
-					const CellCoord center = ScreenToCell(ScreenPos{static_cast<int32_t>(camera.centerX),
-						static_cast<int32_t>(camera.centerY)});
-					Command cmd;
-					cmd.type = CommandType::Build;
-					cmd.playerId = 0;
-					cmd.x = center.x * kSubPerCell;
-					cmd.y = center.y * kSubPerCell;
-					cmd.targetId = 1; // turret
-					pushCommand(cmd);
-					audio.Play(Sfx::Build);
-				}
-			} else {
+			} else if (my >= topBarH && my <= static_cast<float>(H) - bottomH && !inSidebar) {
 				dragStartX = window.MouseX();
 				dragStartY = window.MouseY();
 				dragging = true;
 			}
 		}
 		// 拖拽连续放置：按住左键划过新格子就落一个
-		if (placingBuilding && left && prevLeft &&
+		if (placingBuilding && left && prevLeft && mx < sideX - 12.0f &&
 			my >= topBarH && my <= static_cast<float>(H) - bottomH) {
 			WorldPoint mp;
 			camera.ScreenToWorld(mx, my, mp.x, mp.y);
