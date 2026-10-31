@@ -69,6 +69,9 @@ bool AudioSystem::Init() {
 		{523.25f, 0.18f, 0.35f, false}, // Build
 		{220.0f, 0.12f, 0.35f, true},   // Attack
 		{659.25f, 0.15f, 0.35f, false}, // Produce
+		{440.0f, 0.05f, 0.22f, true},   // Move（短促确认音）
+		{146.83f, 0.30f, 0.30f, false}, // Death（低沉下滑）
+		{98.00f, 0.22f, 0.40f, true},   // Explosion（低频噪声感）
 	};
 
 	for (int i = 0; i < static_cast<int>(Sfx::Count); ++i) {

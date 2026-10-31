@@ -463,6 +463,7 @@ int main(int argc, char** argv) {
 	int32_t placingBuildingId = 0;   // 待建造的 building numericId
 	CellCoord lastPlacedCell(-1, -1); // 拖拽连续放置时避免同格重复建
 	int prevNum[3] = {0, 0, 0};
+	int prevOwnUnits = 0;   // 上一帧的己方单位数（用于检测死亡）
 
 	auto last = std::chrono::steady_clock::now();
 	double accumulator = 0.0;
@@ -720,6 +721,7 @@ int main(int argc, char** argv) {
 						// 正交：屏幕像素 → 子格坐标（每格 kTileW/kTileH 像素）
 						cmd.x = static_cast<int32_t>(mp.x) * kSubPerCell / kTileW;
 						cmd.y = static_cast<int32_t>(mp.y) * kSubPerCell / kTileH;
+						audio.Play(Sfx::Move);
 					}
 					pushCommand(cmd);
 				}
@@ -1098,6 +1100,10 @@ int main(int argc, char** argv) {
 					credits, myUnits, myBuildings, enemyUnits, fps);
 			}
 			text::Build(textVerts, line, 12.0f, 8.0f, 1.5f, 0xFFE0E0E0);
+
+			// P2-6：己方单位数减少时播死亡音
+			if (myUnits < prevOwnUnits) audio.Play(Sfx::Death);
+			prevOwnUnits = myUnits;
 
 			text::Build(textVerts, btnBuild.label,
 				btnBuild.rect.x + 10.0f, btnBuild.rect.y + 18.0f, 1.6f,

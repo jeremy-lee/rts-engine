@@ -12,7 +12,10 @@ enum class Sfx : int {
 	Build = 1,     // 建造完成
 	Attack = 2,    // 攻击
 	Produce = 3,   // 生产完成
-	Count = 4,
+	Move = 4,      // 下达移动命令
+	Death = 5,     // 单位死亡
+	Explosion = 6, // 爆炸/命中
+	Count = 7,
 };
 
 class AudioSystem {
