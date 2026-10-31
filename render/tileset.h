@@ -1,16 +1,16 @@
 // RTS Engine — render/tileset.h
 // 地形集（OpenRA tileset 的等价物）：模板表 + 图集 UV + 地面属性。
 //
-// 数据来源：assets/tileset.txt（由 tools/build_tileset.cpp 从 OpenRA 的
-// mods/ra/tilesets/temperat.yaml + temperat.mix 生成）。
+// 支持多套 tileset（RA 有 TEMPERAT/SNOW/DESERT/INTERIOR）：
+//   每套由 assets/tileset_<NAME>.txt + .bmp 描述（tools/build_tileset.cpp 生成）。
+//   LoadSet 载入若干套，UseSet 切换当前使用的一套（地图的 TilesetName 决定）。
 //
 // 关键概念（对齐 OpenRA）：
-//   - 地图每个格子存的是 (templateId, index)：
+//   - 地图每格存 (templateId, index)：
 //       templateId = 模板（对应一个 TMP 文件，如 255 → clear1.tem）
-//       index      = 该模板下的变体号（TMP frame 序号）
-//   - 每个 (templateId, index) 有自己的 TerrainType（Clear/Water/Rock/...），
-//     TerrainType 决定可走性等属性。
-//   - 模板有 Size（可占多格，如 3×3 的桥）。
+//       index      = 该模板下的子格序号（多格模板时是 y*sizeW + x）
+//   - 模板有 Size（可占多格，如 sh01.tem 是 4×5）
+//   - 每个 (templateId, index) 有自己的 TerrainType，TerrainType 决定可走性
 #pragma once
 
 #include <cstdint>
@@ -27,7 +27,7 @@ public:
 		std::string image;
 		int sizeW = 1;
 		int sizeH = 1;
-		int frameBase = 0;  // 该模板第 0 帧在图集里的全局 tile 序号
+		int frameBase = 0;
 		int frameCount = 0;
 		std::unordered_map<int, std::string> terrain; // index → TerrainType 名
 	};
@@ -38,44 +38,52 @@ public:
 		uint32_t color = 0xFF000000u;
 	};
 
-	// 加载元数据（tileset.txt）。重复调用会覆盖。
-	static bool Load(const std::string& metaPath);
-	static bool Loaded() { return s_loaded; }
+	// 一套 tileset 的完整数据
+	struct Set {
+		std::string name;
+		std::string bitmapPath; // tileset_<NAME>.bmp
+		int tileCols = 128;
+		int cellW = 24;
+		int cellH = 24;
+		int rows = 0;
+		int totalTiles = 0;
+		std::vector<Template> templates;
+		std::unordered_map<int, int> templateIndex;
+		std::vector<TerrainType> terrains;
+		std::unordered_map<std::string, int> terrainIndex;
+	};
 
-	static int TileCols() { return s_tileCols; }
-	static int CellW() { return s_cellW; }
-	static int CellH() { return s_cellH; }
-	static int Rows() { return s_rows; }
-	static int TotalTiles() { return s_totalTiles; }
+	// ---- 载入 / 切换 ----
+	static bool LoadSet(const std::string& name, const std::string& metaPath);
+	static bool HasSet(const std::string& name);
+	static bool UseSet(const std::string& name);
+	static const std::string& CurrentName();
+	static const std::string& CurrentBitmapPath();
+	static const std::vector<std::string>& SetNames();
 
-	// 查找模板（不存在返回 nullptr）
+	static bool Loaded() { return Current() != nullptr; }
+
+	// ---- 当前套的查询 ----
+	static int TileCols();
+	static int CellW();
+	static int CellH();
+	static int Rows();
+	static int TotalTiles();
 	static const Template* Find(int templateId);
 	static const TerrainType* FindTerrain(const std::string& name);
-
-	// 编辑器面板用：所有模板（按 id 排序）
-	static const std::vector<Template>& AllTemplates() { return s_templates; }
-	static const std::vector<TerrainType>& AllTerrains() { return s_terrains; }
-
-	// (templateId, index) 的图集 UV；失败返回 false
+	static const std::vector<Template>& AllTemplates();
+	static const std::vector<TerrainType>& AllTerrains();
 	static bool GetUV(int templateId, int index, float& u0, float& v0, float& u1, float& v1);
-
-	// (templateId, index) 的 TerrainType 名（未定义时回退到模板的 0 号 index）
 	static const std::string& TerrainOf(int templateId, int index);
-
-	// 可走性（未知地形按可走处理）
 	static bool Walkable(int templateId, int index);
 
 private:
-	static bool s_loaded;
-	static int s_tileCols;
-	static int s_cellW, s_cellH;
-	static int s_rows;
-	static int s_totalTiles;
-	static std::vector<Template> s_templates;
-	static std::unordered_map<int, int> s_templateIndex; // id → s_templates 下标
-	static std::vector<TerrainType> s_terrains;
-	static std::unordered_map<std::string, int> s_terrainIndex;
-	static std::string s_unknownTerrain;
+	static Set* Current();
+	static const Set* CurrentConst();
+	static std::unordered_map<std::string, Set> s_sets;
+	static std::vector<std::string> s_setNames;
+	static std::string s_current;
+	static std::string s_emptyString;
 };
 
 } // namespace rts

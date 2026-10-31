@@ -1,0 +1,3 @@
+RTSMETA 1
+tileset WINTER
+bounds 1 1 92 92

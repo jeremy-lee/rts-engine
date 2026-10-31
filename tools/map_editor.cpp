@@ -333,12 +333,16 @@ int main() {
 
 	int terrW = 0, terrH = 0;
 	std::vector<uint8_t> terrPixels;
-	TileSet::Load("assets/tileset.txt"); // 模板表（templateId,index → UV / 地形属性）
-	if (!TerrainGfx::Load("assets/tileset.bmp", terrPixels, terrW, terrH)) {
+	// 多套 tileset：全部载入，按地图的 TilesetName 切换（缺省 TEMPERAT）
+	TileSet::LoadSet("TEMPERAT", "assets/tileset_TEMPERAT.txt");
+	TileSet::LoadSet("SNOW", "assets/tileset_SNOW.txt");
+	TileSet::LoadSet("INTERIOR", "assets/tileset_INTERIOR.txt");
+	TileSet::UseSet("TEMPERAT");
+	if (!TerrainGfx::Load(TileSet::CurrentBitmapPath(), terrPixels, terrW, terrH)) {
 		terrPixels = TerrainGfx::Build(terrW, terrH); // 回退：程序化纯色
 	}
 
-	const uint32_t terrainTex = renderer.UploadTexture(terrPixels, terrW, terrH);
+	uint32_t terrainTex = renderer.UploadTexture(terrPixels, terrW, terrH);
 
 
 
@@ -595,6 +599,21 @@ int main() {
 				bool okMap = map.LoadBinary("map_export.map");
 				if (!okMap) okMap = map.LoadFromText("map_export.map"); // 兼容旧的文本地图
 				map.LoadMeta("map_meta.txt"); // bounds / tileset
+				// 按地图的 tileset 切换图集：需要重新读 bmp 并重传纹理
+				// 注意：HasSet 不做别名解析（WINTER→SNOW），所以这里只用 UseSet
+				if (TileSet::UseSet(map.TilesetName())) {
+					std::vector<uint8_t> px;
+					int tw = 0, th = 0;
+					if (TerrainGfx::Load(TileSet::CurrentBitmapPath(), px, tw, th)) {
+						const uint32_t newTex = renderer.UploadTexture(px, tw, th);
+						if (newTex != 0) {
+							glDeleteTextures(1, reinterpret_cast<const GLuint*>(&terrainTex));
+							terrainTex = newTex;
+							terrW = tw;
+							terrH = th;
+						}
+					}
+				}
 				const bool okEnt = LoadEntities("map_entities.txt", placed);
 				status = okMap ? (okEnt ? "Loaded map + entities" : "Loaded map (no entities)")
 					: (okEnt ? "Loaded entities (no map)" : "Load failed");

@@ -279,50 +279,11 @@ struct Template {
 
 } // namespace
 
-int main(int argc, char** argv) {
-	if (argc < 6) {
-		std::fprintf(stderr, "usage: rts_build_tileset <mix> <pal> <temperat.yaml> <out.bmp> <out.txt>\n");
-		return 1;
-	}
-	const char* mixPath = argv[1];
-	const char* palPath = argv[2];
-	const char* yamlPath = argv[3];
-	const char* outBmp = argv[4];
-	const char* outTxt = argv[5];
-
-	// mixPath 可以是目录（扫描全部 .mix）或单个文件
-	std::vector<MixArchive> mixes;
-	{
-		const std::filesystem::path p(mixPath);
-		if (std::filesystem::is_directory(p)) {
-			std::vector<std::filesystem::path> files;
-			for (const auto& e : std::filesystem::directory_iterator(p)) {
-				if (e.is_regular_file()) {
-					std::string ext = e.path().extension().string();
-					for (char& ch : ext) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
-					if (ext == ".mix") files.push_back(e.path());
-				}
-			}
-			std::sort(files.begin(), files.end());
-			for (const auto& fp : files) {
-				MixArchive m;
-				if (LoadMix(fp.string().c_str(), m)) {
-					std::printf("[tileset] mix %s: %zu files\n", fp.filename().string().c_str(), m.index.size());
-					mixes.push_back(std::move(m));
-				}
-			}
-		} else {
-			MixArchive m;
-			if (!LoadMix(mixPath, m)) { std::fprintf(stderr, "[tileset] mix load failed\n"); return 1; }
-			mixes.push_back(std::move(m));
-		}
-	}
-	if (mixes.empty()) { std::fprintf(stderr, "[tileset] no mix loaded\n"); return 1; }
-	uint8_t pal[256][3] = {};
-	if (!ReadPalette(palPath, pal)) { std::fprintf(stderr, "[tileset] palette load failed\n"); return 1; }
-
+// 为一个 tileset yaml 生成一套图集 + 元数据
+bool BuildOne(const std::vector<MixArchive>& mixes, const uint8_t pal[256][3],
+	const char* yamlPath, const char* outBmp, const char* outTxt) {
 	YamlNode root;
-	if (!ParseYaml(yamlPath, root)) return 1;
+	if (!ParseYaml(yamlPath, root)) return false;
 	const YamlNode* templates = Child(root, "Templates");
 	const YamlNode* terrain = Child(root, "Terrain");
 	if (templates == nullptr) { std::fprintf(stderr, "[tileset] no Templates\n"); return 1; }
@@ -377,6 +338,11 @@ int main(int argc, char** argv) {
 		imageCache[tp.image] = std::move(frames);
 	}
 	std::printf("[tileset] resolved %zu images (%d missing)\n", imageCache.size(), missing);
+	if (imageCache.empty()) {
+		// 这套 tileset 的素材不在当前 mix 里（例如 DESERT 用 .des 扩展名，需要 desert.mix）
+		std::fprintf(stderr, "[tileset] SKIP %s: no images resolved\n", yamlPath);
+		return false;
+	}
 
 	// ---- 布局：每行 128 个 tile ----
 	constexpr int kTilesPerRow = 128;
@@ -467,5 +433,91 @@ int main(int argc, char** argv) {
 	}
 	std::fclose(mf);
 	std::printf("[tileset] wrote %s + %s\n", outBmp, outTxt);
-	return 0;
+	return true;
+}
+
+// 从 yaml 里取 General.Id（用作输出文件名）
+std::string TilesetIdOf(const char* yamlPath) {
+	YamlNode root;
+	if (!ParseYaml(yamlPath, root)) return "UNKNOWN";
+	const YamlNode* general = Child(root, "General");
+	if (general != nullptr) {
+		if (const YamlNode* id = Child(*general, "Id")) return id->value;
+	}
+	const std::filesystem::path p(yamlPath);
+	return p.stem().string();
+}
+
+int main(int argc, char** argv) {
+	if (argc < 5) {
+		std::fprintf(stderr,
+			"usage: rts_build_tileset <mixDirOrFile> <pal> <yamlFileOrDir> <outDir>\n"
+			"  outDir receives tileset_<ID>.bmp and tileset_<ID>.txt per yaml\n");
+		return 1;
+	}
+	const char* mixPath = argv[1];
+	const char* palPath = argv[2];
+	const char* yamlPath = argv[3];
+	const std::string outDir = argv[4];
+
+	// mixPath 可以是目录（扫描全部 .mix）或单个文件
+	std::vector<MixArchive> mixes;
+	{
+		const std::filesystem::path p(mixPath);
+		if (std::filesystem::is_directory(p)) {
+			std::vector<std::filesystem::path> files;
+			for (const auto& e : std::filesystem::directory_iterator(p)) {
+				if (e.is_regular_file()) {
+					std::string ext = e.path().extension().string();
+					for (char& ch : ext) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+					if (ext == ".mix") files.push_back(e.path());
+				}
+			}
+			std::sort(files.begin(), files.end());
+			for (const auto& fp : files) {
+				MixArchive m;
+				if (LoadMix(fp.string().c_str(), m)) {
+					std::printf("[tileset] mix %s: %zu files\n", fp.filename().string().c_str(), m.index.size());
+					mixes.push_back(std::move(m));
+				}
+			}
+		} else {
+			MixArchive m;
+			if (!LoadMix(mixPath, m)) { std::fprintf(stderr, "[tileset] mix load failed\n"); return 1; }
+			mixes.push_back(std::move(m));
+		}
+	}
+	if (mixes.empty()) { std::fprintf(stderr, "[tileset] no mix loaded\n"); return 1; }
+	uint8_t pal[256][3] = {};
+	if (!ReadPalette(palPath, pal)) { std::fprintf(stderr, "[tileset] palette load failed\n"); return 1; }
+
+	// yaml 可以是目录（批量）或单个文件
+	std::vector<std::filesystem::path> yamls;
+	{
+		const std::filesystem::path p(yamlPath);
+		if (std::filesystem::is_directory(p)) {
+			for (const auto& e : std::filesystem::directory_iterator(p)) {
+				if (!e.is_regular_file()) continue;
+				std::string ext = e.path().extension().string();
+				for (char& ch : ext) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+				if (ext == ".yaml") yamls.push_back(e.path());
+			}
+			std::sort(yamls.begin(), yamls.end());
+		} else {
+			yamls.push_back(p);
+		}
+	}
+	if (yamls.empty()) { std::fprintf(stderr, "[tileset] no yaml\n"); return 1; }
+
+	int ok = 0;
+	for (const auto& y : yamls) {
+		const std::string id = TilesetIdOf(y.string().c_str());
+		const std::string bmp = outDir + "/tileset_" + id + ".bmp";
+		const std::string txt = outDir + "/tileset_" + id + ".txt";
+		std::printf("[tileset] === %s (id=%s) ===\n", y.filename().string().c_str(), id.c_str());
+		if (BuildOne(mixes, pal, y.string().c_str(), bmp.c_str(), txt.c_str())) ++ok;
+		else std::fprintf(stderr, "[tileset] FAILED: %s\n", y.string().c_str());
+	}
+	std::printf("[tileset] %d/%zu tilesets built\n", ok, yamls.size());
+	return ok == static_cast<int>(yamls.size()) ? 0 : 1;
 }

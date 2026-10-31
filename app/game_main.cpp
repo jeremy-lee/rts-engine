@@ -166,7 +166,11 @@ int main(int argc, char** argv) {
 	// 地形纹理（程序化 64×32，与网格 1:1）
 	int terrW = 0, terrH = 0;
 	std::vector<uint8_t> terrPixels;
-	TileSet::Load("assets/tileset.txt"); // 模板表（templateId,index → UV / 地形属性）
+	// 多套 tileset：全部载入，按地图的 TilesetName 切换（缺省 TEMPERAT）
+	TileSet::LoadSet("TEMPERAT", "assets/tileset_TEMPERAT.txt");
+	TileSet::LoadSet("SNOW", "assets/tileset_SNOW.txt");
+	TileSet::LoadSet("INTERIOR", "assets/tileset_INTERIOR.txt");
+	TileSet::UseSet("TEMPERAT");
 	if (!TerrainGfx::Load("assets/tileset.bmp", terrPixels, terrW, terrH)) {
 		terrPixels = TerrainGfx::Build(terrW, terrH); // 回退：程序化纯色
 	}
