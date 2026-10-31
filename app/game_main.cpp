@@ -1016,6 +1016,26 @@ int main(int argc, char** argv) {
 		ui::BuildPanel(uiVerts, ui::Rect{0, static_cast<float>(H) - bottomH,
 			static_cast<float>(W), bottomH}, 0xE6202020);
 
+		// 框选矩形：拉框过程中把选择框画出来（OpenRA 的选择框是半透明白底 + 亮边）。
+		// 之前 dragging 只记录了起点，从来没有把这个框画出来。
+		if (dragging && !placingBuilding) {
+			const float bx0 = static_cast<float>(std::min(dragStartX, window.MouseX()));
+			const float by0 = static_cast<float>(std::min(dragStartY, window.MouseY()));
+			const float bx1 = static_cast<float>(std::max(dragStartX, window.MouseX()));
+			const float by1 = static_cast<float>(std::max(dragStartY, window.MouseY()));
+			const float bw = bx1 - bx0;
+			const float bh = by1 - by0;
+			if (bw > 0.5f && bh > 0.5f) {
+				ui::BuildPanel(uiVerts, ui::Rect{bx0, by0, bw, bh}, 0x30FFFFFF);  // 半透明填充
+				const uint32_t edge = 0xE0FFFFFF;                                   // 亮边框
+				const float t = 1.5f;
+				ui::BuildPanel(uiVerts, ui::Rect{bx0, by0, bw, t}, edge);           // 上
+				ui::BuildPanel(uiVerts, ui::Rect{bx0, by1 - t, bw, t}, edge);       // 下
+				ui::BuildPanel(uiVerts, ui::Rect{bx0, by0, t, bh}, edge);           // 左
+				ui::BuildPanel(uiVerts, ui::Rect{bx1 - t, by0, t, bh}, edge);       // 右
+			}
+		}
+
 		const uint32_t btnFill = 0xFF2E4A2E;
 		const uint32_t btnFillDisabled = 0xFF3A3A3A;
 		const uint32_t btnBorder = 0xFF889988;

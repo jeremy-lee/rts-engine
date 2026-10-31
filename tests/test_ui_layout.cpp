@@ -141,3 +141,36 @@ TEST(tileset_frame_index_uses_modulo) {
 	CHECK(TileSet::GetUV(255, 15, a0, b0, c0, d0));
 	CHECK(!(a0 == a1 && b0 == b1));   // 29 % 16 = 13 != 15
 }
+// ---- 框选矩形 ----
+TEST(ui_selection_rect_normalizes_drag_direction) {
+	// 四个方向的拖拽都要得到同一个矩形
+	const SelectionRect a = ComputeSelectionRect(100, 100, 300, 250, 1280, 720);
+	const SelectionRect b = ComputeSelectionRect(300, 250, 100, 100, 1280, 720);
+	const SelectionRect c = ComputeSelectionRect(300, 100, 100, 250, 1280, 720);
+	const SelectionRect d = ComputeSelectionRect(100, 250, 300, 100, 1280, 720);
+	CHECK_EQ(a.x, b.x); CHECK_EQ(a.y, b.y); CHECK_EQ(a.w, b.w); CHECK_EQ(a.h, b.h);
+	CHECK_EQ(a.x, c.x); CHECK_EQ(a.y, c.y); CHECK_EQ(a.w, c.w); CHECK_EQ(a.h, c.h);
+	CHECK_EQ(a.x, d.x); CHECK_EQ(a.y, d.y); CHECK_EQ(a.w, d.w); CHECK_EQ(a.h, d.h);
+	CHECK_EQ(a.x, 100.0f);
+	CHECK_EQ(a.y, 100.0f);
+	CHECK_EQ(a.w, 200.0f);
+	CHECK_EQ(a.h, 150.0f);
+}
+
+TEST(ui_selection_rect_hidden_for_a_click) {
+	// 原地点击（几乎没有位移）不该画出框
+	const SelectionRect r = ComputeSelectionRect(200, 200, 200, 200, 1280, 720);
+	CHECK(!r.Visible());
+	const SelectionRect tiny = ComputeSelectionRect(200, 200, 200.4f, 200.4f, 1280, 720);
+	CHECK(!tiny.Visible());
+}
+
+TEST(ui_selection_rect_clamped_to_play_area) {
+	// 从 UI 区域里起拖也要夹进游戏区，框不能画到顶栏/底栏/侧栏上
+	const SelectionRect r = ComputeSelectionRect(5, 5, 1275, 715, 1280, 720);
+	CHECK(r.x >= 0.0f);
+	CHECK(r.y >= kTopBarH);
+	CHECK(r.x + r.w <= 1280.0f - kSidebarW);
+	CHECK(r.y + r.h <= 720.0f - kBottomH);
+	CHECK(r.Visible());
+}

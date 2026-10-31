@@ -70,6 +70,41 @@ struct Layout {
 	}
 };
 
+// 框选矩形的归一化：起点/终点顺序无关，并夹到游戏区内。
+// 抽成纯函数是为了能测——之前 dragging 只记了起点、从来没画框，
+// 属于"状态有、表现没有"的漏实现，用测试能钉住"有拖拽就必有框"。
+struct SelectionRect {
+	float x = 0.0f, y = 0.0f, w = 0.0f, h = 0.0f;
+	// 太小的框没有意义（点击而非拖拽），调用方据此决定是否绘制
+	bool Visible() const { return w > 0.5f && h > 0.5f; }
+};
+
+inline SelectionRect ComputeSelectionRect(float ax, float ay, float bx, float by,
+	float screenW, float screenH) {
+	SelectionRect r;
+	float x0 = (ax < bx) ? ax : bx;
+	float x1 = (ax < bx) ? bx : ax;
+	float y0 = (ay < by) ? ay : by;
+	float y1 = (ay < by) ? by : ay;
+
+	// 夹到游戏区（顶部栏之下、底部栏之上、侧栏之左）
+	const float left = 0.0f;
+	const float right = screenW - kSidebarW;
+	const float top = kTopBarH;
+	const float bottom = screenH - kBottomH;
+	if (x0 < left) x0 = left;
+	if (x1 > right) x1 = right;
+	if (y0 < top) y0 = top;
+	if (y1 > bottom) y1 = bottom;
+	if (x1 < x0) x1 = x0;
+	if (y1 < y0) y1 = y0;
+
+	r.x = x0;
+	r.y = y0;
+	r.w = x1 - x0;
+	r.h = y1 - y0;
+	return r;
+}
 // 按当前屏幕尺寸算出布局（与 game_main 的布局代码逐项对应）
 inline Layout Compute(float screenW, float screenH) {
 	Layout L;
