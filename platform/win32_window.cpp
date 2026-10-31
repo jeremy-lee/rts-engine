@@ -79,6 +79,11 @@ bool Win32Window::Create(const char* title, int width, int height) {
 
 	DWORD style = WS_OVERLAPPEDWINDOW;
 	RECT rect = {0, 0, width, height};
+	// 声明 DPI 感知：否则在 125%/150%/184% 缩放下，窗口的「逻辑尺寸」和真实
+	// framebuffer 的物理尺寸不一致，GL 视口按逻辑值设置会让部分区域根本不写像素
+	// （表现为地形/精灵被截断、露出清屏色）。
+	SetProcessDPIAware();
+
 	AdjustWindowRect(&rect, style, FALSE);
 	m_hwnd = CreateWindowA(
 		"RTSEngineWindow", title, style,
