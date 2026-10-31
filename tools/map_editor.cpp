@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "core/core.h"
+#include "core/platform.h"
 #include "sim/map.h"
 #include "render/projection.h"
 #include "render/sprite_batch.h"
@@ -337,6 +338,9 @@ bool LoadEntities(const char* path, std::vector<PlacedEntity>& out) {
 } // namespace
 
 int main(int argc, char** argv) {
+	// 关键：不设工作目录的话，从别的目录启动会找不到 assets/，图集加载失败直接回退成
+	// 程序化条纹纹理（这正是"地面全是竖条纹"的原因）。
+	SetWorkingDirToExe();
 	// --autoshot：跑若干帧后存一张 in-game 截图（避开外部截屏的 DPI 干扰）
 	bool autoShot = false;
 	std::string cliMapPath2;
