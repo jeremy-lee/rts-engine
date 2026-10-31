@@ -1,5 +1,6 @@
 // RTS Engine — render/screenshot.cpp
 #include "screenshot.h"
+#include "rhi.h"
 
 #ifdef _WIN32
 
@@ -31,10 +32,16 @@ void WriteU32(FILE* f, uint32_t v) {
 bool CaptureScreenshot(int width, int height, const char* path) {
 	if (width <= 0 || height <= 0) return false;
 
-	// 读取帧缓冲（RGB）
+	// 读取帧缓冲：走 RHI 层，不直接调用 glReadPixels
+	std::vector<uint8_t> rgba;
+	if (!rhi::GetDevice().ReadPixels(0, 0, width, height, rgba)) return false;
+	// 转成 RGB（丢弃 alpha），保持后续 BMP 写出逻辑不变
 	std::vector<uint8_t> pixels(static_cast<size_t>(width) * height * 3);
-	glPixelStorei(GL_PACK_ALIGNMENT, 1);
-	glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, pixels.data());
+	for (size_t i = 0, n = static_cast<size_t>(width) * height; i < n; ++i) {
+		pixels[i * 3 + 0] = rgba[i * 4 + 0];
+		pixels[i * 3 + 1] = rgba[i * 4 + 1];
+		pixels[i * 3 + 2] = rgba[i * 4 + 2];
+	}
 
 	// 每行字节数（4 字节对齐）
 	const int rowBytes = (width * 3 + 3) & ~3;
@@ -79,6 +86,70 @@ bool CaptureScreenshot(int width, int height, const char* path) {
 
 	std::fclose(f);
 	return true;
+}
+
+void AnalyzeFrameClearColour(int width, int height) {
+	if (width <= 0 || height <= 0) return;
+	std::vector<uint8_t> px;
+	if (!rhi::GetDevice().ReadPixels(0, 0, width, height, px)) return;
+
+	// GL 原点在左下；统计时换算成左上原点的坐标，和 UI/网格坐标一致
+	int count = 0;
+	int minX = width, maxX = -1, minY = height, maxY = -1;
+	int rowHits[2000] = {};
+	for (int gy = 0; gy < height; ++gy) {
+		const int y = height - 1 - gy; // 翻成左上原点
+		for (int x = 0; x < width; ++x) {
+			const size_t o = (static_cast<size_t>(gy) * width + x) * 4;
+			// 清屏色 = (0.05,0.06,0.08)*255 = (12,15,20)，留 ±2 容差
+			const int dr = static_cast<int>(px[o + 0]) - 12;
+			const int dg = static_cast<int>(px[o + 1]) - 15;
+			const int db = static_cast<int>(px[o + 2]) - 20;
+			if (dr * dr + dg * dg + db * db > 12) continue;
+			++count;
+			if (x < minX) minX = x;
+			if (x > maxX) maxX = x;
+			if (y < minY) minY = y;
+			if (y > maxY) maxY = y;
+			if (y < 2000) ++rowHits[y];
+		}
+	}
+	std::fprintf(stderr, "[analyze] clearColourPixels=%d bbox=(%d,%d)-(%d,%d)\n",
+		count, minX, minY, maxX, maxY);
+	// 打印命中数最多的 5 行（能看出清屏色是否集中在某些水平带）
+	for (int k = 0; k < 5; ++k) {
+		int bestRow = -1, bestVal = 0;
+		for (int y = 0; y < height && y < 2000; ++y) {
+			if (rowHits[y] > bestVal) { bestVal = rowHits[y]; bestRow = y; }
+		}
+		if (bestRow < 0 || bestVal == 0) break;
+		std::fprintf(stderr, "[analyze]   row y=%d hits=%d\n", bestRow, bestVal);
+		rowHits[bestRow] = 0;
+	}
+	// 打印前几行的清屏色 x 区间（能看出是否和 24px 的格子对齐）
+	int printed = 0;
+	for (int gy = 0; gy < height && printed < 3; ++gy) {
+		std::vector<std::pair<int,int>> runs;
+		int start = -1;
+		for (int x = 0; x < width; ++x) {
+			const size_t o = (static_cast<size_t>(gy) * width + x) * 4;
+			const int dr = static_cast<int>(px[o + 0]) - 12;
+			const int dg = static_cast<int>(px[o + 1]) - 15;
+			const int db = static_cast<int>(px[o + 2]) - 20;
+			const bool isClear = (dr * dr + dg * dg + db * db <= 12);
+			if (isClear && start < 0) start = x;
+			else if (!isClear && start >= 0) { runs.push_back({start, x - 1}); start = -1; }
+		}
+		if (start >= 0) runs.push_back({start, width - 1});
+		if (runs.empty()) continue;
+		std::fprintf(stderr, "[analyze] screenY=%d runs=%zu:", height - 1 - gy, runs.size());
+		for (size_t i = 0; i < runs.size() && i < 8; ++i) {
+			std::fprintf(stderr, " [%d..%d]", runs[i].first, runs[i].second);
+		}
+		std::fprintf(stderr, "\n");
+		++printed;
+	}
+	std::fflush(stderr);
 }
 
 } // namespace rts

@@ -249,6 +249,14 @@ uint32_t Device::RenderTargetTexture(RenderTargetRef rt) const {
 	return m_renderTargets[rt.id].colorTex;
 }
 
+bool Device::ReadPixels(int x, int y, int width, int height, std::vector<uint8_t>& out) const {
+	if (width <= 0 || height <= 0) return false;
+	out.resize(static_cast<size_t>(width) * static_cast<size_t>(height) * 4u);
+	glPixelStorei(GL_PACK_ALIGNMENT, 1);
+	glReadPixels(x, y, width, height, GL_RGBA, GL_UNSIGNED_BYTE, out.data());
+	return true;
+}
+
 Stats Device::GetStats() const {
 	Stats s;
 	for (const Entry& e : m_textures) {

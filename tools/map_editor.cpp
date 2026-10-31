@@ -40,6 +40,7 @@
 #include "render/text.h"
 #include "render/ui.h"
 #include "render/screenshot.h"
+#include "render/rhi.h"
 #include "render/font.h"
 #include "platform/win32_window.h"
 
@@ -969,6 +970,7 @@ int main(int argc, char** argv) {
 		static int shotFrames = 0;
 		if (++shotFrames == 30) {
 			CaptureScreenshot(static_cast<int>(W), static_cast<int>(H), "editor_shot.bmp");
+			AnalyzeFrameClearColour(static_cast<int>(W), static_cast<int>(H));
 			autoShot = false;
 		}
 	}

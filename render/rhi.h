@@ -51,6 +51,11 @@ public:
 	void DestroyRenderTarget(RenderTargetRef rt);
 	uint32_t RenderTargetTexture(RenderTargetRef rt) const;
 
+	// ---- 帧缓冲读回 ----
+	// 读回当前帧缓冲的一块区域（RGBA8，原点在左下，与 GL 一致）。
+	// 调用方不应直接使用 glReadPixels —— 所有 GL 调用都收敛在 RHI 层。
+	bool ReadPixels(int x, int y, int width, int height, std::vector<uint8_t>& out) const;
+
 	// ---- 资源 ----
 	TextureRef CreateTexture(const TextureDesc& desc, const void* rgba);
 	void UpdateTexture(TextureRef tex, const void* rgba, int width, int height);
