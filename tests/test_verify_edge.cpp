@@ -284,3 +284,61 @@ TEST(audit_building_real_ra_powr) {
 	CHECK(v != nullptr);
 	if (v) std::printf("  [audit] POWR cost=%d\n", v->cost);
 }
+
+TEST(audit_building_footprint_parsing) {
+	// 对齐 OpenRA.Mods.Common/Traits/Buildings/Building.cs 的 LoadFootprint：
+	// Footprint 文本去掉所有空白后按 y*W+x 逐格映射，长度必须等于 Dimensions 乘积。
+	// 真实 RA 里 civilian.yaml 用的是单行 "Footprint: xx xx =="（空格分隔）。
+	RegisterCoreTraits();
+	const char* text =
+		"BLDG:\n"
+		"\tBuilding:\n"
+		"\t\tDimensions: 2,3\n"
+		"\t\tFootprint: xx xx _=\n";
+	YamlNode root;
+	CHECK(MiniYaml::Parse(text, root));
+	Ruleset rules;
+	rules.LoadFromNodes(root);
+	const ActorInfo* info = rules.FindActor("BLDG");
+	CHECK(info != nullptr);
+	if (info == nullptr) return;
+	const BuildingInfo* b = info->Find<BuildingInfo>();
+	CHECK(b != nullptr);
+	if (b == nullptr) return;
+
+	CHECK(b->footprintValid);
+	CHECK_EQ(b->footprint.size(), static_cast<size_t>(6));
+	CHECK(b->CellType(0, 0) == FootprintCellType::Occupied);
+	CHECK(b->CellType(1, 1) == FootprintCellType::Occupied);
+	CHECK(b->CellType(0, 2) == FootprintCellType::Empty);
+	CHECK(b->CellType(1, 2) == FootprintCellType::OccupiedPassable);
+	// OccupiedCells 要跳过 '_'
+	const auto cells = b->OccupiedCells(5, 7);
+	CHECK_EQ(cells.size(), static_cast<size_t>(5));
+	for (const auto& c : cells) CHECK(!(c.first == 5 && c.second == 9));
+	std::printf("  [audit] footprint cells=%zu (2x3 with one '_')\n", cells.size());
+}
+
+TEST(audit_building_footprint_length_mismatch) {
+	// 字符数与 Dimensions 不符时必须拒绝，而不是静默当成全占用
+	RegisterCoreTraits();
+	const char* text =
+		"BADBLDG:\n"
+		"\tBuilding:\n"
+		"\t\tDimensions: 2,2\n"
+		"\t\tFootprint: xxx\n";
+	YamlNode root;
+	CHECK(MiniYaml::Parse(text, root));
+	Ruleset rules;
+	rules.LoadFromNodes(root);
+	const ActorInfo* info = rules.FindActor("BADBLDG");
+	CHECK(info != nullptr);
+	if (info == nullptr) return;
+	const BuildingInfo* b = info->Find<BuildingInfo>();
+	CHECK(b != nullptr);
+	if (b == nullptr) return;
+	CHECK(!b->footprintValid);          // 解析失败
+	CHECK(b->footprint.empty());
+	// 失败后回退到"全占用"，占格数仍是 2x2
+	CHECK_EQ(b->OccupiedCells(0, 0).size(), static_cast<size_t>(4));
+}

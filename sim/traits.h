@@ -136,9 +136,18 @@ struct ProductionQueueInfoTrait : public TraitInfo {
 	void LoadFrom(const YamlNode& node) override;
 };
 
-// ---- Building（Traits/Buildings/Building.cs）：占格尺寸 ----
-// 注意：OpenRA 的 BuildingInfo.Footprint 是多行 yaml（每行一串 X/_/=/，无冒号），
-// MiniYaml 目前不支持多行块，所以这里只实现 Dimensions（占格）与占格展开。
+// ---- Building（Traits/Buildings/Building.cs）：占格形状 ----
+// 对应 OpenRA.Mods.Common/Traits/Buildings/Building.cs 的 FootprintCellType。
+// Footprint 在 yaml 里是多行字符串（无冒号），去掉所有空白后按 y*W+x 逐格映射，
+// 长度必须等于 Dimensions.X * Dimensions.Y。
+enum class FootprintCellType : uint8_t {
+	Empty = '_',                       // 完全不占格
+	Occupied = 'x',                    // 占格，阻挡
+	OccupiedUntargetable = 'X',        // 占格，但不可被选为攻击目标
+	OccupiedPassable = '=',            // 占格但可通行
+	OccupiedPassableTransitOnly = '+', // 占格，仅可路过
+};
+
 struct BuildingInfo : public TraitInfo {
 	int32_t width = 1;                     // Dimensions: 2,2
 	int32_t height = 1;
@@ -146,17 +155,32 @@ struct BuildingInfo : public TraitInfo {
 	int32_t localCenterOffsetY = 0;
 	int32_t localCenterOffsetZ = 0;
 	bool requiresBaseProvider = false;
+	bool footprintValid = false;           // 是否成功从 yaml 解析出合法 Footprint
+	// 长度 width*height，按 y*width+x 索引；为空时视为全 Occupied。
+	std::vector<FootprintCellType> footprint;
 
 	const char* TypeName() const override { return "Building"; }
 	std::unique_ptr<TraitInfo> Clone() const override { return std::make_unique<BuildingInfo>(*this); }
 	void LoadFrom(const YamlNode& node) override;
 
-	// 以 origin 为左上角，返回占用的所有格（宽 x 高）
+	// 某一格是否属于建筑占地（'_' 不算）。
+	FootprintCellType CellType(int32_t x, int32_t y) const {
+		if (footprintValid && static_cast<size_t>(y) * static_cast<size_t>(width) + static_cast<size_t>(x)
+			< footprint.size()) {
+			return footprint[static_cast<size_t>(y) * static_cast<size_t>(width) + static_cast<size_t>(x)];
+		}
+		return FootprintCellType::Occupied;
+	}
+
+	// 以 origin 为左上角，返回真正占用的格子（跳过 '_'）。
 	std::vector<std::pair<int32_t, int32_t>> OccupiedCells(int32_t originX, int32_t originY) const {
 		std::vector<std::pair<int32_t, int32_t>> out;
 		out.reserve(static_cast<size_t>(width) * height);
 		for (int32_t y = 0; y < height; ++y) {
-			for (int32_t x = 0; x < width; ++x) out.push_back({originX + x, originY + y});
+			for (int32_t x = 0; x < width; ++x) {
+				if (CellType(x, y) == FootprintCellType::Empty) continue;
+				out.push_back({originX + x, originY + y});
+			}
 		}
 		return out;
 	}

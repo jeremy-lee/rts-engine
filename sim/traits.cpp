@@ -1,6 +1,7 @@
 // RTS Engine — sim/traits.cpp
 #include "traits.h"
 
+#include <cctype>
 #include <cstdio>
 
 namespace rts {
@@ -98,6 +99,47 @@ void BuildingInfo::LoadFrom(const YamlNode& node) {
 		}
 	}
 	if (const YamlNode* n = node.Child("RequiresBaseProvider")) requiresBaseProvider = MiniYaml::ToBool(n->value);
+
+	// Footprint：多行文本（无冒号），去掉所有空白后按 y*width+x 逐格映射。
+	// 规则与 OpenRA.Mods.Common/Traits/Buildings/Building.cs 的 LoadFootprint 一致：
+	//   '_' 空、'x' 占格阻挡、'X' 占格不可选目标、'=' 占格可通行、'+' 占格仅可路过
+	if (const YamlNode* n = node.Child("Footprint")) {
+		std::string chars;
+		chars.reserve(n->value.size());
+		for (char ch : n->value) {
+			if (std::isspace(static_cast<unsigned char>(ch))) continue;
+			chars.push_back(ch);
+		}
+		const size_t expect = static_cast<size_t>(width) * static_cast<size_t>(height);
+		footprintValid = false;
+		footprint.clear();
+		if (chars.size() != expect) {
+			std::fprintf(stderr,
+				"[traits] footprint length %zu does not match dimensions %dx%d\n",
+				chars.size(), width, height);
+		} else {
+			bool ok = true;
+			for (char ch : chars) {
+				switch (ch) {
+					case '_': footprint.push_back(FootprintCellType::Empty); break;
+					case 'x': footprint.push_back(FootprintCellType::Occupied); break;
+					case 'X': footprint.push_back(FootprintCellType::OccupiedUntargetable); break;
+					case '=': footprint.push_back(FootprintCellType::OccupiedPassable); break;
+					case '+': footprint.push_back(FootprintCellType::OccupiedPassableTransitOnly); break;
+					default:
+						std::fprintf(stderr, "[traits] invalid footprint cell type '%c'\n", ch);
+						ok = false;
+						break;
+				}
+				if (!ok) break;
+			}
+			if (ok) {
+				footprintValid = true;
+			} else {
+				footprint.clear();
+			}
+		}
+	}
 }
 
 // ---------------- 注册 ----------------
