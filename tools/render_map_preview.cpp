@@ -160,7 +160,7 @@ int main(int argc, char** argv) {
 	// 等距布局：格中心 = ((x-y)*stepX, (x+y)*stepY)，tile 满幅 cellW x cellH 居中，
 	// 按 x+y 递增顺序绘制（后画的覆盖前一个的下半部）——与引擎的画家算法一致。
 	const int stepX = ts.cellW / 2;   // 12
-	const int stepY = ts.cellH / 4;   // 6
+	const int stepY = ts.cellH / 2;   // 12 (OpenRA RectangularIsometric)
 	const int offX = (h > 0 ? h : 1) * stepX + ts.cellW;
 	const int outW = (w + h) * stepX + ts.cellW * 2;
 	const int outH = (w + h) * stepY + ts.cellH * 2;

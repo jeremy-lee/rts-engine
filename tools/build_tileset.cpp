@@ -376,23 +376,13 @@ bool BuildOne(const std::vector<MixArchive>& mixes, const uint8_t pal[256][3],
 			const int g = base + static_cast<int>(i);
 			const int col = g % kTilesPerRow;
 			const int row = g / kTilesPerRow;
-			// 菱形蒙版：RA 的 TMP 是 24x24 满幅方块，但地形在游戏里是等距铺贴的
-			// （格间距 = tile/2 x tile/4 = 12x6），相邻 tile 重叠一半；
-			// 只有把 tile 裁成 24 宽 12 高的菱形，重叠时才拼出连续斜边而不是阶梯（"狗牙"）。
-			const double dcx = t.w * 0.5;
-			const double dcy = t.h * 0.5;
+			// 不做蒙版：对齐 OpenRA TerrainSpriteLayer —— 它把 TMP 的整张 24x24 sprite
+			// 放在 cellOrigin + sprite.Offset - 0.5*sprite.Size，透明像素由 TMP 自己的索引 0 决定。
+			// 等距铺贴靠 (12,12) 步长让相邻 sprite 重叠一半，露出上半的菱形，而不是靠裁切。
 			for (int y = 0; y < t.h; ++y) {
 				for (int x = 0; x < t.w; ++x) {
 					const uint8_t idx = t.indexed[static_cast<size_t>(y) * t.w + x];
 					if (idx == 0) continue;
-					{
-						// |dx|/(w/2) + |dy|/(h/4) <= 1  →  w 宽、h/2 高的菱形。
-						// 放宽到 1.06 让相邻菱形轻微重叠，否则边界像素被裁掉会在铺贴时留下 1px 缝隙
-						// （表现为整片地形上均匀的点阵）。
-						const double nx = (x + 0.5 - dcx) / dcx;
-						const double ny = (y + 0.5 - dcy) / dcy;
-						if (std::abs(nx) + std::abs(ny) * 2.0 > 1.06) continue;
-					}
 					const int ax = col * kCellW + x;
 					const int ay = row * kCellH + y;
 					if (ax < 0 || ay < 0 || ax >= atlasW || ay >= atlasH) continue;
