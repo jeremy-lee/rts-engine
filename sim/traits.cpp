@@ -85,10 +85,19 @@ void BuildingInfo::LoadFrom(const YamlNode& node) {
 	if (const YamlNode* n = node.Child("Dimensions")) {
 		int32_t w = 1, h = 1;
 		if (MiniYaml::ToPair(n->value, w, h)) {
-			width = w;
-			height = h;
+			width = (w > 0) ? w : 1;
+			height = (h > 0) ? h : 1;
 		}
 	}
+	if (const YamlNode* n = node.Child("LocalCenterOffset")) {
+		const auto parts = MiniYaml::SplitList(n->value);
+		if (parts.size() >= 3) {
+			localCenterOffsetX = ParseWDist(parts[0], 0);
+			localCenterOffsetY = ParseWDist(parts[1], 0);
+			localCenterOffsetZ = ParseWDist(parts[2], 0);
+		}
+	}
+	if (const YamlNode* n = node.Child("RequiresBaseProvider")) requiresBaseProvider = MiniYaml::ToBool(n->value);
 }
 
 // ---------------- 注册 ----------------

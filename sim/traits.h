@@ -137,12 +137,29 @@ struct ProductionQueueInfoTrait : public TraitInfo {
 };
 
 // ---- Building（Traits/Buildings/Building.cs）：占格尺寸 ----
+// 注意：OpenRA 的 BuildingInfo.Footprint 是多行 yaml（每行一串 X/_/=/，无冒号），
+// MiniYaml 目前不支持多行块，所以这里只实现 Dimensions（占格）与占格展开。
 struct BuildingInfo : public TraitInfo {
 	int32_t width = 1;                     // Dimensions: 2,2
 	int32_t height = 1;
+	int32_t localCenterOffsetX = 0;        // LocalCenterOffset（拆三轴）
+	int32_t localCenterOffsetY = 0;
+	int32_t localCenterOffsetZ = 0;
+	bool requiresBaseProvider = false;
+
 	const char* TypeName() const override { return "Building"; }
 	std::unique_ptr<TraitInfo> Clone() const override { return std::make_unique<BuildingInfo>(*this); }
 	void LoadFrom(const YamlNode& node) override;
+
+	// 以 origin 为左上角，返回占用的所有格（宽 x 高）
+	std::vector<std::pair<int32_t, int32_t>> OccupiedCells(int32_t originX, int32_t originY) const {
+		std::vector<std::pair<int32_t, int32_t>> out;
+		out.reserve(static_cast<size_t>(width) * height);
+		for (int32_t y = 0; y < height; ++y) {
+			for (int32_t x = 0; x < width; ++x) out.push_back({originX + x, originY + y});
+		}
+		return out;
+	}
 };
 
 // 注册所有内置 trait（第一次调用 LoadDirectory 前调用；可重复调用）

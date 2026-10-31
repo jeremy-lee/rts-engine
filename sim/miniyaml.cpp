@@ -112,6 +112,12 @@ bool ParseLine(const std::string& line, YamlNode& node) {
 
 bool MiniYaml::Parse(const std::string& text, YamlNode& root) {
 	root = YamlNode{};
+	// 跳过 UTF-8 BOM（OpenRA 的 yaml 文件可能带 BOM，否则第一个键名会被污染）
+	size_t start = 0;
+	if (text.size() >= 3 && static_cast<uint8_t>(text[0]) == 0xEF &&
+		static_cast<uint8_t>(text[1]) == 0xBB && static_cast<uint8_t>(text[2]) == 0xBF) {
+		start = 3;
+	}
 	// 栈：每层存 (indent, 从 root 出发的索引路径)。
 	// 不能存节点指针：children 是 vector，扩容会让先前取的地址失效
 	// （曾因此触发 0xC0000005）。索引路径每次从头解析，O(depth)。
@@ -122,7 +128,7 @@ bool MiniYaml::Parse(const std::string& text, YamlNode& root) {
 	std::vector<Frame> stack;
 	stack.push_back({-1, {}});
 
-	size_t pos = 0;
+	size_t pos = start;
 	while (pos <= text.size()) {
 		size_t eol = text.find('\n', pos);
 		if (eol == std::string::npos) eol = text.size();

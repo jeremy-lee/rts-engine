@@ -69,6 +69,10 @@ public:
 	int32_t resourcesPaid = 0;
 	int32_t buildPaletteOrder = 0;
 
+	// 首次 Tick 才计算真实时长所需的输入（对齐 OpenRA：构造时 RemainingTime=TotalTime=1）
+	Buildable buildable;
+	int32_t queueModifier = 100;
+
 	bool started = false;
 	bool paused = false;
 	bool done = false;
@@ -77,7 +81,11 @@ public:
 	int32_t slowdown = 0;
 
 	ProductionItem() = default;
-	ProductionItem(std::string name, int32_t cost) : item(std::move(name)), totalCost(cost), remainingCost(cost) {}
+	ProductionItem(std::string name, int32_t cost) : item(std::move(name)), totalCost(cost), remainingCost(cost) {
+		// 对齐 OpenRA ProductionItem 构造：RemainingTime = TotalTime = 1，真实时长在首次 Tick 计算
+		totalTime = 1;
+		remainingTime = 1;
+	}
 
 	// 低电时的实际剩余时间（对齐 ProductionItem.RemainingTimeActual）
 	int32_t RemainingTimeActual(int32_t lowPowerModifier, bool powerNormal) const {

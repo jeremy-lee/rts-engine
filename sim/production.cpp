@@ -55,9 +55,10 @@ bool ProductionQueue::Enqueue(const std::string& actorName, int32_t cost, const 
 	if (!CanQueueMore()) return false;
 	ProductionItem item(actorName, cost);
 	item.buildPaletteOrder = b.buildPaletteOrder;
-	const int32_t time = GetBuildTime(cost, b, buildDurationModifier);
-	item.totalTime = item.remainingTime = std::max(1, time);
-	item.started = true;
+	// 对齐 OpenRA：构造时时长留 1，首次 Tick 才算真实值
+	item.buildable = b;
+	item.queueModifier = buildDurationModifier;
+	item.started = false;
 	items.push_back(std::move(item));
 	return true;
 }
@@ -74,6 +75,15 @@ bool ProductionQueue::Cancel(const std::string& actorName) {
 
 bool ProductionItem::Tick(int32_t& cash, int32_t lowPowerModifier, bool powerNormal, bool payUpFront) {
 	if (done) return true;
+
+	// 首次 Tick：按当时的队列/物品修饰算真实时长（OpenRA ProductionItem.Tick 的 !Started 分支）
+	if (!started) {
+		const int32_t time = ProductionQueue::GetBuildTime(totalCost, buildable, queueModifier);
+		if (time > 0) {
+			remainingTime = totalTime = time;
+		}
+		started = true;
+	}
 
 	// 低电减速：对齐 OpenRA 的 Slowdown 计数
 	if (!powerNormal) {
