@@ -26,6 +26,8 @@ void GLRenderer::Shutdown() {
 }
 
 void GLRenderer::BeginFrame(int width, int height) {
+	m_viewW = width;
+	m_viewH = height;
 	// 视口/清屏走 RHI（UE5 里对应 RHICommandList::SetViewport + ClearRenderTargetView）
 	rhi::Device& rhiDevice = rhi::GetDevice();
 	rhiDevice.Init();
@@ -148,11 +150,12 @@ void GLRenderer::DrawTexturedBatch(const std::vector<SpriteVertex>& verts, const
 				}
 			}
 			std::fprintf(stderr,
-				"[gl] textured batch verts=%zu nan=%d huge=%d offscreen=%d degenerate=%d firstDeg=%d x[%.0f,%.0f] y[%.0f,%.0f]\n",
-				m_screenVerts.size(), nanCnt, hugeCnt, offscreen, degenerate, firstDegenerate,
-				minX, maxX, minY, maxY);
+				"[gl] tex=%u verts=%zu quads=%zu nan=%d huge=%d deg=%d x[%.0f,%.0f] y[%.0f,%.0f]\n",
+				textureId, m_screenVerts.size(), m_screenVerts.size() / 6, nanCnt, hugeCnt,
+				degenerate, minX, maxX, minY, maxY);
 			std::fflush(stderr);
 			++dbgTex;
+
 		}
 	}
 }
