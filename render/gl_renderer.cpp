@@ -1,34 +1,119 @@
 // RTS Engine — render/gl_renderer.cpp
+// GL 3.3 核心模式渲染器：VBO + VAO + GLSL 330。
+//
+// 迁移原因：原来的 GL 1.1 立即模式（glVertexPointer/glColorPointer + glDrawArrays）
+// 在本机驱动上会随机丢弃/截断图元——地形格、网格线、光标乃至单位精灵都会缺块，
+// 而顶点数据、批次内容、GL 错误全部正常。换到核心模式后走的是现代驱动的主路径。
+//
+// 顶点格式：pos(vec2) + uv(vec2) + color(ubyte4 normalized)，共 20 字节。
 #include "gl_renderer.h"
+#include "gl33.h"
 #include "rhi.h"
 
 #ifdef _WIN32
 
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 
 namespace rts {
+
+namespace {
+
+// 屏幕坐标（原点左上、y 向下）→ NDC
+const char* kVS = R"(#version 330 core
+layout(location = 0) in vec2 aPos;
+layout(location = 1) in vec2 aUV;
+layout(location = 2) in vec4 aColor;
+uniform vec2 uViewSize;
+out vec2 vUV;
+out vec4 vColor;
+void main() {
+    vec2 ndc = vec2(aPos.x / uViewSize.x * 2.0 - 1.0, 1.0 - aPos.y / uViewSize.y * 2.0);
+    gl_Position = vec4(ndc, 0.0, 1.0);
+    vUV = aUV;
+    vColor = aColor;
+}
+)";
+
+const char* kFS = R"(#version 330 core
+in vec2 vUV;
+in vec4 vColor;
+uniform sampler2D uTex;
+uniform float uUseTexture;
+out vec4 FragColor;
+void main() {
+    vec4 t = (uUseTexture > 0.5) ? texture(uTex, vUV) : vec4(1.0, 1.0, 1.0, 1.0);
+    FragColor = t * vColor;
+}
+)";
+
+} // namespace
 
 bool GLRenderer::Initialize(HDC hdc) {
 	m_hdc = hdc;
 	if (m_hdc == nullptr) return false;
 
+	// 加载 3.3 入口点
+	if (!gl33::Load()) {
+		std::fprintf(stderr, "[gl] GL 3.3 entry points unavailable\n");
+		return false;
+	}
+
 	glDisable(GL_DEPTH_TEST);
 	glDisable(GL_CULL_FACE);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glShadeModel(GL_SMOOTH);
+
+	// VAO + VBO
+	gl33::g.GenVertexArrays(1, &m_vao);
+	gl33::g.GenBuffers(1, &m_vbo);
+	gl33::g.BindVertexArray(m_vao);
+	gl33::g.BindBuffer(GL33_ARRAY_BUFFER, m_vbo);
+
+	const GLsizei_ stride = static_cast<GLsizei_>(sizeof(GLVertex));
+	// location 0: pos
+	gl33::g.EnableVertexAttribArray(0);
+	gl33::g.VertexAttribPointer(0, 2, GL_FLOAT, GL33_FALSE_, stride,
+		reinterpret_cast<const void*>(offsetof(GLVertex, x)));
+	// location 1: uv
+	gl33::g.EnableVertexAttribArray(1);
+	gl33::g.VertexAttribPointer(1, 2, GL_FLOAT, GL33_FALSE_, stride,
+		reinterpret_cast<const void*>(offsetof(GLVertex, u)));
+	// location 2: color（unsigned byte 归一化）
+	gl33::g.EnableVertexAttribArray(2);
+	gl33::g.VertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, GL33_TRUE_, stride,
+		reinterpret_cast<const void*>(offsetof(GLVertex, r)));
+	gl33::g.BindVertexArray(0);
+
+	m_program = gl33::BuildProgram(kVS, kFS);
+	if (m_program == 0) {
+		std::fprintf(stderr, "[gl] shader program build failed\n");
+		return false;
+	}
+	m_locViewSize = gl33::g.GetUniformLocation(m_program, "uViewSize");
+	m_locUseTexture = gl33::g.GetUniformLocation(m_program, "uUseTexture");
+	m_locTex = gl33::g.GetUniformLocation(m_program, "uTex");
+	m_gl33 = true;
+	std::printf("[gl] renderer: GL 3.3 core (VBO + GLSL 330)\n");
+	std::fflush(stdout);
 	return true;
 }
 
 void GLRenderer::Shutdown() {
+	if (m_gl33) {
+		if (m_program != 0) gl33::g.DeleteProgram(m_program);
+		if (m_vbo != 0) gl33::g.DeleteBuffers(1, &m_vbo);
+		if (m_vao != 0) gl33::g.DeleteVertexArrays(1, &m_vao);
+		m_program = m_vbo = m_vao = 0;
+		m_gl33 = false;
+	}
 	m_hdc = nullptr;
 }
 
 void GLRenderer::BeginFrame(int width, int height) {
 	m_viewW = width;
 	m_viewH = height;
-	// 视口/清屏走 RHI（UE5 里对应 RHICommandList::SetViewport + ClearRenderTargetView）
 	rhi::Device& rhiDevice = rhi::GetDevice();
 	rhiDevice.Init();
 	rhiDevice.SetViewport(width, height);
@@ -37,14 +122,10 @@ void GLRenderer::BeginFrame(int width, int height) {
 		(static_cast<uint32_t>(m_clearG * 255.0f) << 8) |
 		static_cast<uint32_t>(m_clearB * 255.0f));
 
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	glOrtho(0.0, width, height, 0.0, -1.0, 1.0);
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
-
-	glEnableClientState(GL_VERTEX_ARRAY);
-	glEnableClientState(GL_COLOR_ARRAY);
+	if (!m_gl33) return;
+	gl33::g.UseProgram(m_program);
+	gl33::g.Uniform2f(m_locViewSize, static_cast<float>(width), static_cast<float>(height));
+	gl33::g.Uniform1i(m_locTex, 0);
 }
 
 void GLRenderer::FillScreenVerts(const std::vector<SpriteVertex>& verts, bool useCamera, const Camera* camera) {
@@ -70,162 +151,64 @@ void GLRenderer::FillScreenVerts(const std::vector<SpriteVertex>& verts, bool us
 	}
 }
 
+// 把当前 m_screenVerts 上传到 VBO 并画出来。
+// useTexture=false 时走纯色分支（着色器里乘白色）。
+void GLRenderer::DrawCurrentBatch(uint32_t textureId, bool useTexture) {
+	if (!m_gl33 || m_screenVerts.empty()) return;
+
+	gl33::g.BindVertexArray(m_vao);
+	gl33::g.BindBuffer(GL33_ARRAY_BUFFER, m_vbo);
+	gl33::g.BufferData(GL33_ARRAY_BUFFER,
+		static_cast<GLsizeiptr_>(m_screenVerts.size() * sizeof(GLVertex)),
+		m_screenVerts.data(), GL33_DYNAMIC_DRAW);
+
+	if (useTexture) {
+		gl33::g.ActiveTexture(GL33_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(textureId));
+		gl33::g.Uniform1f(m_locUseTexture, 1.0f);
+	} else {
+		gl33::g.Uniform1f(m_locUseTexture, 0.0f);
+	}
+
+	glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(m_screenVerts.size()));
+	gl33::g.BindVertexArray(0);
+}
+
 void GLRenderer::DrawBatch(const std::vector<SpriteVertex>& verts, const Camera& camera) {
 	if (verts.empty()) return;
 	FillScreenVerts(verts, true, &camera);
-	rhi::GetDevice().SetTexture2D(false);
-	glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-	glVertexPointer(2, GL_FLOAT, sizeof(GLVertex), &m_screenVerts[0].x);
-	glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(GLVertex), &m_screenVerts[0].r);
-	glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(m_screenVerts.size()));
-	// 立即检查 GL 错误：静默的 INVALID_OPERATION 会让整批顶点被丢弃
-	{
-		const GLenum err = glGetError();
-		if (err != GL_NO_ERROR) {
-			static int errCnt = 0;
-			if (errCnt < 5) {
-				std::fprintf(stderr, "[glerr] verts=%zu -> 0x%X\n",
-					m_screenVerts.size(), static_cast<unsigned>(err));
-				std::fflush(stderr);
-				++errCnt;
-			}
-		}
-	}
+	DrawCurrentBatch(0, false);
 }
 
 void GLRenderer::DrawScreenBatch(const std::vector<SpriteVertex>& verts) {
 	if (verts.empty()) return;
 	FillScreenVerts(verts, false, nullptr);
-	rhi::GetDevice().SetTexture2D(false);
-	glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-	glVertexPointer(2, GL_FLOAT, sizeof(GLVertex), &m_screenVerts[0].x);
-	glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(GLVertex), &m_screenVerts[0].r);
-	glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(m_screenVerts.size()));
-	// 立即检查 GL 错误：静默的 INVALID_OPERATION 会让整批顶点被丢弃
-	{
-		const GLenum err = glGetError();
-		if (err != GL_NO_ERROR) {
-			static int errCnt = 0;
-			if (errCnt < 5) {
-				std::fprintf(stderr, "[glerr] verts=%zu -> 0x%X\n",
-					m_screenVerts.size(), static_cast<unsigned>(err));
-				std::fflush(stderr);
-				++errCnt;
-			}
-		}
-	}
+	DrawCurrentBatch(0, false);
 }
 
 void GLRenderer::DrawScreenTextured(const std::vector<SpriteVertex>& verts, uint32_t textureId) {
 	if (verts.empty() || textureId == 0) return;
 	FillScreenVerts(verts, false, nullptr);
-	rhi::GetDevice().SetTexture2D(true);
-	glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(textureId));
-	glTexCoordPointer(2, GL_FLOAT, sizeof(GLVertex), &m_screenVerts[0].u);
-	glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-	glVertexPointer(2, GL_FLOAT, sizeof(GLVertex), &m_screenVerts[0].x);
-	glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(GLVertex), &m_screenVerts[0].r);
-	glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(m_screenVerts.size()));
-	// 立即检查 GL 错误：静默的 INVALID_OPERATION 会让整批顶点被丢弃
-	{
-		const GLenum err = glGetError();
-		if (err != GL_NO_ERROR) {
-			static int errCnt = 0;
-			if (errCnt < 5) {
-				std::fprintf(stderr, "[glerr] verts=%zu -> 0x%X\n",
-					m_screenVerts.size(), static_cast<unsigned>(err));
-				std::fflush(stderr);
-				++errCnt;
-			}
-		}
-	}
-	glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-	rhi::GetDevice().SetTexture2D(false);
+	DrawCurrentBatch(textureId, true);
 }
 
 void GLRenderer::DrawTexturedBatch(const std::vector<SpriteVertex>& verts, const Camera& camera,
 	uint32_t textureId, bool opaque) {
 	if (verts.empty() || textureId == 0) return;
 	FillScreenVerts(verts, true, &camera);
-	rhi::Device& dev = rhi::GetDevice();
-	if (opaque) dev.SetBlendAlpha(false);
-	dev.SetTexture2D(true);
-	glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(textureId));
-	glTexCoordPointer(2, GL_FLOAT, sizeof(GLVertex), &m_screenVerts[0].u);
-	glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-	glVertexPointer(2, GL_FLOAT, sizeof(GLVertex), &m_screenVerts[0].x);
-	glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(GLVertex), &m_screenVerts[0].r);
-	glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(m_screenVerts.size()));
-	// 立即检查 GL 错误：静默的 INVALID_OPERATION 会让整批顶点被丢弃
-	{
-		const GLenum err = glGetError();
-		if (err != GL_NO_ERROR) {
-			static int errCnt = 0;
-			if (errCnt < 5) {
-				std::fprintf(stderr, "[glerr] verts=%zu -> 0x%X\n",
-					m_screenVerts.size(), static_cast<unsigned>(err));
-				std::fflush(stderr);
-				++errCnt;
-			}
-		}
+	if (opaque) {
+		const bool prevBlend = true; // 进入时一定是开着的（Initialize 里开的）
+		(void)prevBlend;
+		glDisable(GL_BLEND);
 	}
-	glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-	rhi::GetDevice().SetTexture2D(false);
-	if (opaque) rhi::GetDevice().SetBlendAlpha(true); // 恢复默认混合
-
-	{
-		// TEMP 诊断：统计本批次里异常的屏幕坐标（NaN / 超大）
-		static int dbgTex = 0;
-		if (dbgTex < 3) {
-			int nanCnt = 0, hugeCnt = 0, offscreen = 0;
-			float minX = 1e9f, maxX = -1e9f, minY = 1e9f, maxY = -1e9f;
-			for (const GLVertex& v : m_screenVerts) {
-				if (std::isnan(v.x) || std::isnan(v.y)) { ++nanCnt; continue; }
-				if (std::fabs(v.x) > 100000.0f || std::fabs(v.y) > 100000.0f) { ++hugeCnt; continue; }
-				if (v.x < -1000.0f || v.y < -1000.0f || v.x > 4000.0f || v.y > 4000.0f) ++offscreen;
-				if (v.x < minX) minX = v.x;
-				if (v.x > maxX) maxX = v.x;
-				if (v.y < minY) minY = v.y;
-				if (v.y > maxY) maxY = v.y;
-			}
-			// 额外：检查每个 quad 的两个三角形是否退化（零面积 → GL 不会光栅化）
-			int degenerate = 0;
-			int firstDegenerate = -1;
-			for (size_t i = 0; i + 5 < m_screenVerts.size(); i += 6) {
-				const GLVertex& a = m_screenVerts[i + 0];
-				const GLVertex& b = m_screenVerts[i + 1];
-				const GLVertex& c = m_screenVerts[i + 2];
-				const float cr = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
-				if (std::fabs(cr) < 0.5f) {
-					++degenerate;
-					if (firstDegenerate < 0) firstDegenerate = static_cast<int>(i / 6);
-				}
-			}
-			std::fprintf(stderr,
-				"[gl] tex=%u verts=%zu quads=%zu nan=%d huge=%d deg=%d x[%.0f,%.0f] y[%.0f,%.0f]\n",
-				textureId, m_screenVerts.size(), m_screenVerts.size() / 6, nanCnt, hugeCnt,
-				degenerate, minX, maxX, minY, maxY);
-			std::fflush(stderr);
-			++dbgTex;
-
-		}
-	}
+	DrawCurrentBatch(textureId, true);
+	if (opaque) glEnable(GL_BLEND);
 }
 
-void GLRenderer::UpdateTexture(uint32_t textureId, const std::vector<uint8_t>& rgba, int width, int height) {
-	if (textureId == 0 || width <= 0 || height <= 0) return;
-	glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(textureId));
-	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, rgba.data());
-}
-
-void GLRenderer::EndFrame() {
-	glDisableClientState(GL_COLOR_ARRAY);
-	glDisableClientState(GL_VERTEX_ARRAY);
-	if (m_hdc) ::SwapBuffers(m_hdc);
-}
+void GLRenderer::EndFrame() {}
 
 uint32_t GLRenderer::UploadTexture(const std::vector<uint8_t>& rgba, int width, int height) {
-	if (width <= 0 || height <= 0) return 0;
+	if (width <= 0 || height <= 0 || rgba.empty()) return 0;
 	GLuint tex = 0;
 	glGenTextures(1, &tex);
 	if (tex == 0) return 0;
@@ -234,9 +217,14 @@ uint32_t GLRenderer::UploadTexture(const std::vector<uint8_t>& rgba, int width, 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
-		GL_UNSIGNED_BYTE, rgba.data());
-	return static_cast<uint32_t>(tex);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, rgba.data());
+	return tex;
+}
+
+void GLRenderer::UpdateTexture(uint32_t textureId, const std::vector<uint8_t>& rgba, int width, int height) {
+	if (textureId == 0 || width <= 0 || height <= 0) return;
+	glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(textureId));
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, rgba.data());
 }
 
 } // namespace rts

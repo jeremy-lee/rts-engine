@@ -116,9 +116,37 @@ bool Win32Window::Create(const char* title, int width, int height) {
 		return false;
 	}
 
-	m_glrc = wglCreateContext(m_hdc);
-	if (!m_glrc) {
-		std::fprintf(stderr, "[win32] wglCreateContext failed\n");
+	// ---- 先建一个临时 1.1 上下文，只用来拿 wglCreateContextAttribsARB ----
+	HGLRC tempRc = wglCreateContext(m_hdc);
+	if (!tempRc) {
+		std::fprintf(stderr, "[win32] wglCreateContext (temp) failed\n");
+		return false;
+	}
+	if (!wglMakeCurrent(m_hdc, tempRc)) {
+		std::fprintf(stderr, "[win32] wglMakeCurrent (temp) failed\n");
+		wglDeleteContext(tempRc);
+		return false;
+	}
+	using PFN_wglCreateContextAttribsARB = HGLRC(APIENTRY*)(HDC, HGLRC, const int*);
+	const auto createAttribs = reinterpret_cast<PFN_wglCreateContextAttribsARB>(
+		wglGetProcAddress("wglCreateContextAttribsARB"));
+
+	// ---- 建真正的 3.3 core 上下文 ----
+	if (createAttribs != nullptr) {
+		const int attribs[] = {
+			0x2091, 3, // WGL_CONTEXT_MAJOR_VERSION_ARB
+			0x2092, 3, // WGL_CONTEXT_MINOR_VERSION_ARB
+			0x9126, 0x00000001, // WGL_CONTEXT_PROFILE_MASK_ARB = CORE
+			0
+		};
+		m_glrc = createAttribs(m_hdc, nullptr, attribs);
+	}
+	wglMakeCurrent(nullptr, nullptr);
+	wglDeleteContext(tempRc);
+
+	if (m_glrc == nullptr) {
+		std::fprintf(stderr, "[win32] GL 3.3 core context unavailable (no wglCreateContextAttribsARB "
+			"or driver refused); refusing to fall back to GL 1.1\n");
 		return false;
 	}
 	if (!wglMakeCurrent(m_hdc, m_glrc)) {

@@ -50,11 +50,22 @@ private:
 	};
 
 	void FillScreenVerts(const std::vector<SpriteVertex>& verts, bool useCamera, const Camera* camera);
+	// GL 3.3 核心路径：把 m_screenVerts 上传到 VBO 并画出来
+	void DrawCurrentBatch(uint32_t textureId, bool useTexture);
 
 	HDC m_hdc = nullptr;
 	std::vector<GLVertex> m_screenVerts;
 	float m_clearR = 0.05f, m_clearG = 0.06f, m_clearB = 0.08f;
 	int m_viewW = 0, m_viewH = 0; // BeginFrame 记录的视口尺寸（诊断/读回用）
+
+	// GL 3.3 资源
+	unsigned int m_vao = 0;
+	unsigned int m_vbo = 0;
+	unsigned int m_program = 0;
+	int m_locViewSize = -1;
+	int m_locUseTexture = -1;
+	int m_locTex = -1;
+	bool m_gl33 = false;
 };
 
 } // namespace rts
