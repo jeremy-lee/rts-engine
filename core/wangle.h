@@ -47,6 +47,24 @@ struct WAngle {
 	bool operator==(const WAngle& o) const { return angle == o.angle; }
 	bool operator!=(const WAngle& o) const { return angle != o.angle; }
 
+	// 对齐 OpenRA 的 Util.TickFacing：每 tick 最多转 turnSpeed，逼近 desiredFacing。
+	// 返回新的朝向；差值为 0 时返回 desiredFacing。
+	static WAngle TickFacing(WAngle facing, WAngle desiredFacing, int32_t turnSpeed) {
+		int32_t d = desiredFacing.angle - facing.angle;
+		if (d > 512) d -= 1024;
+		if (d < -512) d += 1024;
+		if (d >= -turnSpeed && d <= turnSpeed) return desiredFacing;
+		return WAngle(facing.angle + (d > 0 ? turnSpeed : -turnSpeed));
+	}
+
+	// 到目标朝向的最短角差（有符号，范围 (-512, 512]）
+	int32_t ShortestDelta(WAngle other) const {
+		int32_t d = other.angle - angle;
+		if (d > 512) d -= 1024;
+		if (d <= -512) d += 1024;
+		return d;
+	}
+
 private:
 	// C++17：类内 constexpr 静态数组隐式 inline，无需单独定义
 	static constexpr int32_t kCosTable[257] = {

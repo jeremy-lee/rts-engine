@@ -43,7 +43,8 @@ struct ActivityState {
 
 struct Movable {
 	SubCoord target;
-	int32_t speed = 32;   // 子格/tick
+	int32_t speed = 32;      // 子格/tick（对齐 OpenRA MobileInfo.Speed）
+	int32_t turnSpeed = 512; // 每 tick 最大转角（对齐 OpenRA MobileInfo.TurnSpeed 默认值）
 	bool moving = false;
 	WAngle facing{0};     // 朝向（OpenRA WAngle：1024 单位 = 360°，8 方向 = 128 间隔）
 	SubCoord prevPos;     // 上一 tick 起始位置（渲染插值用，不参与哈希）

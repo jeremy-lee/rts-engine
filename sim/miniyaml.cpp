@@ -112,9 +112,15 @@ bool ParseLine(const std::string& line, YamlNode& node) {
 
 bool MiniYaml::Parse(const std::string& text, YamlNode& root) {
 	root = YamlNode{};
-	// 栈：每层存 (indent, node*)
-	std::vector<std::pair<int, YamlNode*>> stack;
-	stack.emplace_back(-1, &root);
+	// 栈：每层存 (indent, 从 root 出发的索引路径)。
+	// 不能存节点指针：children 是 vector，扩容会让先前取的地址失效
+	// （曾因此触发 0xC0000005）。索引路径每次从头解析，O(depth)。
+	struct Frame {
+		int indent;
+		std::vector<size_t> path;
+	};
+	std::vector<Frame> stack;
+	stack.push_back({-1, {}});
 
 	size_t pos = 0;
 	while (pos <= text.size()) {
@@ -135,13 +141,16 @@ bool MiniYaml::Parse(const std::string& text, YamlNode& root) {
 		if (!ParseLine(StripInlineComment(line), node)) continue;
 
 		// 回退到父层
-		while (stack.size() > 1 && stack.back().first >= indent) stack.pop_back();
-		if (stack.empty()) stack.emplace_back(-1, &root);
+		while (stack.size() > 1 && stack.back().indent >= indent) stack.pop_back();
+		if (stack.empty()) stack.push_back({-1, {}});
 
-		YamlNode* parent = stack.back().second;
+		YamlNode* parent = &root;
+		for (const size_t idx : stack.back().path) parent = &parent->children[idx];
 		parent->children.push_back(std::move(node));
-		YamlNode* inserted = &parent->children.back();
-		stack.emplace_back(indent, inserted);
+
+		std::vector<size_t> childPath = stack.back().path;
+		childPath.push_back(parent->children.size() - 1);
+		stack.push_back({indent, std::move(childPath)});
 	}
 	return true;
 }
