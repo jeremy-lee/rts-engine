@@ -157,20 +157,19 @@ int main(int argc, char** argv) {
 	w = std::max(1, std::min(w, static_cast<int>(mw) - x0));
 	h = std::max(1, std::min(h, static_cast<int>(mh) - y0));
 
-	// 等距布局：格中心 = ((x-y)*stepX, (x+y)*stepY)，tile 满幅 cellW x cellH 居中，
-	// 按 x+y 递增顺序绘制（后画的覆盖前一个的下半部）——与引擎的画家算法一致。
-	const int stepX = ts.cellW / 2;   // 12
-	const int stepY = ts.cellH / 2;   // 12 (OpenRA RectangularIsometric)
-	const int offX = (h > 0 ? h : 1) * stepX + ts.cellW;
-	const int outW = (w + h) * stepX + ts.cellW * 2;
-	const int outH = (w + h) * stepY + ts.cellH * 2;
+	// 正交布局（RA1 / OpenRA MapGridType.Rectangular）：格中心 = (x*cellW, y*cellH)。
+	// 之前这里用的是等距公式 ((x-y)*stepX, (x+y)*stepY)，画出来是个旋转 45 度的菱形，
+	// 和引擎的正交渲染对不上。和引擎保持一致才能用来比对"拼接对不对"。
+	const int stepX = ts.cellW;
+	const int stepY = ts.cellH;
+	const int outW = w * stepX;
+	const int outH = h * stepY;
 	std::vector<uint8_t> out(static_cast<size_t>(outW) * outH * 4, 0);
 	int missing = 0;
 
-	for (int sum = 0; sum < w + h; ++sum) {
-		for (int y = 0; y < h; ++y) {
-			const int x = sum - y;
-			if (x < 0 || x >= w) continue;
+	// 画家顺序：屏幕 Y（= 格 y）从小到大
+	for (int y = 0; y < h; ++y) {
+		for (int x = 0; x < w; ++x) {
 			const size_t o = tilesOffset + (static_cast<size_t>(y0 + y) * mw + (x0 + x)) * 3;
 			if (o + 3 > mb.size()) continue;
 			uint16_t tid = 0;
@@ -180,16 +179,16 @@ int main(int argc, char** argv) {
 			auto it = ts.templates.find(tid);
 			if (it == ts.templates.end()) { ++missing; continue; }
 			const Template& t = it->second;
-			int frame = idx;
-			if (frame >= t.frameCount) frame = t.frameCount - 1;
+			// 变体号对帧数取模（同 OpenRA）
+			int frame = (t.frameCount > 0) ? (idx % t.frameCount) : 0;
 			if (t.frameCount <= 0) continue;
 			const int global = t.frameBase + frame;
 			const int scx = (global % ts.tileCols) * ts.cellW;
 			const int scy = (global / ts.tileCols) * ts.cellH;
 
-			// 1:1 拷贝（不缩放），tile 满幅贴在自己的等距位置上
-			const int cx = (x - y) * stepX + offX;
-			const int cy = (x + y) * stepY + ts.cellH;
+			// 1:1 拷贝，tile 满幅贴在自己的正交格位上（左上角 = x*cellW, y*cellH）
+			const int cx = x * stepX;
+			const int cy = y * stepY;
 			for (int py = 0; py < ts.cellH; ++py) {
 				for (int px = 0; px < ts.cellW; ++px) {
 					const int ax = scx + px;
@@ -197,8 +196,8 @@ int main(int argc, char** argv) {
 					if (ax < 0 || ay < 0 || ax >= atlas.w || ay >= atlas.h) continue;
 					const size_t so = (static_cast<size_t>(ay) * atlas.w + ax) * 4;
 					if (atlas.px[so + 3] == 0) continue; // 透明保留底色
-					const int ox = cx - ts.cellW / 2 + px;
-					const int oy = cy - ts.cellH / 2 + py;
+					const int ox = cx + px;
+					const int oy = cy + py;
 					if (ox < 0 || oy < 0 || ox >= outW || oy >= outH) continue;
 					const size_t do_ = (static_cast<size_t>(oy) * outW + ox) * 4;
 					out[do_ + 0] = atlas.px[so + 0];

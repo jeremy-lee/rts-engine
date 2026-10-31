@@ -255,19 +255,33 @@ bool ConvertMapBin(const std::vector<uint8_t>& bin, const char* outPath,
 	std::memcpy(&header[13], &outResources, 4);
 	std::fwrite(header, 1, sizeof(header), f);
 
-	// tiles：3 字节/cell（u16 templateId + u8 index）——格式一致，直接拷
-	std::fwrite(&bin[tilesOffset], 1, cells * 3u, f);
-	// heights
-	for (uint32_t i = 0; i < cells; ++i) {
-		uint8_t hv = 0;
-		if (heightsOffset != 0 && heightsOffset + i < bin.size()) hv = bin[heightsOffset + i];
-		std::fwrite(&hv, 1, 1, f);
+	// tiles：我们的 .map 是行优先 (y*W+x)，OpenRA 的 map.bin 是列优先 (x*H+y)
+	// —— OpenRA Map.cs 写 tile 的循环是 `for (i=0..X) for (j=0..Y) Tiles[MPos(i,j)]`。
+	// 之前这里直接 fwrite 原始字节，等于把整张地图转置了 90 度，所以怎么拼都不对。
+	for (uint32_t y = 0; y < h; ++y) {
+		for (uint32_t x = 0; x < w; ++x) {
+			const size_t src = static_cast<size_t>(tilesOffset) +
+				(static_cast<size_t>(x) * h + y) * 3u;
+			std::fwrite(&bin[src], 1, 3, f);
+		}
 	}
-	// resources
-	for (uint32_t i = 0; i < cells; ++i) {
-		uint8_t rt = 0;
-		if (resourcesOffset != 0 && resourcesOffset + i < bin.size()) rt = bin[resourcesOffset + i];
-		std::fwrite(&rt, 1, 1, f);
+	// heights（同样列优先 → 行优先）
+	for (uint32_t y = 0; y < h; ++y) {
+		for (uint32_t x = 0; x < w; ++x) {
+			uint8_t hv = 0;
+			const size_t si = static_cast<size_t>(x) * h + y;
+			if (heightsOffset != 0 && heightsOffset + si < bin.size()) hv = bin[heightsOffset + si];
+			std::fwrite(&hv, 1, 1, f);
+		}
+	}
+	// resources（同样列优先 → 行优先）
+	for (uint32_t y = 0; y < h; ++y) {
+		for (uint32_t x = 0; x < w; ++x) {
+			uint8_t rt = 0;
+			const size_t si = static_cast<size_t>(x) * h + y;
+			if (resourcesOffset != 0 && resourcesOffset + si < bin.size()) rt = bin[resourcesOffset + si];
+			std::fwrite(&rt, 1, 1, f);
+		}
 	}
 	std::fclose(f);
 	outW = w;

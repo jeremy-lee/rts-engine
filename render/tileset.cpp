@@ -205,9 +205,11 @@ bool TileSet::GetUV(int templateId, int index, float& u0, float& v0, float& u1, 
 		u0 = 0.0f; v0 = 0.0f; u1 = 1.0f; v1 = 1.0f;
 		return false;
 	}
-	int idx = index;
-	if (idx < 0) idx = 0;
-	if (idx >= t->frameCount) idx = t->frameCount - 1;
+	// OpenRA 语义：地图里的 Index 是"变体号"，不是帧号，必须对模板帧数取模。
+	// 之前这里越界就 clamp 到最后一帧，导致同一个模板的所有大 index 变体
+	// 都画成同一张图，整片地面看起来是乱拼的。
+	int idx = index % t->frameCount;
+	if (idx < 0) idx += t->frameCount;
 	const int global = t->frameBase + idx;
 	const int col = global % s->tileCols;
 	const int row = global / s->tileCols;

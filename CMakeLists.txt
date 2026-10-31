@@ -96,7 +96,7 @@ if(WIN32)
 endif()
 
 add_executable(rts_tests ${RTS_TEST_SOURCES})
-target_link_libraries(rts_tests PRIVATE rts_sim)
+target_link_libraries(rts_tests PRIVATE rts_sim rts_render)
 if(WIN32)
     target_link_libraries(rts_tests PRIVATE rts_audio)
 endif()

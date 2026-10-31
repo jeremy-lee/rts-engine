@@ -6,6 +6,7 @@
 #include "test_framework.h"
 
 #include "app/ui_layout.h"
+#include "render/tileset.h"
 
 #include <cstdio>
 
@@ -109,4 +110,34 @@ TEST(ui_layout_survives_common_resolutions) {
 			CHECK(L.Classify(c.x, c.y, false) != Layout::HitTarget::None);
 		}
 	}
+}
+
+// ---- 地形图集的帧号语义（变形号必须取模，不能 clamp）----
+// 真实 RA 地图 (agenda.oramap) 里 clear1 的 index 最大到 29，而 clear1.tem 只有 16 帧。
+// 之前越界 clamp 到最后一帧，导致不同变体全画成同一张图，整片地面看起来是乱拼的。
+TEST(tileset_frame_index_uses_modulo) {
+	using namespace rts;
+	TileSet::LoadSet("TEMPERAT", "assets/tileset_TEMPERAT.txt");
+	CHECK(TileSet::UseSet("TEMPERAT"));
+
+	float a0 = 0, b0 = 0, c0 = 0, d0 = 0;
+	float a1 = 0, b1 = 0, c1 = 0, d1 = 0;
+	// clear1 (templateId 255) 有 16 帧
+	CHECK(TileSet::GetUV(255, 0, a0, b0, c0, d0));
+	CHECK(TileSet::GetUV(255, 16, a1, b1, c1, d1));
+	// 16 % 16 == 0：必须和帧 0 完全一致，而不是被 clamp 到帧 15
+	CHECK_EQ(a0, a1);
+	CHECK_EQ(b0, b1);
+	CHECK_EQ(c0, c1);
+	CHECK_EQ(d0, d1);
+
+	CHECK(TileSet::GetUV(255, 17, a1, b1, c1, d1));
+	CHECK(TileSet::GetUV(255, 1, a0, b0, c0, d0));
+	CHECK_EQ(a0, a1);
+	CHECK_EQ(b0, b1);
+
+	// 越界变体不能和"最后一帧"重合（这正是旧 clamp 的行为）
+	CHECK(TileSet::GetUV(255, 29, a1, b1, c1, d1));
+	CHECK(TileSet::GetUV(255, 15, a0, b0, c0, d0));
+	CHECK(!(a0 == a1 && b0 == b1));   // 29 % 16 = 13 != 15
 }
