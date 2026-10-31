@@ -208,7 +208,7 @@ int main(int argc, char** argv) {
 	TileSet::LoadSet("SNOW", "assets/tileset_SNOW.txt");
 	TileSet::LoadSet("INTERIOR", "assets/tileset_INTERIOR.txt");
 	TileSet::UseSet("TEMPERAT");
-	if (!TerrainGfx::Load("assets/tileset.bmp", terrPixels, terrW, terrH)) {
+	if (!TerrainGfx::Load(TileSet::CurrentBitmapPath(), terrPixels, terrW, terrH)) {
 		terrPixels = TerrainGfx::Build(terrW, terrH); // 回退：程序化纯色
 	}
 	const uint32_t terrainTex = renderer.UploadTexture(terrPixels, terrW, terrH);
@@ -346,22 +346,7 @@ int main(int argc, char** argv) {
 
 		// 渲染
 		const RenderSnapshot snapshot = RenderSnapshot::FromWorld(vs.sim.GetWorld(), true);
-		{
-			static int dbgT = 0;
-			if (dbgT < 12) {
-				for (const auto& a : vs.sim.GetWorld().Entities().All()) {
-					if (a.alive && a.Has(kCompMovable) && a.movable.moving) {
-						std::printf("[m] tick=%lld pos=(%d,%d) prev=(%d,%d) facing=%d\n",
-							static_cast<long long>(vs.sim.GetWorld().CurrentTick()),
-							a.pos.x, a.pos.y, a.movable.prevPos.x, a.movable.prevPos.y,
-							a.movable.facing.angle);
-						fflush(stdout);
-						++dbgT;
-						break;
-					}
-				}
-			}
-		}
+
 		const float interp = (accumulator > 0.0) ? static_cast<float>(accumulator / tickDt) : 1.0f;
 
 		SpriteBatch terrainBatch, unitBatch;

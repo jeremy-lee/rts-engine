@@ -171,7 +171,7 @@ int main(int argc, char** argv) {
 	TileSet::LoadSet("SNOW", "assets/tileset_SNOW.txt");
 	TileSet::LoadSet("INTERIOR", "assets/tileset_INTERIOR.txt");
 	TileSet::UseSet("TEMPERAT");
-	if (!TerrainGfx::Load("assets/tileset.bmp", terrPixels, terrW, terrH)) {
+	if (!TerrainGfx::Load(TileSet::CurrentBitmapPath(), terrPixels, terrW, terrH)) {
 		terrPixels = TerrainGfx::Build(terrW, terrH); // 回退：程序化纯色
 	}
 	const uint32_t terrainTex = renderer.UploadTexture(terrPixels, terrW, terrH);
