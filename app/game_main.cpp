@@ -102,6 +102,7 @@ buildings:
 
 // P1-4：外部地图（.oramap 由 oramap_import 转出的 <base>.bin + <base>_meta.txt，或我们的 .map）
 // 一旦给了路径就用它开局，而不是 GenerateTestMap。
+std::string g_rulesDir;        // OpenRA 的 rules 目录（可选，给了就用 ActorInfo 填实体）
 std::string g_mapBinaryPath;   // 已转换好的二进制地图
 std::string g_mapMetaPath;     // 配套的 _meta.txt（可选）
 
@@ -168,6 +169,7 @@ int main(int argc, char** argv) {
 		const std::string a = argv[i];
 		if (a == "--autoshot") autoShot = true;
 		else if (a == "--map" && i + 1 < argc) { mapArg = argv[++i]; }
+		else if (a == "--rules" && i + 1 < argc) { g_rulesDir = argv[++i]; }
 		else if (!a.empty() && a[0] != '-' && mapArg.empty()) mapArg = a;   // 位置参数也当作地图
 	}
 	if (!mapArg.empty()) {
@@ -298,7 +300,21 @@ int main(int argc, char** argv) {
 		audio.StartMusic();
 	}
 
+	// P1-5：如果给了 --rules，加载 OpenRA 的 ActorInfo 并交给 World，
+	// 之后 Spawn 会优先用 TraitInfo（血量/速度/FireDelay）而不是硬编码 UnitDef。
+	Ruleset actorRules;
+	if (!g_rulesDir.empty()) {
+		std::string err;
+		if (actorRules.LoadDirectory(g_rulesDir.c_str(), &err)) {
+			std::printf("[game] actorRules: %zu actors (%zu concrete)\n",
+				actorRules.actors.size(), actorRules.ConcreteActorCount());
+		} else {
+			std::fprintf(stderr, "[game] rules load failed: %s\n", err.c_str());
+		}
+	}
+
 	Simulation sim(MakeMap(), 0x2024, kRules);
+	if (!actorRules.Empty()) sim.GetWorld().SetActorRules(&actorRules);
 	sim.AddAI(1, 99);
 	sim.GetWorld().AddCredits(0, 2000);
 	sim.GetWorld().AddCredits(1, 1500);

@@ -14,6 +14,7 @@
 #include "entity_store.h"
 #include "pathfinder.h"
 #include "gamedefs.h"
+#include "rules.h"
 
 namespace rts {
 
@@ -51,6 +52,12 @@ public:
 	const EntityStore& Entities() const { return m_entities; }
 	Rng& Random() { return m_rng; }
 	const Rules& GetRules() const { return m_rules; }
+
+	// P1-5：OpenRA 的 ActorInfo 数据源。设置后 Spawn 会优先从 TraitInfo
+	// （MobileInfo 速度、HealthInfo 血量、ArmamentInfo 武器）取值，
+	// 取不到时回退到硬编码的 UnitDef。
+	void SetActorRules(const Ruleset* r) { m_actorRules = r; }
+	const Ruleset* ActorRules() const { return m_actorRules; }
 
 	// ---- 经济（M5）----
 	int32_t Credits(int player) const { return (player < 2) ? m_credits[player] : 0; }
@@ -109,6 +116,7 @@ private:
 	Map m_map;
 	EntityStore m_entities;
 	Rules m_rules;
+	const Ruleset* m_actorRules = nullptr;
 	std::map<EntityId, UnitPath> m_paths;
 	Pathfinder m_pathfinder;
 	Tick m_tick = 0;
