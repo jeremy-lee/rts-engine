@@ -17,6 +17,7 @@
 #include "sim/simulation.h"
 #include "sim/gamedefs.h"
 #include "render/snapshot.h"
+#include "render/screenshot.h"
 #include "render/tileset.h"
 #include "render/render_graph.h"
 #include "render/sprite_batch.h"
@@ -132,6 +133,11 @@ static void SetWorkingDirToExe() {
 
 int main(int argc, char** argv) {
 	SetWorkingDirToExe();
+	// --autoshot：跑若干帧后用 glReadPixels 存一张 BMP（in-game 截图，避开外部截屏的 DPI 干扰）
+	bool autoShot = false;
+	for (int i = 1; i < argc; ++i) {
+		if (std::string(argv[i]) == "--autoshot") autoShot = true;
+	}
 	// M22：联机模式（--host 或 --client <ip>）
 	LockstepSession netSession;
 	bool netMode = false;
@@ -996,6 +1002,14 @@ int main(int argc, char** argv) {
 			}
 		}
 		renderer.EndFrame();
+
+		if (autoShot) {
+			static int shotFrames = 0;
+			if (++shotFrames == 90) { // 给采矿/AI 一点时间，画面稳定后再截
+				CaptureScreenshot(W, H, "game_shot.bmp");
+				autoShot = false;
+			}
+		}
 
 		// ---- FPS ----
 		fpsTimer += dt;
