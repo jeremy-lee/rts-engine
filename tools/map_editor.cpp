@@ -709,9 +709,9 @@ int main(int argc, char** argv) {
 				}
 			}
 			std::sort(cells.begin(), cells.end(), [](const CellCoord& a, const CellCoord& b) {
-				// 画家算法：正交网格按屏幕 Y（= 格 y）从上到下绘制
-			if (a.y != b.y) return a.y < b.y;
-			return a.x < b.x;
+				// 画家算法：等距投影下屏幕 Y = (x + y) * kStepY，必须按 x+y 排序，
+			// 这样后画的（更靠下的）tile 才能正确覆盖前一个 tile 的下半部分。
+			return (a.x + a.y) < (b.x + b.y);
 			});
 			for (const CellCoord& c : cells) {
 				if (!map.InBounds(c)) continue;

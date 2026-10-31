@@ -20,9 +20,11 @@
 namespace rts {
 
 // ---- 投影常量（像素）----
-inline constexpr int32_t kTileW = 24;         // 一格宽（= OpenRA TileSize.Width，tile 1:1）
-inline constexpr int32_t kTileH = 24;         // 一格高（= OpenRA TileSize.Height）
-inline constexpr int32_t kHeightStep = 24;    // 每级高度抬升像素（= 一格）
+inline constexpr int32_t kTileW = 24;         // tile 画布宽（= OpenRA TileSize.Width）
+inline constexpr int32_t kTileH = 24;         // tile 画布高
+inline constexpr int32_t kStepX = 12;         // 等距格间距 X（= kTileW/2）
+inline constexpr int32_t kStepY = 6;          // 等距格间距 Y（= kTileH/4，菱形 2:1）
+inline constexpr int32_t kHeightStep = 12;    // 每级高度抬升像素
 
 // 屏幕坐标（世界像素，可为负；相机在 M3 处理）
 struct ScreenPos {
@@ -41,11 +43,13 @@ constexpr int32_t RoundDiv(int32_t a, int32_t b) {
 	return (a >= 0) ? ((a + b / 2) / b) : -((b / 2 - a) / b);
 }
 
-// ---- 正投影：格中心 → 屏幕像素 ----
+// ---- 正投影（等距）：格中心 → 屏幕像素 ----
 inline ScreenPos ProjectCell(CellCoord c, uint8_t height = 0) {
+	// 格中心 = 子格 (x+0.5, y+0.5) 的位置，与 ProjectSub 保持自洽：
+	//   sub (x*1024+512, y*1024+512) -> ((x-y)*kStepX, (x+y+1)*kStepY)
 	return ScreenPos{
-		c.x * kTileW + kTileW / 2,
-		c.y * kTileH + kTileH / 2 - static_cast<int32_t>(height) * kHeightStep
+		(c.x - c.y) * kStepX,
+		(c.x + c.y + 1) * kStepY - static_cast<int32_t>(height) * kHeightStep
 	};
 }
 
@@ -54,18 +58,18 @@ inline ScreenPos ProjectCell(CellCoord c, uint8_t height = 0) {
 // 因此这里不加半格偏移，与 ProjectCell 在 sub 取格中心时自洽。
 inline ScreenPos ProjectSub(SubCoord pos, uint8_t height = 0) {
 	return ScreenPos{
-		pos.x * kTileW / kSubPerCell,
-		pos.y * kTileH / kSubPerCell - static_cast<int32_t>(height) * kHeightStep
+		(pos.x - pos.y) * kStepX / kSubPerCell,
+		(pos.x + pos.y) * kStepY / kSubPerCell - static_cast<int32_t>(height) * kHeightStep
 	};
 }
 
 // ---- 正投影（子格精度）→ Q16.16 屏幕像素 ----
 inline Fixed ProjectCellXFixed(SubCoord s) {
-	return Fixed::FromRaw(
-		static_cast<int32_t>(static_cast<int64_t>(s.x) * kTileW * Fixed::kOne / kSubPerCell));
+	return Fixed::FromRaw(static_cast<int32_t>(
+		static_cast<int64_t>(s.x - s.y) * kStepX * Fixed::kOne / kSubPerCell));
 }
 inline Fixed ProjectCellYFixed(SubCoord s, uint8_t height = 0) {
-	const int64_t v = static_cast<int64_t>(s.y) * kTileH * Fixed::kOne / kSubPerCell;
+	const int64_t v = static_cast<int64_t>(s.x + s.y) * kStepY * Fixed::kOne / kSubPerCell;
 	const int64_t h = static_cast<int64_t>(height) * kHeightStep * Fixed::kOne;
 	return Fixed::FromRaw(static_cast<int32_t>(v - h));
 }
@@ -73,13 +77,18 @@ inline Fixed ProjectCellYFixed(SubCoord s, uint8_t height = 0) {
 // ---- 逆投影：屏幕像素 → 格子（高度 0 层）----
 // 格 (x,y) 覆盖屏幕 [x*32, x*32+32) × [y*32, y*32+32)。
 inline CellCoord ScreenToCell(ScreenPos p) {
-	return CellCoord(FloorDiv(p.x, kTileW), FloorDiv(p.y, kTileH));
+	// 等距逆变换：a = x - y, b = x + y + 1（ProjectCell 把格中心放在 (x+y+1)*kStepY）
+	const int32_t a = RoundDiv(p.x, kStepX);
+	const int32_t b = RoundDiv(p.y, kStepY) - 1;
+	return CellCoord((a + b) / 2, (b - a) / 2);
 }
 
 // ---- 逆投影（子格精度）----
 inline SubCoord ScreenToSubFixed(Fixed sx, Fixed sy) {
-	const Fixed x = (sx * Fixed::FromInt(kSubPerCell)) / Fixed::FromInt(kTileW);
-	const Fixed y = (sy * Fixed::FromInt(kSubPerCell)) / Fixed::FromInt(kTileH);
+	const Fixed a = (sx * Fixed::FromInt(kSubPerCell)) / Fixed::FromInt(2 * kStepX);
+	const Fixed b = (sy * Fixed::FromInt(kSubPerCell)) / Fixed::FromInt(2 * kStepY);
+	const Fixed x = a + b;
+	const Fixed y = b - a;
 	return SubCoord(x.Raw() / Fixed::kOne, y.Raw() / Fixed::kOne);
 }
 

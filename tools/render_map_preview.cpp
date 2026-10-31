@@ -157,13 +157,20 @@ int main(int argc, char** argv) {
 	w = std::max(1, std::min(w, static_cast<int>(mw) - x0));
 	h = std::max(1, std::min(h, static_cast<int>(mh) - y0));
 
-	const int outW = w * ts.cellW;
-	const int outH = h * ts.cellH;
+	// 等距布局：格中心 = ((x-y)*stepX, (x+y)*stepY)，tile 满幅 cellW x cellH 居中，
+	// 按 x+y 递增顺序绘制（后画的覆盖前一个的下半部）——与引擎的画家算法一致。
+	const int stepX = ts.cellW / 2;   // 12
+	const int stepY = ts.cellH / 4;   // 6
+	const int offX = (h > 0 ? h : 1) * stepX + ts.cellW;
+	const int outW = (w + h) * stepX + ts.cellW * 2;
+	const int outH = (w + h) * stepY + ts.cellH * 2;
 	std::vector<uint8_t> out(static_cast<size_t>(outW) * outH * 4, 0);
 	int missing = 0;
 
-	for (int y = 0; y < h; ++y) {
-		for (int x = 0; x < w; ++x) {
+	for (int sum = 0; sum < w + h; ++sum) {
+		for (int y = 0; y < h; ++y) {
+			const int x = sum - y;
+			if (x < 0 || x >= w) continue;
 			const size_t o = tilesOffset + (static_cast<size_t>(y0 + y) * mw + (x0 + x)) * 3;
 			if (o + 3 > mb.size()) continue;
 			uint16_t tid = 0;
@@ -180,7 +187,9 @@ int main(int argc, char** argv) {
 			const int scx = (global % ts.tileCols) * ts.cellW;
 			const int scy = (global / ts.tileCols) * ts.cellH;
 
-			// 1:1 拷贝（不缩放）
+			// 1:1 拷贝（不缩放），tile 满幅贴在自己的等距位置上
+			const int cx = (x - y) * stepX + offX;
+			const int cy = (x + y) * stepY + ts.cellH;
 			for (int py = 0; py < ts.cellH; ++py) {
 				for (int px = 0; px < ts.cellW; ++px) {
 					const int ax = scx + px;
@@ -188,8 +197,9 @@ int main(int argc, char** argv) {
 					if (ax < 0 || ay < 0 || ax >= atlas.w || ay >= atlas.h) continue;
 					const size_t so = (static_cast<size_t>(ay) * atlas.w + ax) * 4;
 					if (atlas.px[so + 3] == 0) continue; // 透明保留底色
-					const int ox = x * ts.cellW + px;
-					const int oy = y * ts.cellH + py;
+					const int ox = cx - ts.cellW / 2 + px;
+					const int oy = cy - ts.cellH / 2 + py;
+					if (ox < 0 || oy < 0 || ox >= outW || oy >= outH) continue;
 					const size_t do_ = (static_cast<size_t>(oy) * outW + ox) * 4;
 					out[do_ + 0] = atlas.px[so + 0];
 					out[do_ + 1] = atlas.px[so + 1];

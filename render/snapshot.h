@@ -58,9 +58,9 @@ struct RenderSnapshot {
 		for (int32_t y = 0; y < map.Height(); ++y)
 			for (int32_t x = 0; x < map.Width(); ++x) tileOrder.push_back(CellCoord(x, y));
 		std::sort(tileOrder.begin(), tileOrder.end(), [](const CellCoord& a, const CellCoord& b) {
-			// 画家算法：正交网格按屏幕 Y（= 格 y）从上到下绘制
-			if (a.y != b.y) return a.y < b.y;
-			return a.x < b.x;
+			// 画家算法：等距投影下屏幕 Y = (x + y) * kStepY，必须按 x+y 排序，
+			// 这样后画的（更靠下的）tile 才能正确覆盖前一个 tile 的下半部分。
+			return (a.x + a.y) < (b.x + b.y);
 		});
 		for (const CellCoord& cell : tileOrder) {
 			const int32_t x = cell.x;

@@ -20,19 +20,19 @@ TEST(projection_cell_center_roundtrip) {
 }
 
 TEST(projection_formula_values) {
-	// 正交网格（OpenRA MapGrid.Rectangular, TileSize 24x24）：格中心 = 格坐标 * 24 + 半格
-	// (0,0) -> (12, 12)
-	CHECK_EQ(ProjectCell(CellCoord(0, 0), 0).x, 12);
-	CHECK_EQ(ProjectCell(CellCoord(0, 0), 0).y, 12);
-	// (1,0) -> (36, 12)
-	CHECK_EQ(ProjectCell(CellCoord(1, 0), 0).x, 36);
+	// 等距投影：格中心 = ((x-y)*kStepX, (x+y)*kStepY)，kStepX=12 kStepY=6（24x24 tile 的菱形铺贴）
+	// (0,0) -> (0, 6)   [格中心 = 子格 (0.5,0.5)]
+	CHECK_EQ(ProjectCell(CellCoord(0, 0), 0).x, 0);
+	CHECK_EQ(ProjectCell(CellCoord(0, 0), 0).y, 6);
+	// (1,0) -> (12, 12)
+	CHECK_EQ(ProjectCell(CellCoord(1, 0), 0).x, 12);
 	CHECK_EQ(ProjectCell(CellCoord(1, 0), 0).y, 12);
-	// (0,1) -> (12, 36)
-	CHECK_EQ(ProjectCell(CellCoord(0, 1), 0).x, 12);
-	CHECK_EQ(ProjectCell(CellCoord(0, 1), 0).y, 36);
-	// (1,1) -> (36, 36)
-	CHECK_EQ(ProjectCell(CellCoord(1, 1), 0).x, 36);
-	CHECK_EQ(ProjectCell(CellCoord(1, 1), 0).y, 36);
+	// (0,1) -> (-12, 12)
+	CHECK_EQ(ProjectCell(CellCoord(0, 1), 0).x, -12);
+	CHECK_EQ(ProjectCell(CellCoord(0, 1), 0).y, 12);
+	// (1,1) -> (0, 18)
+	CHECK_EQ(ProjectCell(CellCoord(1, 1), 0).x, 0);
+	CHECK_EQ(ProjectCell(CellCoord(1, 1), 0).y, 18);
 }
 
 TEST(projection_height_affects_y_only) {
@@ -47,13 +47,13 @@ TEST(projection_subcell_fixed) {
 	const SubCoord s(512, 512);
 	const Fixed sx = ProjectCellXFixed(s);
 	const Fixed sy = ProjectCellYFixed(s, 0);
-	// 512 * 24 / 1024 = 12
-	CHECK_EQ(sx.Round(), 12);
-	CHECK_EQ(sy.Round(), 12);
+	// (512-512)*12/1024 = 0 ; (512+512)*6/1024 = 6
+	CHECK_EQ(sx.Round(), 0);
+	CHECK_EQ(sy.Round(), 6);
 
-	// 1.5 格 x, 0.5 格 y -> (36, 12)
+	// 1.5 格 x, 0.5 格 y -> ((1536-512)*12/1024, (1536+512)*6/1024) = (12, 12)
 	const SubCoord s2(1536, 512);
-	CHECK_EQ(ProjectCellXFixed(s2).Round(), 36);
+	CHECK_EQ(ProjectCellXFixed(s2).Round(), 12);
 	CHECK_EQ(ProjectCellYFixed(s2, 0).Round(), 12);
 
 	// ProjectCell 必须与 ProjectSub(格中心) 一致
