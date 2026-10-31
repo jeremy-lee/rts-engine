@@ -584,6 +584,7 @@ int main(int argc, char** argv) {
 				}
 				if (best != 0) { selection.assign(1, best); audio.Play(Sfx::Click); }
 				else selection.clear();
+				std::fprintf(stderr, "[input] click-select: best=%u -> selection=%zu\n", best, selection.size());
 			} else {
 				selection.clear();
 				const int x0 = std::min(dragStartX, window.MouseX());
@@ -706,8 +707,10 @@ int main(int argc, char** argv) {
 					markerY = mp.y;
 					markerTimer = 0.6f;
 				}
+				std::fprintf(stderr, "[input] right-click: selection=%zu enemy=%u\n", selection.size(), enemy);
 				for (EntityId id : selection) {
 					Command cmd;
+					cmd.playerId = 0;
 					if (enemy != 0) {
 						cmd.type = CommandType::Attack;
 						cmd.entityId = id;
@@ -719,6 +722,8 @@ int main(int argc, char** argv) {
 						// 正交：屏幕像素 → 子格坐标（每格 kTileW/kTileH 像素）
 						cmd.x = static_cast<int32_t>(mp.x) * kSubPerCell / kTileW;
 						cmd.y = static_cast<int32_t>(mp.y) * kSubPerCell / kTileH;
+						std::fprintf(stderr, "[input]   move unit=%u -> cell(%d,%d)\n", id,
+							cmd.x / kSubPerCell, cmd.y / kSubPerCell);
 						audio.Play(Sfx::Move);
 					}
 					pushCommand(cmd);
@@ -1137,7 +1142,12 @@ int main(int argc, char** argv) {
 				btnTurret.enabled ? 0xFFFFFFFF : 0xFF888888);
 
 			char info[160];
-			std::snprintf(info, sizeof(info), "SELECTED %zu", selection.size());
+			if (placingBuilding) {
+				// 放置模式下给个明确提示，否则玩家会以为点地图没反应
+				std::snprintf(info, sizeof(info), "PLACING - RMB CANCEL");
+			} else {
+				std::snprintf(info, sizeof(info), "SELECTED %zu", selection.size());
+			}
 			text::Build(textVerts, info, sideX + 4.0f, btnTurret.rect.y - 34.0f, 1.5f, 0xFFC0C0C0);
 
 			// 生产进度
