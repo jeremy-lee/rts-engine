@@ -205,7 +205,10 @@ void GLRenderer::DrawTexturedBatch(const std::vector<SpriteVertex>& verts, const
 	if (opaque) glEnable(GL_BLEND);
 }
 
-void GLRenderer::EndFrame() {}
+void GLRenderer::EndFrame() {
+	// 呈现：没有这一步画面根本不会显示（GL 只画到后台缓冲）
+	if (m_hdc) ::SwapBuffers(m_hdc);
+}
 
 uint32_t GLRenderer::UploadTexture(const std::vector<uint8_t>& rgba, int width, int height) {
 	if (width <= 0 || height <= 0 || rgba.empty()) return 0;
