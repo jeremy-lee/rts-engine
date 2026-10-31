@@ -17,6 +17,8 @@
 #include "core/core.h"
 #include "sim/simulation.h"
 #include "sim/gamedefs.h"
+#include "sim/rules.h"
+#include "sim/traits.h"
 #include "render/snapshot.h"
 #include "render/screenshot.h"
 #include "render/tileset.h"
@@ -314,7 +316,20 @@ int main(int argc, char** argv) {
 	}
 
 	Simulation sim(MakeMap(), 0x2024, kRules);
-	if (!actorRules.Empty()) sim.GetWorld().SetActorRules(&actorRules);
+	if (!actorRules.Empty()) {
+		// 把 ActorInfo 里的数值提取成 POD 传给 sim，避免 sim 依赖 yaml/traits 层
+		std::map<int32_t, World::ActorStats> stats;
+		for (size_t i = 0; i < kRules.unitIds.size(); ++i) {
+			if (const ActorInfo* info = actorRules.FindActor(kRules.unitIds[i])) {
+				World::ActorStats st;
+				if (const HealthInfo* hp = info->Find<HealthInfo>()) st.hp = hp->hp;
+				if (const MobileInfo* mob = info->Find<MobileInfo>()) st.speed = mob->speed;
+				if (const ArmamentInfo* arm = info->Find<ArmamentInfo>()) st.fireDelay = arm->fireDelay;
+				stats[static_cast<int32_t>(i)] = st;
+			}
+		}
+		sim.GetWorld().SetActorStats(std::move(stats));
+	}
 	sim.AddAI(1, 99);
 	sim.GetWorld().AddCredits(0, 2000);
 	sim.GetWorld().AddCredits(1, 1500);

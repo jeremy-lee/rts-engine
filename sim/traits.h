@@ -19,10 +19,9 @@
 #pragma once
 
 #include "core/wangle.h"
-#include "economy.h"
-#include "production.h"
 #include "rules.h"
-#include "weapon.h"
+#include "production.h"
+#include "wdist.h"
 
 #include <cstdint>
 #include <string>
@@ -97,7 +96,12 @@ struct ValuedInfo : public TraitInfo {
 
 // ---- Harvester（Traits/Harvester.cs）----
 struct HarvesterInfo : public TraitInfo {
-	Harvester data;
+	// 刻意不内嵌运行时组件 Harvester：entity.h 和 economy.h 都定义了同名结构体，
+	// sim 层互相 include 会重复定义。这里只保留 OpenRA HarvesterInfo 的配置项。
+	int32_t capacity = 28;        // Capacity
+	int32_t baleLoadDelay = 4;    // BaleLoadDelay
+	int32_t baleUnloadDelay = 4;  // BaleUnloadDelay
+	int32_t harvestFacings = 0;   // HarvestFacings
 	std::vector<std::string> resources;    // Resources: Ore, Gems（可采集的资源种类）
 	const char* TypeName() const override { return "Harvester"; }
 	std::unique_ptr<TraitInfo> Clone() const override { return std::make_unique<HarvesterInfo>(*this); }

@@ -19,14 +19,12 @@
 
 #include <cstdint>
 #include <map>
+#include "wdist.h"
 #include <string>
 #include <vector>
 
 namespace rts {
 
-// ---- WDist 解析 ----
-// 支持 "5c0" / "0c512" / "128"（纯数字按子格）/ "1c"（c 后缺省为 0）
-int32_t ParseWDist(const std::string& s, int32_t fallback = 0);
 
 // ---- 弹头 ----
 struct WarheadInfo {

@@ -53,10 +53,11 @@ void ValuedInfo::LoadFrom(const YamlNode& node) {
 
 // ---------------- Harvester ----------------
 void HarvesterInfo::LoadFrom(const YamlNode& node) {
-	data.LoadFrom(node);
+	if (const YamlNode* n = node.Child("Capacity")) capacity = MiniYaml::ToInt(n->value, capacity);
+	if (const YamlNode* n = node.Child("BaleLoadDelay")) baleLoadDelay = MiniYaml::ToInt(n->value, baleLoadDelay);
+	if (const YamlNode* n = node.Child("BaleUnloadDelay")) baleUnloadDelay = MiniYaml::ToInt(n->value, baleUnloadDelay);
+	if (const YamlNode* n = node.Child("HarvestFacings")) harvestFacings = MiniYaml::ToInt(n->value, harvestFacings);
 	if (const YamlNode* n = node.Child("Resources")) resources = MiniYaml::SplitList(n->value);
-	// RA 的采集容量写在 IStoreResources 上；这里也接受 Capacity 直接给
-	if (const YamlNode* n = node.Child("Capacity")) data.capacity = MiniYaml::ToInt(n->value, data.capacity);
 }
 
 // ---------------- Refinery ----------------

@@ -14,7 +14,6 @@
 #include "entity_store.h"
 #include "pathfinder.h"
 #include "gamedefs.h"
-#include "rules.h"
 
 namespace rts {
 
@@ -56,14 +55,28 @@ public:
 	// P1-5：OpenRA 的 ActorInfo 数据源。设置后 Spawn 会优先从 TraitInfo
 	// （MobileInfo 速度、HealthInfo 血量、ArmamentInfo 武器）取值，
 	// 取不到时回退到硬编码的 UnitDef。
-	void SetActorRules(const Ruleset* r) { m_actorRules = r; }
+	// P1-5：从 OpenRA ActorInfo 提取出来的运行时数值。
+	// 刻意做成 POD 而不是让 sim 直接认识 TraitInfo——traits.h 依赖 economy.h/weapon.h，
+	// 而这两个头又和 entity.h 重复定义 Harvester/Armament，sim 层 include 它会循环。
+	struct ActorStats {
+		int32_t hp = 0;
+		int32_t speed = 0;      // subcell/tick
+		int32_t fireDelay = 0;  // tick
+	};
+
+	// 按 unitNumericId 索引（与 Rules.unitIds 对齐）；由上层从 Ruleset 填好后传进来
+	void SetActorStats(std::map<int32_t, ActorStats> stats) { m_actorStats = std::move(stats); }
+	const ActorStats* FindActorStats(int32_t numericId) const {
+		const auto it = m_actorStats.find(numericId);
+		return it == m_actorStats.end() ? nullptr : &it->second;
+	}
 
 	// P2-7：按玩家视野重算战争迷雾。
 	//   fog=2 可见    —— 落在任一己方 actor 的 Vision 半径内
 	//   fog=1 已探索  —— 曾经可见过（保留）
 	//   fog=0 未探索  —— 从未见过
 	void RecomputeFog(uint8_t playerId);
-	const Ruleset* ActorRules() const { return m_actorRules; }
+	// sim 层不直接持有 Ruleset（会引入 traits.h 的循环依赖），只吃 ActorStats
 
 	// ---- 经济（M5）----
 	int32_t Credits(int player) const { return (player < 2) ? m_credits[player] : 0; }
@@ -122,7 +135,8 @@ private:
 	Map m_map;
 	EntityStore m_entities;
 	Rules m_rules;
-	const Ruleset* m_actorRules = nullptr;
+
+	std::map<int32_t, ActorStats> m_actorStats;
 	std::map<EntityId, UnitPath> m_paths;
 	Pathfinder m_pathfinder;
 	Tick m_tick = 0;

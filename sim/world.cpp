@@ -75,7 +75,23 @@ void World::ApplyCommand(const Command& cmd) {
 				spawnCell.x * kSubPerCell + kSubPerCell / 2,
 				spawnCell.y * kSubPerCell + kSubPerCell / 2);
 			const EntityId id = m_entities.Create(cmd.playerId, spawnPos, components);
+			// P1-5：优先用 ActorInfo 提取出来的数值（sim 层不认识 yaml，走 POD）
+			bool filledFromActorInfo = false;
+			if (const ActorStats* st = FindActorStats(cmd.targetId)) {
+				Actor* a = m_entities.Get(id);
+				if (a != nullptr) {
+					if (st->hp > 0) {
+						a->health.maxHp = st->hp;
+						a->health.hp = st->hp;
+					}
+					// speed 只在拿到真实值时覆盖；1 是 MobileInfo 的默认值
+					if (st->speed > 1) a->movable.speed = st->speed;
+					if (st->fireDelay > 0) a->armament.cooldown = st->fireDelay;
+					filledFromActorInfo = true;
+				}
+			}
 			// M5：应用数据定义（targetId 存 unit numericId）
+			if (!filledFromActorInfo)
 			if (const UnitDef* def = m_rules.FindUnitByNumeric(static_cast<int32_t>(cmd.targetId))) {
 				Actor* a = m_entities.Get(id);
 				if (a != nullptr) {
@@ -301,8 +317,10 @@ void World::TickEconomy() {
 			const CellCoord spawnCell = Map::FindNearestWalkable(m_map, CellCoord(base.x + 1, base.y));
 			const SubCoord pos(spawnCell.x * kSubPerCell + kSubPerCell / 2,
 				spawnCell.y * kSubPerCell + kSubPerCell / 2);
+			// 生产出来的单位必须带 Vision：RecomputeFog 只让带 kCompVision 的单位
+			// 贡献视野，缺了这个位，新单位周围永远是黑的，看起来像"没生成/不动"。
 			const EntityId id = m_entities.Create(playerId, pos,
-				kCompMovable | kCompHealth | kCompArmament);
+				kCompMovable | kCompHealth | kCompArmament | kCompVision);
 			if (Actor* u = m_entities.Get(id)) {
 				u->health.hp = def->hp;
 				u->health.maxHp = def->hp;
@@ -310,6 +328,15 @@ void World::TickEconomy() {
 				u->armament.damage = def->weapon.damage;
 				u->armament.range = def->weapon.range;
 				u->armament.cooldown = def->weapon.cooldown;
+				// P1-5：同样优先用 ActorInfo 提取出来的数值
+				if (const ActorStats* st = FindActorStats(unitNumericId)) {
+					if (st->hp > 0) {
+						u->health.maxHp = st->hp;
+						u->health.hp = st->hp;
+					}
+					if (st->speed > 1) u->movable.speed = st->speed;
+					if (st->fireDelay > 0) u->armament.cooldown = st->fireDelay;
+				}
 				if (def->isHarvester) {
 					u->components |= kCompHarvester;
 					u->harvester.basePos = buildingPos;
