@@ -60,10 +60,9 @@ struct RenderSnapshot {
 		std::sort(tileOrder.begin(), tileOrder.end(), [](const CellCoord& a, const CellCoord& b) {
 			// 画家算法：等距投影下屏幕 Y = (x + y) * kStepY，必须按 x+y 排序，
 			// 这样后画的（更靠下的）tile 才能正确覆盖前一个 tile 的下半部分。
-			const int32_t da = a.x + a.y;
-			const int32_t db = b.x + b.y;
-			if (da != db) return da < db;
-			return a.x < b.x; // tie-break：同一条对角线上顺序确定
+			// 正交网格：画家算法按屏幕 Y（= 格 y）从上到下
+			if (a.y != b.y) return a.y < b.y;
+			return a.x < b.x;
 		});
 		for (const CellCoord& cell : tileOrder) {
 			const int32_t x = cell.x;
