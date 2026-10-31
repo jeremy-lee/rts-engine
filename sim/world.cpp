@@ -155,14 +155,14 @@ void World::ApplyCommand(const Command& cmd) {
 			CellCoord origin = SubCoord(cmd.x, cmd.y).ToCell();
 			// 吸附到最近可建区域（简化：尝试原位置，失败则放弃）
 			// 吸附到最近可建区域（命令层容错：玩家点偏一点不应该整条命令失效）
-			if (!m_map.CanBuildAt(origin, fw, fh)) {
+			if (!m_map.CanBuildAt(origin, fw, fh, def->footprint.empty() ? nullptr : def->footprint.data())) {
 				bool found = false;
 				for (int32_t r = 1; r <= 16 && !found; ++r) {
 					for (int32_t dy = -r; dy <= r && !found; ++dy) {
 						for (int32_t dx = -r; dx <= r && !found; ++dx) {
 							if (dx > -r && dx < r && dy > -r && dy < r) continue;
 							const CellCoord cand(origin.x + dx, origin.y + dy);
-							if (m_map.CanBuildAt(cand, fw, fh)) {
+							if (m_map.CanBuildAt(cand, fw, fh, def->footprint.empty() ? nullptr : def->footprint.data())) {
 								origin = cand;
 								found = true;
 							}

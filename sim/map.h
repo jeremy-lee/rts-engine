@@ -3,6 +3,7 @@
 // 设计：地图是纯数据（不依赖渲染），坐标一律使用 CellCoord。
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include "core/core.h"
@@ -97,6 +98,19 @@ public:
 	bool CanBuildAt(CellCoord origin, int32_t w, int32_t h) const {
 		for (int32_t y = 0; y < h; ++y) {
 			for (int32_t x = 0; x < w; ++x) {
+				const CellCoord c(origin.x + x, origin.y + y);
+				if (!InBounds(c) || !Buildable(c) || Occupied(c)) return false;
+			}
+		}
+		return true;
+	}
+	// 带 Footprint 的区域检查：mask 为 width*height 的字符数组（'_' 表示该格不占地）。
+	// mask 为空时等价于整块矩形。
+	bool CanBuildAt(CellCoord origin, int32_t w, int32_t h, const char* mask) const {
+		if (mask == nullptr) return CanBuildAt(origin, w, h);
+		for (int32_t y = 0; y < h; ++y) {
+			for (int32_t x = 0; x < w; ++x) {
+				if (mask[static_cast<size_t>(y) * static_cast<size_t>(w) + static_cast<size_t>(x)] == '_') continue;
 				const CellCoord c(origin.x + x, origin.y + y);
 				if (!InBounds(c) || !Buildable(c) || Occupied(c)) return false;
 			}

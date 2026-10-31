@@ -355,6 +355,10 @@ int main(int argc, char** argv) {
 	bool prevLeft = false;
 	int dragStartX = 0, dragStartY = 0;
 	bool dragging = false;
+	// 建筑放置模式：点 BUILD 进入，左键落点确认，右键取消。
+	bool placingBuilding = false;
+	int32_t placingBuildingId = 0;   // 待建造的 building numericId
+	CellCoord lastPlacedCell(-1, -1); // 拖拽连续放置时避免同格重复建
 	int prevNum[3] = {0, 0, 0};
 
 	auto last = std::chrono::steady_clock::now();
@@ -487,7 +491,21 @@ int main(int argc, char** argv) {
 
 		// 左键按下：UI 按钮 or 开始框选
 		if (left && !prevLeft) {
-			if (my < topBarH || my > static_cast<float>(H) - bottomH) {
+			if (placingBuilding && my >= topBarH && my <= static_cast<float>(H) - bottomH) {
+				// 放置模式：点击处就是建筑落点
+				WorldPoint mp;
+				camera.ScreenToWorld(mx, my, mp.x, mp.y);
+				const CellCoord cell = ScreenToCell(ScreenPos{static_cast<int32_t>(mp.x), static_cast<int32_t>(mp.y)});
+				Command cmd;
+				cmd.type = CommandType::Build;
+				cmd.playerId = 0;
+				cmd.x = cell.x * kSubPerCell;
+				cmd.y = cell.y * kSubPerCell;
+				cmd.targetId = placingBuildingId;
+				pushCommand(cmd);
+				audio.Play(Sfx::Build);
+				lastPlacedCell = cell;
+			} else if (my < topBarH || my > static_cast<float>(H) - bottomH) {
 				// 小地图点击：移动相机
 				if (mx >= mmX && mx <= mmX + mmSize && my >= mmY && my <= mmY + mmSize) {
 					const float fx = (mx - mmX) / mmSize;
@@ -498,16 +516,10 @@ int main(int argc, char** argv) {
 					camera.centerX = static_cast<float>(p.x);
 					camera.centerY = static_cast<float>(p.y);
 				} else if (btnBuild.Hit(mx, my) && myBuildings == 0) {
-					const CellCoord center = ScreenToCell(ScreenPos{static_cast<int32_t>(camera.centerX),
-						static_cast<int32_t>(camera.centerY)});
-					Command cmd;
-					cmd.type = CommandType::Build;
-					cmd.playerId = 0;
-					cmd.x = center.x * kSubPerCell;
-					cmd.y = center.y * kSubPerCell;
-					cmd.targetId = 0;
-					pushCommand(cmd);
-					audio.Play(Sfx::Build);
+					// 进入放置模式，不再立刻在相机中心建造
+					placingBuilding = true;
+					placingBuildingId = 0;
+					audio.Play(Sfx::Click);
 				} else if (btnTank.Hit(mx, my) && idleBarracks != 0) {
 					Command cmd;
 					cmd.type = CommandType::Produce;
@@ -540,13 +552,34 @@ int main(int argc, char** argv) {
 				dragging = true;
 			}
 		}
+		// 拖拽连续放置：按住左键划过新格子就落一个
+		if (placingBuilding && left && prevLeft &&
+			my >= topBarH && my <= static_cast<float>(H) - bottomH) {
+			WorldPoint mp;
+			camera.ScreenToWorld(mx, my, mp.x, mp.y);
+			const CellCoord cell = ScreenToCell(ScreenPos{static_cast<int32_t>(mp.x), static_cast<int32_t>(mp.y)});
+			if (cell.x != lastPlacedCell.x || cell.y != lastPlacedCell.y) {
+				Command cmd;
+				cmd.type = CommandType::Build;
+				cmd.playerId = 0;
+				cmd.x = cell.x * kSubPerCell;
+				cmd.y = cell.y * kSubPerCell;
+				cmd.targetId = placingBuildingId;
+				pushCommand(cmd);
+				audio.Play(Sfx::Build);
+				lastPlacedCell = cell;
+			}
+		}
 		prevLeft = left;
-
 		// ---- 右键：移动/攻击 ----
 		{
 			static bool prevRight = false;
 			const bool right = window.IsMouseDown(1);
-			if (right && !prevRight && !selection.empty()) {
+			if (right && !prevRight && placingBuilding) {
+				// 右键取消放置模式
+				placingBuilding = false;
+				audio.Play(Sfx::Click);
+			} else if (right && !prevRight && !selection.empty()) {
 				WorldPoint mp;
 				camera.ScreenToWorld(mx, my, mp.x, mp.y);
 				EntityId enemy = 0;
@@ -782,6 +815,36 @@ int main(int argc, char** argv) {
 				terrainBatch.AddSolid(bx, by, barW * ratio, barH, hpCol);
 			}
 		}
+		// ---- 建筑放置预览（P0-2）----
+		// 跟随鼠标画出待建建筑的 Footprint：每个格子一个半透明方块，
+		// 全部可建为绿色，任意一格非法为红色。'_' 格不画。
+		if (placingBuilding) {
+			WorldPoint mp;
+			camera.ScreenToWorld(mx, my, mp.x, mp.y);
+			const CellCoord origin = ScreenToCell(ScreenPos{static_cast<int32_t>(mp.x), static_cast<int32_t>(mp.y)});
+			const BuildingDef* def = nullptr;
+			if (placingBuildingId >= 0 &&
+				static_cast<size_t>(placingBuildingId) < sim.GetWorld().GetRules().buildingIds.size()) {
+				def = sim.GetWorld().GetRules().FindBuilding(
+					sim.GetWorld().GetRules().buildingIds[static_cast<size_t>(placingBuildingId)]);
+			}
+			const int32_t fw = (def != nullptr && def->width > 0) ? def->width : 2;
+			const int32_t fh = (def != nullptr && def->height > 0) ? def->height : 2;
+			const char* mask = (def != nullptr && !def->footprint.empty()) ? def->footprint.data() : nullptr;
+			const bool ok = sim.GetWorld().GetMap().CanBuildAt(origin, fw, fh, mask);
+			const uint32_t fill = ok ? 0x6040E040u : 0x60E04040u;   // 绿 / 红（半透明）
+			for (int32_t y = 0; y < fh; ++y) {
+				for (int32_t x = 0; x < fw; ++x) {
+					if (mask != nullptr &&
+						mask[static_cast<size_t>(y) * static_cast<size_t>(fw) + static_cast<size_t>(x)] == '_') continue;
+					const ScreenPos p = ProjectCell(CellCoord(origin.x + x, origin.y + y), 0);
+					terrainBatch.AddSolid(static_cast<float>(p.x) - static_cast<float>(kTileW) * 0.5f,
+						static_cast<float>(p.y) - static_cast<float>(kTileH) * 0.5f,
+						static_cast<float>(kTileW), static_cast<float>(kTileH), fill);
+				}
+			}
+		}
+
 		terrainBatch.End();
 		unitBatch.End();
 

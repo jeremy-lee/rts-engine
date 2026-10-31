@@ -39,10 +39,22 @@ struct BuildingDef {
 	int32_t hp = 500;
 	int32_t width = 2;  // 占用格子
 	int32_t height = 2;
+	// Footprint 矩阵（width*height，按 y*width+x），字符含义同 OpenRA：
+	//   '_' 空、'x' 占格、'X' 占格不可选中、'=' 占格可通行、'+' 占格仅可路过
+	// 为空表示整块矩形全部占用（等价于全是 'x'）。
+	std::vector<char> footprint;
 	std::vector<std::string> produces;
 	bool turret = false;      // 防御塔：自动攻击范围内敌人
 	WeaponDef weapon;         // 武器（turret 用）
 	int32_t numericId = -1;
+
+	// 该格是否属于占地（'_' 不算）
+	bool OccupiesCell(int32_t x, int32_t y) const {
+		if (footprint.empty()) return true;
+		const size_t idx = static_cast<size_t>(y) * static_cast<size_t>(width) + static_cast<size_t>(x);
+		if (idx >= footprint.size()) return true;
+		return footprint[idx] != '_';
+	}
 };
 
 // 科技升级定义（M19）
