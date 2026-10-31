@@ -43,7 +43,9 @@ uniform sampler2D uTex;
 uniform float uUseTexture;
 out vec4 FragColor;
 void main() {
-    vec4 t = (uUseTexture > 0.5) ? texture(uTex, vUV) : vec4(1.0, 1.0, 1.0, 1.0);
+    // 用 mix 而不是三元：三元在部分驱动上会把两个分支都求值，
+    // 未绑定纹理时 texture() 返回黑色，导致纯色批次整片消失。
+    vec4 t = mix(vec4(1.0, 1.0, 1.0, 1.0), texture(uTex, vUV), uUseTexture);
     FragColor = t * vColor;
 }
 )";
@@ -94,6 +96,7 @@ bool GLRenderer::Initialize(HDC hdc) {
 	m_locViewSize = gl33::g.GetUniformLocation(m_program, "uViewSize");
 	m_locUseTexture = gl33::g.GetUniformLocation(m_program, "uUseTexture");
 	m_locTex = gl33::g.GetUniformLocation(m_program, "uTex");
+
 	m_gl33 = true;
 	std::printf("[gl] renderer: GL 3.3 core (VBO + GLSL 330)\n");
 	std::fflush(stdout);
@@ -182,6 +185,7 @@ void GLRenderer::DrawBatch(const std::vector<SpriteVertex>& verts, const Camera&
 
 void GLRenderer::DrawScreenBatch(const std::vector<SpriteVertex>& verts) {
 	if (verts.empty()) return;
+
 	FillScreenVerts(verts, false, nullptr);
 	DrawCurrentBatch(0, false);
 }
