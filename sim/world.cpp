@@ -104,6 +104,9 @@ void World::ApplyCommand(const Command& cmd) {
 			const CellCoord from = a->pos.ToCell();
 			// 目标格不可通行时吸附到最近可通行格
 			const CellCoord to = Map::FindNearestWalkable(m_map, SubCoord(cmd.x, cmd.y).ToCell());
+		std::fprintf(stderr, "[move] unit=%u speed=%d comps=0x%02X from=(%d,%d) to=(%d,%d)\n",
+			cmd.entityId, a->movable.speed, a->components,
+			from.x, from.y, to.x, to.y);
 			std::vector<CellCoord> cells;
 			if (m_pathfinder.FindPath(m_map, from, to, cells)) {
 				m_paths[cmd.entityId] = UnitPath{cells, 0};
