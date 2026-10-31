@@ -746,6 +746,21 @@ int main(int argc, char** argv) {
 					terrainBatch.AddSolid(static_cast<float>(p.x) - 8.0f,
 						static_cast<float>(p.y) - 4.0f, 16.0f, 8.0f, 0xE0D4A017u);
 			}
+			{
+				// TEMP 诊断：对比候选格数 / 有效格数 / 实际入批次的 sprite 数
+				static int dbgCnt = 0;
+				if (dbgCnt < 3) {
+					size_t valid = 0;
+					for (const CellCoord& c2 : cells) {
+						if (map.InBounds(c2)) ++valid;
+					}
+					std::fprintf(stderr, "[ed] cells=%zu valid=%zu sprites=%zu verts=%zu\n",
+						cells.size(), valid, terrainBatch.SpriteCount(),
+						terrainBatch.Vertices().size());
+					std::fflush(stderr);
+					++dbgCnt;
+				}
+			}
 			// debug 网格：完整格子边框（4 条边），洋红色。有框但内部露清屏色 = 该格没画上。
 			if (showGrid) {
 				const uint32_t gridCol = 0xFFFF00FFu;
