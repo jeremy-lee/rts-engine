@@ -38,6 +38,7 @@
 #include "render/cnc_assets.h"
 #include "render/text.h"
 #include "render/ui.h"
+#include "render/screenshot.h"
 #include "render/font.h"
 #include "platform/win32_window.h"
 
@@ -336,6 +337,14 @@ bool LoadEntities(const char* path, std::vector<PlacedEntity>& out) {
 } // namespace
 
 int main(int argc, char** argv) {
+	// --autoshot：跑若干帧后存一张 in-game 截图（避开外部截屏的 DPI 干扰）
+	bool autoShot = false;
+	std::string cliMapPath2;
+	for (int i = 1; i < argc; ++i) {
+		const std::string a = argv[i];
+		if (a == "--autoshot") autoShot = true;
+		else if (!a.empty() && a[0] != '-') cliMapPath2 = a;
+	}
 	// å¯é€‰ï¼šå‘½ä»¤è¡Œç›´æŽ¥æŒ‡å®šè¦åŠ è½½çš„åœ°å›¾ï¼ˆçœå¾—æ¨¡æ‹ŸæŒ‰é”®ï¼‰
 	std::string cliMapPath;
 	if (argc > 1) cliMapPath = argv[1];
@@ -928,6 +937,13 @@ int main(int argc, char** argv) {
 		});
 		graph.Execute(W, H, 0.0f);
 		renderer.EndFrame();
+	if (autoShot) {
+		static int shotFrames = 0;
+		if (++shotFrames == 30) {
+			CaptureScreenshot(static_cast<int>(W), static_cast<int>(H), "editor_shot.bmp");
+			autoShot = false;
+		}
+	}
 	}
 
 	map.SaveBinary("map_export.map");
