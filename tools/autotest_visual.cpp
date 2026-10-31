@@ -441,7 +441,7 @@ int main(int argc, char** argv) {
 		renderer.BeginFrame(W, H);
 		RenderGraph graph;
 		graph.AddPass("World", [&](PassContext& ctx) {
-			renderer.DrawTexturedBatch(terrainBatch.Vertices(), camera, terrainTex, true); // 地形不透明覆盖
+			renderer.DrawTexturedBatch(terrainBatch.Vertices(), camera, terrainTex); // 地形用混合：菱形 tile 的透明角要透出下层
 			ctx.stats.drawCalls = 1;
 			ctx.stats.vertices = static_cast<uint32_t>(terrainBatch.Vertices().size());
 			if (cncOk) {
