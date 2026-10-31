@@ -117,6 +117,7 @@ if(WIN32)
         platform/win32_window.cpp
         render/gl_renderer.cpp
     render/gl33.cpp
+    render/renderdoc_capture.cpp
         render/font.cpp
         render/assets.cpp
         render/cnc_assets.cpp

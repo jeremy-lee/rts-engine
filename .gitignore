@@ -48,3 +48,6 @@ gl.png
 !m16_ra_assets.png
 !m17_terrain_fixed.png
 !openra_style.png
+
+# RenderDoc 抓帧文件（体积大，不入库）
+*.rdc
