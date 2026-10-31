@@ -970,6 +970,7 @@ int main(int argc, char** argv) {
 		static int shotFrames = 0;
 		if (++shotFrames == 30) {
 			CaptureScreenshot(static_cast<int>(W), static_cast<int>(H), "editor_shot.bmp");
+
 			// 只统计地形区（避开顶部 tab 栏 36px、底部状态栏 44px、右侧面板 210px）
 			AnalyzeFrameClearColour(static_cast<int>(W), static_cast<int>(H));
 			autoShot = false;

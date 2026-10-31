@@ -8,7 +8,8 @@ namespace rts {
 
 // 从当前后台缓冲读取像素并保存为 24-bit BMP。
 // 必须在 SwapBuffers（EndFrame）之前调用。
-bool CaptureScreenshot(int width, int height, const char* path);
+// flipY=true 时按屏幕方向写出（GL 原点在左下）；false 时原样写出，用于对比坐标约定
+bool CaptureScreenshot(int width, int height, const char* path, bool flipY = false);
 
 // 调试用：读回帧缓冲并统计「清屏色」像素的分布（走 RHI，不直接调 GL）。
 // 用于定位"某些格子没画出来、露出背景色"这类问题。

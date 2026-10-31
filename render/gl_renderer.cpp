@@ -78,6 +78,19 @@ void GLRenderer::DrawBatch(const std::vector<SpriteVertex>& verts, const Camera&
 	glVertexPointer(2, GL_FLOAT, sizeof(GLVertex), &m_screenVerts[0].x);
 	glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(GLVertex), &m_screenVerts[0].r);
 	glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(m_screenVerts.size()));
+	// 立即检查 GL 错误：静默的 INVALID_OPERATION 会让整批顶点被丢弃
+	{
+		const GLenum err = glGetError();
+		if (err != GL_NO_ERROR) {
+			static int errCnt = 0;
+			if (errCnt < 5) {
+				std::fprintf(stderr, "[glerr] verts=%zu -> 0x%X\n",
+					m_screenVerts.size(), static_cast<unsigned>(err));
+				std::fflush(stderr);
+				++errCnt;
+			}
+		}
+	}
 }
 
 void GLRenderer::DrawScreenBatch(const std::vector<SpriteVertex>& verts) {
@@ -88,6 +101,19 @@ void GLRenderer::DrawScreenBatch(const std::vector<SpriteVertex>& verts) {
 	glVertexPointer(2, GL_FLOAT, sizeof(GLVertex), &m_screenVerts[0].x);
 	glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(GLVertex), &m_screenVerts[0].r);
 	glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(m_screenVerts.size()));
+	// 立即检查 GL 错误：静默的 INVALID_OPERATION 会让整批顶点被丢弃
+	{
+		const GLenum err = glGetError();
+		if (err != GL_NO_ERROR) {
+			static int errCnt = 0;
+			if (errCnt < 5) {
+				std::fprintf(stderr, "[glerr] verts=%zu -> 0x%X\n",
+					m_screenVerts.size(), static_cast<unsigned>(err));
+				std::fflush(stderr);
+				++errCnt;
+			}
+		}
+	}
 }
 
 void GLRenderer::DrawScreenTextured(const std::vector<SpriteVertex>& verts, uint32_t textureId) {
@@ -100,6 +126,19 @@ void GLRenderer::DrawScreenTextured(const std::vector<SpriteVertex>& verts, uint
 	glVertexPointer(2, GL_FLOAT, sizeof(GLVertex), &m_screenVerts[0].x);
 	glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(GLVertex), &m_screenVerts[0].r);
 	glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(m_screenVerts.size()));
+	// 立即检查 GL 错误：静默的 INVALID_OPERATION 会让整批顶点被丢弃
+	{
+		const GLenum err = glGetError();
+		if (err != GL_NO_ERROR) {
+			static int errCnt = 0;
+			if (errCnt < 5) {
+				std::fprintf(stderr, "[glerr] verts=%zu -> 0x%X\n",
+					m_screenVerts.size(), static_cast<unsigned>(err));
+				std::fflush(stderr);
+				++errCnt;
+			}
+		}
+	}
 	glDisableClientState(GL_TEXTURE_COORD_ARRAY);
 	rhi::GetDevice().SetTexture2D(false);
 }
@@ -117,6 +156,19 @@ void GLRenderer::DrawTexturedBatch(const std::vector<SpriteVertex>& verts, const
 	glVertexPointer(2, GL_FLOAT, sizeof(GLVertex), &m_screenVerts[0].x);
 	glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(GLVertex), &m_screenVerts[0].r);
 	glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(m_screenVerts.size()));
+	// 立即检查 GL 错误：静默的 INVALID_OPERATION 会让整批顶点被丢弃
+	{
+		const GLenum err = glGetError();
+		if (err != GL_NO_ERROR) {
+			static int errCnt = 0;
+			if (errCnt < 5) {
+				std::fprintf(stderr, "[glerr] verts=%zu -> 0x%X\n",
+					m_screenVerts.size(), static_cast<unsigned>(err));
+				std::fflush(stderr);
+				++errCnt;
+			}
+		}
+	}
 	glDisableClientState(GL_TEXTURE_COORD_ARRAY);
 	rhi::GetDevice().SetTexture2D(false);
 	if (opaque) rhi::GetDevice().SetBlendAlpha(true); // 恢复默认混合

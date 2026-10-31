@@ -29,7 +29,7 @@ void WriteU32(FILE* f, uint32_t v) {
 
 } // namespace
 
-bool CaptureScreenshot(int width, int height, const char* path) {
+bool CaptureScreenshot(int width, int height, const char* path, bool flipY) {
 	if (width <= 0 || height <= 0) return false;
 
 	// 读取帧缓冲：走 RHI 层，不直接调用 glReadPixels
@@ -74,7 +74,10 @@ bool CaptureScreenshot(int width, int height, const char* path) {
 
 	// 像素（GL 原点在左下，BMP 需要自下而上；BGR 顺序）
 	std::vector<uint8_t> row(static_cast<size_t>(rowBytes), 0);
-	for (int y = 0; y < height; ++y) {
+	for (int i = 0; i < height; ++i) {
+		// BMP 像素数据自下而上；pixels 里是 glReadPixels 的原序（GL 原点在左下）。
+		// flipY=true 按 BMP 惯例自下而上写出（正常截图），false 原样写出（用于对比坐标约定）。
+		const int y = flipY ? (height - 1 - i) : i;
 		const uint8_t* src = &pixels[static_cast<size_t>(y) * width * 3];
 		for (int x = 0; x < width; ++x) {
 			row[x * 3 + 0] = src[x * 3 + 2]; // B

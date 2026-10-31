@@ -1,0 +1,16 @@
+[editor] failed to load --autoshot
+[ed] cells=1700 valid=1700 sprites=1752 verts=10512
+[gl] tex=2 verts=51312 quads=8552 nan=0 huge=0 deg=0 x[-121,1319] y[-104,904]
+[ed] cells=1700 valid=1700 sprites=1752 verts=10512
+[gl] tex=2 verts=51312 quads=8552 nan=0 huge=0 deg=0 x[-121,1319] y[-104,904]
+[ed] cells=1700 valid=1700 sprites=1752 verts=10512
+[gl] tex=2 verts=51312 quads=8552 nan=0 huge=0 deg=0 x[-121,1319] y[-104,904]
+[analyze] clearColourPixels=52937 bbox=(0,50)-(1169,739)
+[analyze]   row y=573 hits=173
+[analyze]   row y=574 hits=173
+[analyze]   row y=575 hits=173
+[analyze]   row y=576 hits=173
+[analyze]   row y=577 hits=173
+[analyze] screenY=771 runs=3: [455..483] [686..713] [1060..1088]
+[analyze] screenY=770 runs=3: [455..483] [686..713] [1060..1088]
+[analyze] screenY=769 runs=3: [455..483] [686..713] [1060..1088]
