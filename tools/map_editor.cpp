@@ -711,7 +711,10 @@ int main(int argc, char** argv) {
 			std::sort(cells.begin(), cells.end(), [](const CellCoord& a, const CellCoord& b) {
 				// ç”»å®¶ç®—æ³•ï¼šç­‰è·æŠ•å½±ä¸‹å±å¹• Y = (x + y) * kStepYï¼Œå¿…é¡»æŒ‰ x+y æŽ’åºï¼Œ
 			// è¿™æ ·åŽç”»çš„ï¼ˆæ›´é ä¸‹çš„ï¼‰tile æ‰èƒ½æ­£ç¡®è¦†ç›–å‰ä¸€ä¸ª tile çš„ä¸‹åŠéƒ¨åˆ†ã€‚
-			return (a.x + a.y) < (b.x + b.y);
+			const int32_t da = a.x + a.y;
+			const int32_t db = b.x + b.y;
+			if (da != db) return da < db;
+			return a.x < b.x; // tie-break：同一条对角线上顺序确定
 			});
 			for (const CellCoord& c : cells) {
 				if (!map.InBounds(c)) continue;
