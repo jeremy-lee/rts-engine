@@ -97,9 +97,14 @@ void AnalyzeFrameClearColour(int width, int height) {
 	int count = 0;
 	int minX = width, maxX = -1, minY = height, maxY = -1;
 	int rowHits[2000] = {};
+	// 只统计地形区：y 在 [50, height-60)，x 在 [0, width-230)。避开 UI 会减少误报。
+	const int regionTop = 50;
+	const int regionBottom = height - 60;
+	const int regionRight = width - 230;
 	for (int gy = 0; gy < height; ++gy) {
 		const int y = height - 1 - gy; // 翻成左上原点
-		for (int x = 0; x < width; ++x) {
+		if (y < regionTop || y >= regionBottom) continue;
+		for (int x = 0; x < regionRight; ++x) {
 			const size_t o = (static_cast<size_t>(gy) * width + x) * 4;
 			// 清屏色 = (0.05,0.06,0.08)*255 = (12,15,20)，留 ±2 容差
 			const int dr = static_cast<int>(px[o + 0]) - 12;
