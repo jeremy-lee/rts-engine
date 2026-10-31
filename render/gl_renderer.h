@@ -53,7 +53,7 @@ private:
 
 	HDC m_hdc = nullptr;
 	std::vector<GLVertex> m_screenVerts;
-	float m_clearR = 1.0f, m_clearG = 0.0f, m_clearB = 1.0f; // 洋红清屏色（便于看清哪里没画）
+	float m_clearR = 0.05f, m_clearG = 0.06f, m_clearB = 0.08f;
 	int m_viewW = 0, m_viewH = 0; // BeginFrame 记录的视口尺寸（诊断/读回用）
 };
 
