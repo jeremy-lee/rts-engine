@@ -340,6 +340,9 @@ int main(int argc, char** argv) {
 	int fpsFrames = 0;
 	double fps = 0.0;
 
+	// 直接开局：跳过 LevelSelect，让 rts_game 一启动就能打（否则玩家没单位，只能看地形）。
+	if (!netMode && !levelPaths.empty()) startLevel(0);
+
 	while (window.PumpMessages()) {
 		const auto now = std::chrono::steady_clock::now();
 		double dt = std::chrono::duration<double>(now - last).count();
