@@ -142,6 +142,52 @@ void BuildingInfo::LoadFrom(const YamlNode& node) {
 	}
 }
 
+// ---- Tooltip ----
+void TooltipInfo::LoadFrom(const YamlNode& node) {
+	// Tooltip 的值可能是单行字符串，也可能带 Name: 子键
+	if (const YamlNode* n = node.Child("Name")) text = n->value;
+	else text = node.value;
+	if (text.empty()) text = node.value;
+}
+
+// ---- Power ----
+void PowerInfo::LoadFrom(const YamlNode& node) {
+	if (const YamlNode* n = node.Child("Amount")) amount = std::atoi(n->value.c_str());
+	else if (!node.value.empty() && node.children.empty()) amount = std::atoi(node.value.c_str());
+	if (const YamlNode* n = node.Child("Dashed")) dashed = MiniYaml::ToBool(n->value);
+}
+
+// ---- RevealsShroud ----
+void RevealsShroudInfo::LoadFrom(const YamlNode& node) {
+	const std::string v = node.Child("Range") ? node.Child("Range")->value : node.value;
+	if (!v.empty()) {
+		range = ParseWDist(v, 0);
+		valid = true;
+	}
+}
+
+// ---- Targetable ----
+void TargetableInfo::LoadFrom(const YamlNode& node) {
+	if (const YamlNode* n = node.Child("TargetTypes")) {
+		// 有 TargetTypes 就是可被攻击的；这里只记录"存在"这个事实
+		(void)n;
+		valid = true;
+	}
+	if (const YamlNode* n = node.Child("RequiresCondition")) {
+		// 带条件的目标暂不支持，保持可选中
+		(void)n;
+	}
+}
+
+// ---- HitShape ----
+void HitShapeInfo::LoadFrom(const YamlNode& node) {
+	if (const YamlNode* n = node.Child("Type")) shape = n->value;
+	if (const YamlNode* n = node.Child("Radius")) radius = ParseWDist(n->value, 0);
+	if (const YamlNode* n = node.Child("Width")) width = ParseWDist(n->value, 0);
+	if (const YamlNode* n = node.Child("Length")) height = ParseWDist(n->value, 0);
+	// Type 可能是单行（Circle）也可能带子块；空的话默认圆形
+	if (shape.empty()) shape = "Circle";
+}
 // ---------------- 注册 ----------------
 namespace {
 const bool s_registered = []() {
@@ -161,6 +207,11 @@ void RegisterCoreTraits() {
 	TraitRegistry::Register("Armament", []() -> std::unique_ptr<TraitInfo> { return std::make_unique<ArmamentInfo>(); });
 	TraitRegistry::Register("Buildable", []() -> std::unique_ptr<TraitInfo> { return std::make_unique<BuildableInfo>(); });
 	TraitRegistry::Register("Valued", []() -> std::unique_ptr<TraitInfo> { return std::make_unique<ValuedInfo>(); });
+	TraitRegistry::Register("Tooltip", []() -> std::unique_ptr<TraitInfo> { return std::make_unique<TooltipInfo>(); });
+	TraitRegistry::Register("Power", []() -> std::unique_ptr<TraitInfo> { return std::make_unique<PowerInfo>(); });
+	TraitRegistry::Register("RevealsShroud", []() -> std::unique_ptr<TraitInfo> { return std::make_unique<RevealsShroudInfo>(); });
+	TraitRegistry::Register("Targetable", []() -> std::unique_ptr<TraitInfo> { return std::make_unique<TargetableInfo>(); });
+	TraitRegistry::Register("HitShape", []() -> std::unique_ptr<TraitInfo> { return std::make_unique<HitShapeInfo>(); });
 	TraitRegistry::Register("Harvester", []() -> std::unique_ptr<TraitInfo> { return std::make_unique<HarvesterInfo>(); });
 	TraitRegistry::Register("Refinery", []() -> std::unique_ptr<TraitInfo> { return std::make_unique<RefineryInfo>(); });
 	TraitRegistry::Register("Production", []() -> std::unique_ptr<TraitInfo> { return std::make_unique<ProductionInfo>(); });

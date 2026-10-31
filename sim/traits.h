@@ -186,6 +186,52 @@ struct BuildingInfo : public TraitInfo {
 	}
 };
 
+// ---- Tooltip（Traits/Tooltip.cs）：RA 里出现最多的 trait，纯展示用 ----
+struct TooltipInfo : public TraitInfo {
+	std::string text;
+	const char* TypeName() const override { return "Tooltip"; }
+	std::unique_ptr<TraitInfo> Clone() const override { return std::make_unique<TooltipInfo>(*this); }
+	void LoadFrom(const YamlNode& node) override;
+};
+
+// ---- Power（Traits/Power/Power.cs）：发电/耗电 ----
+// amount > 0 发电，< 0 耗电（OpenRA 里耗电建筑用负数）
+struct PowerInfo : public TraitInfo {
+	int32_t amount = 0;
+	bool dashed = false;            // 是否显示为虚线电力条
+	const char* TypeName() const override { return "Power"; }
+	std::unique_ptr<TraitInfo> Clone() const override { return std::make_unique<PowerInfo>(*this); }
+	void LoadFrom(const YamlNode& node) override;
+};
+
+// ---- RevealsShroud（Traits/RevealsShroud.cs）：提供视野 ----
+struct RevealsShroudInfo : public TraitInfo {
+	int32_t range = 0;              // WDist（子格）
+	bool valid = false;
+	const char* TypeName() const override { return "RevealsShroud"; }
+	std::unique_ptr<TraitInfo> Clone() const override { return std::make_unique<RevealsShroudInfo>(*this); }
+	void LoadFrom(const YamlNode& node) override;
+};
+
+// ---- Targetable（Traits/Targetable.cs）：能否被选为攻击目标 ----
+struct TargetableInfo : public TraitInfo {
+	bool valid = true;
+	const char* TypeName() const override { return "Targetable"; }
+	std::unique_ptr<TraitInfo> Clone() const override { return std::make_unique<TargetableInfo>(*this); }
+	void LoadFrom(const YamlNode& node) override;
+};
+
+// ---- HitShape（Traits/HitShape.cs）：命中判定形状 ----
+// 简化实现：只解析 Type（Circle/Rectangle）和 Radius，够做近战/远程命中判定。
+struct HitShapeInfo : public TraitInfo {
+	std::string shape = "Circle";   // Type: Circle / Rectangle
+	int32_t radius = 0;             // Radius（WDist）
+	int32_t width = 0;              // Rectangle 用
+	int32_t height = 0;
+	const char* TypeName() const override { return "HitShape"; }
+	std::unique_ptr<TraitInfo> Clone() const override { return std::make_unique<HitShapeInfo>(*this); }
+	void LoadFrom(const YamlNode& node) override;
+};
 // 注册所有内置 trait（第一次调用 LoadDirectory 前调用；可重复调用）
 void RegisterCoreTraits();
 

@@ -342,3 +342,70 @@ TEST(audit_building_footprint_length_mismatch) {
 	// 失败后回退到"全占用"，占格数仍是 2x2
 	CHECK_EQ(b->OccupiedCells(0, 0).size(), static_cast<size_t>(4));
 }
+TEST(audit_new_traits_tooltip_power_shroud) {
+	// P2-8：验证新移植的 5 个 trait 能从 yaml 解析出正确的值
+	RegisterCoreTraits();
+	const char* text =
+		"POWR:\n"
+		"\tTooltip:\n"
+		"\t\tName: Power Plant\n"
+		"\tBuilding:\n"
+		"\t\tDimensions: 2,3\n"
+		"\tPower:\n"
+		"\t\tAmount: 100\n"
+		"\tRevealsShroud:\n"
+		"\t\tRange: 4c0\n"
+		"\tHitShape:\n"
+		"\t\tType: Circle\n"
+		"\t\tRadius: 1c512\n";
+	YamlNode root;
+	CHECK(MiniYaml::Parse(text, root));
+	Ruleset rules;
+	rules.LoadFromNodes(root);
+	const ActorInfo* info = rules.FindActor("POWR");
+	CHECK(info != nullptr);
+	if (info == nullptr) return;
+
+	const TooltipInfo* tip = info->Find<TooltipInfo>();
+	CHECK(tip != nullptr);
+	if (tip) {
+		CHECK_EQ(tip->text, std::string("Power Plant"));
+	}
+
+	const PowerInfo* pw = info->Find<PowerInfo>();
+	CHECK(pw != nullptr);
+	if (pw) CHECK_EQ(pw->amount, 100);
+
+	const RevealsShroudInfo* rs = info->Find<RevealsShroudInfo>();
+	CHECK(rs != nullptr);
+	if (rs) {
+		CHECK(rs->valid);
+		CHECK(rs->range > 0);
+		std::printf("  [audit] RevealsShroud range=%d\n", rs->range);
+	}
+
+	const HitShapeInfo* hs = info->Find<HitShapeInfo>();
+	CHECK(hs != nullptr);
+	if (hs) {
+		CHECK_EQ(hs->shape, std::string("Circle"));
+		CHECK(hs->radius > 0);
+	}
+}
+
+TEST(audit_targetable_present) {
+	RegisterCoreTraits();
+	const char* text =
+		"E1:\n"
+		"\tTargetable:\n"
+		"\t\tTargetTypes: Infantry\n";
+	YamlNode root;
+	CHECK(MiniYaml::Parse(text, root));
+	Ruleset rules;
+	rules.LoadFromNodes(root);
+	const ActorInfo* info = rules.FindActor("E1");
+	CHECK(info != nullptr);
+	if (info == nullptr) return;
+	const TargetableInfo* t = info->Find<TargetableInfo>();
+	CHECK(t != nullptr);
+	if (t) CHECK(t->valid);
+}
