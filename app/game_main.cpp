@@ -873,7 +873,7 @@ int main(int argc, char** argv) {
 		} else {
 			renderer.BeginFrame(W, H);
 			graph.AddPass("World", [&](PassContext& ctx) {
-				renderer.DrawTexturedBatch(terrainBatch.Vertices(), camera, terrainTex);
+				renderer.DrawTexturedBatch(terrainBatch.Vertices(), camera, terrainTex, true); // 地形不透明覆盖
 				ctx.stats.drawCalls = 1;
 				ctx.stats.vertices = static_cast<uint32_t>(terrainBatch.Vertices().size());
 				if (cncOk) {

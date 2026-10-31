@@ -774,7 +774,7 @@ int main(int argc, char** argv) {
 		// ---- å¸§å›¾ï¼ˆUE5 RDG é£Žæ ¼ï¼‰ï¼šWorld â†’ UI â†’ Icons â†’ Text ----
 		RenderGraph graph;
 		graph.AddPass("World", [&](PassContext& ctx) {
-			renderer.DrawTexturedBatch(terrainBatch.Vertices(), camera, terrainTex);
+			renderer.DrawTexturedBatch(terrainBatch.Vertices(), camera, terrainTex, true); // 地形不透明覆盖
 			ctx.stats.drawCalls = 1;
 			ctx.stats.vertices = static_cast<uint32_t>(terrainBatch.Vertices().size());
 			if (cncOk && !entityBatch.Vertices().empty()) {

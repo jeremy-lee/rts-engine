@@ -63,6 +63,12 @@ bool Device::Init() {
 	m_renderTargets.emplace_back(); // 槽 0 = backbuffer
 	m_rendererString = reinterpret_cast<const char*>(glGetString(GL_RENDERER));
 	if (m_rendererString == nullptr) m_rendererString = "unknown";
+	// 状态缓存必须与 GL 的初始状态一致：GLRenderer::Initialize 已经 glEnable(GL_BLEND)，
+	// 否则 SetBlendAlpha(false) 会因为缓存认为"已经是 false"而被跳过（这个 bug 让地形
+	// 的 alpha 混合一直开着，重叠区域混合而非覆盖）。
+	m_blend = true;
+	m_texture2D = false;
+	m_depthTest = false;
 	m_supportsFBO = false;
 	const char* exts = reinterpret_cast<const char*>(glGetString(GL_EXTENSIONS));
 	if (exts != nullptr && std::strstr(exts, "GL_EXT_framebuffer_object") != nullptr) {

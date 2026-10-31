@@ -101,10 +101,13 @@ void GLRenderer::DrawScreenTextured(const std::vector<SpriteVertex>& verts, uint
 	rhi::GetDevice().SetTexture2D(false);
 }
 
-void GLRenderer::DrawTexturedBatch(const std::vector<SpriteVertex>& verts, const Camera& camera, uint32_t textureId) {
+void GLRenderer::DrawTexturedBatch(const std::vector<SpriteVertex>& verts, const Camera& camera,
+	uint32_t textureId, bool opaque) {
 	if (verts.empty() || textureId == 0) return;
 	FillScreenVerts(verts, true, &camera);
-	rhi::GetDevice().SetTexture2D(true);
+	rhi::Device& dev = rhi::GetDevice();
+	if (opaque) dev.SetBlendAlpha(false);
+	dev.SetTexture2D(true);
 	glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(textureId));
 	glTexCoordPointer(2, GL_FLOAT, sizeof(GLVertex), &m_screenVerts[0].u);
 	glEnableClientState(GL_TEXTURE_COORD_ARRAY);
@@ -113,6 +116,7 @@ void GLRenderer::DrawTexturedBatch(const std::vector<SpriteVertex>& verts, const
 	glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(m_screenVerts.size()));
 	glDisableClientState(GL_TEXTURE_COORD_ARRAY);
 	rhi::GetDevice().SetTexture2D(false);
+	if (opaque) rhi::GetDevice().SetBlendAlpha(true); // 恢复默认混合
 }
 
 void GLRenderer::UpdateTexture(uint32_t textureId, const std::vector<uint8_t>& rgba, int width, int height) {
