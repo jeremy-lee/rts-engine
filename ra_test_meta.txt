@@ -1,0 +1,3 @@
+RTSMETA 1
+tileset SNOW
+bounds 49 45 30 36

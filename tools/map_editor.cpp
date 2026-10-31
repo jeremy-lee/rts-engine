@@ -1,22 +1,22 @@
-// RTS Engine — tools/map_editor.cpp
-// 地图编辑器（完整版）：渲染后端与游戏完全一致
-//   - 地形：TerrainGfx 程序化纹理（同 rts_game）
-//   - 图集：CncAtlas 精灵（单位/建筑预览 + 放置）
-//   - 相机：Camera（WASD / 边缘滚动 / 滚轮）
-//   - UI：ui::BuildPanel/BuildButton + BitmapFont
+// RTS Engine â€” tools/map_editor.cpp
+// åœ°å›¾ç¼–è¾‘å™¨ï¼ˆå®Œæ•´ç‰ˆï¼‰ï¼šæ¸²æŸ“åŽç«¯ä¸Žæ¸¸æˆå®Œå…¨ä¸€è‡´
+//   - åœ°å½¢ï¼šTerrainGfx ç¨‹åºåŒ–çº¹ç†ï¼ˆåŒ rts_gameï¼‰
+//   - å›¾é›†ï¼šCncAtlas ç²¾çµï¼ˆå•ä½/å»ºç­‘é¢„è§ˆ + æ”¾ç½®ï¼‰
+//   - ç›¸æœºï¼šCameraï¼ˆWASD / è¾¹ç¼˜æ»šåŠ¨ / æ»šè½®ï¼‰
+//   - UIï¼šui::BuildPanel/BuildButton + BitmapFont
 //
-// 操作：
-//   左键拖动画布 = 绘制地形笔刷（或放置选中的图集单位）
-//   1-6 / 0      = 地形笔刷（草地/水/岩石/沙地/高地/资源/橡皮）
-//   右侧面板      = 点击图集精灵 → 进入放置模式
-//   Q            = 返回地形模式（取消放置）
-//   [ / ]        = 笔刷半径 -/+
-//   右键点击      = 删除该格放置的单位
-//   WASD/边缘/滚轮 = 相机
-//   Ctrl+S       = 保存地图 + 实体（map_export.map / map_entities.txt）
-//   Ctrl+O       = 加载（demo_map.map / map_entities.txt）
-//   G（按住）     = 网格
-//   N            = 新建地图
+// æ“ä½œï¼š
+//   å·¦é”®æ‹–åŠ¨ç”»å¸ƒ = ç»˜åˆ¶åœ°å½¢ç¬”åˆ·ï¼ˆæˆ–æ”¾ç½®é€‰ä¸­çš„å›¾é›†å•ä½ï¼‰
+//   1-6 / 0      = åœ°å½¢ç¬”åˆ·ï¼ˆè‰åœ°/æ°´/å²©çŸ³/æ²™åœ°/é«˜åœ°/èµ„æº/æ©¡çš®ï¼‰
+//   å³ä¾§é¢æ¿      = ç‚¹å‡»å›¾é›†ç²¾çµ â†’ è¿›å…¥æ”¾ç½®æ¨¡å¼
+//   Q            = è¿”å›žåœ°å½¢æ¨¡å¼ï¼ˆå–æ¶ˆæ”¾ç½®ï¼‰
+//   [ / ]        = ç¬”åˆ·åŠå¾„ -/+
+//   å³é”®ç‚¹å‡»      = åˆ é™¤è¯¥æ ¼æ”¾ç½®çš„å•ä½
+//   WASD/è¾¹ç¼˜/æ»šè½® = ç›¸æœº
+//   Ctrl+S       = ä¿å­˜åœ°å›¾ + å®žä½“ï¼ˆmap_export.map / map_entities.txtï¼‰
+//   Ctrl+O       = åŠ è½½ï¼ˆdemo_map.map / map_entities.txtï¼‰
+//   Gï¼ˆæŒ‰ä½ï¼‰     = ç½‘æ ¼
+//   N            = æ–°å»ºåœ°å›¾
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
@@ -71,19 +71,19 @@ TerrainKind BrushTerrain(Brush b) {
 	}
 }
 
-// 用户在图集面板里选中的具体模板（-1 = 用地形笔刷模式）
+// ç”¨æˆ·åœ¨å›¾é›†é¢æ¿é‡Œé€‰ä¸­çš„å…·ä½“æ¨¡æ¿ï¼ˆ-1 = ç”¨åœ°å½¢ç¬”åˆ·æ¨¡å¼ï¼‰
 static int g_selectedTemplate = -1;
 static int g_selectedIndex = 0;
 
-// 刷一个具体模板：tile 数据 + 由 tileset 派生出的通行/可建造标志
-// 把模板放在 origin：模板可能占 N×M 格（sh01.tem 是 4×5，w2.tem 是 2×2），
-// 一次覆盖 N×M 并在每格写入对应的子格 index（行优先：y*sizeW + x），与 OpenRA 的
-// TileTemplate.Size / TerrainTile(type,index) 语义一致。
+// åˆ·ä¸€ä¸ªå…·ä½“æ¨¡æ¿ï¼štile æ•°æ® + ç”± tileset æ´¾ç”Ÿå‡ºçš„é€šè¡Œ/å¯å»ºé€ æ ‡å¿—
+// æŠŠæ¨¡æ¿æ”¾åœ¨ originï¼šæ¨¡æ¿å¯èƒ½å  NÃ—M æ ¼ï¼ˆsh01.tem æ˜¯ 4Ã—5ï¼Œw2.tem æ˜¯ 2Ã—2ï¼‰ï¼Œ
+// ä¸€æ¬¡è¦†ç›– NÃ—M å¹¶åœ¨æ¯æ ¼å†™å…¥å¯¹åº”çš„å­æ ¼ indexï¼ˆè¡Œä¼˜å…ˆï¼šy*sizeW + xï¼‰ï¼Œä¸Ž OpenRA çš„
+// TileTemplate.Size / TerrainTile(type,index) è¯­ä¹‰ä¸€è‡´ã€‚
 void PlaceTemplate(Map& map, CellCoord origin, int templateId, int variant) {
 	const TileSet::Template* t = TileSet::Find(templateId);
 	const int sw = (t != nullptr && t->sizeW > 0) ? t->sizeW : 1;
 	const int sh = (t != nullptr && t->sizeH > 0) ? t->sizeH : 1;
-	// variant 只对 1×1 模板有意义（多格模板的 index 就是子格序号）
+	// variant åªå¯¹ 1Ã—1 æ¨¡æ¿æœ‰æ„ä¹‰ï¼ˆå¤šæ ¼æ¨¡æ¿çš„ index å°±æ˜¯å­æ ¼åºå·ï¼‰
 	const bool multi = (sw > 1 || sh > 1) && t != nullptr && t->frameCount >= sw * sh;
 	for (int dy = 0; dy < sh; ++dy) {
 		for (int dx = 0; dx < sw; ++dx) {
@@ -101,14 +101,14 @@ void PlaceTemplate(Map& map, CellCoord origin, int templateId, int variant) {
 	}
 }
 
-// 单格刷（半径内的每一格都放一个模板；多格模板会按自身尺寸覆盖）
+// å•æ ¼åˆ·ï¼ˆåŠå¾„å†…çš„æ¯ä¸€æ ¼éƒ½æ”¾ä¸€ä¸ªæ¨¡æ¿ï¼›å¤šæ ¼æ¨¡æ¿ä¼šæŒ‰è‡ªèº«å°ºå¯¸è¦†ç›–ï¼‰
 void ApplyTemplateBrush(Map& map, CellCoord c, int templateId, int index) {
 	PlaceTemplate(map, c, templateId, index);
 }
 
-void ApplyBrush(Map& map, CellCoord c, Brush b, int radius); // 前向声明
+void ApplyBrush(Map& map, CellCoord c, Brush b, int radius); // å‰å‘å£°æ˜Ž
 
-// Bresenham 连线：拖拽时从上一格到当前格逐格落笔，避免快速拖动漏格
+// Bresenham è¿žçº¿ï¼šæ‹–æ‹½æ—¶ä»Žä¸Šä¸€æ ¼åˆ°å½“å‰æ ¼é€æ ¼è½ç¬”ï¼Œé¿å…å¿«é€Ÿæ‹–åŠ¨æ¼æ ¼
 void DrawBrushLine(Map& map, CellCoord from, CellCoord to, Brush b, int radius) {
 	int32_t x0 = from.x, y0 = from.y;
 	const int32_t x1 = to.x, y1 = to.y;
@@ -132,13 +132,13 @@ void ApplyBrush(Map& map, CellCoord c, Brush b, int radius) {
 			const CellCoord cell(c.x + dx, c.y + dy);
 			if (!map.InBounds(cell)) continue;
 			if (g_selectedTemplate >= 0) {
-				// 直接刷用户在图集面板里选中的具体模板（templateId + 变体 index）
+				// ç›´æŽ¥åˆ·ç”¨æˆ·åœ¨å›¾é›†é¢æ¿é‡Œé€‰ä¸­çš„å…·ä½“æ¨¡æ¿ï¼ˆtemplateId + å˜ä½“ indexï¼‰
 				ApplyTemplateBrush(map, cell, g_selectedTemplate, g_selectedIndex);
 				continue;
 			}
 			switch (b) {
 				case Brush::Grass:
-					// clear1（模板 255）：随机挑一个变体，保存后变体不会丢（index 存在地图里）
+					// clear1ï¼ˆæ¨¡æ¿ 255ï¼‰ï¼šéšæœºæŒ‘ä¸€ä¸ªå˜ä½“ï¼Œä¿å­˜åŽå˜ä½“ä¸ä¼šä¸¢ï¼ˆindex å­˜åœ¨åœ°å›¾é‡Œï¼‰
 					map.SetTile(cell, 255, static_cast<uint8_t>((cell.x * 7 + cell.y * 13) & 0x0F));
 					map.SetFlags(cell, kWalkable | kBuildable);
 					map.SetTerrainHeight(cell, 0);
@@ -149,12 +149,12 @@ void ApplyBrush(Map& map, CellCoord c, Brush b, int radius) {
 					map.SetTerrainHeight(cell, 0);
 					break;
 				case Brush::Rock:
-					map.SetTile(cell, 103, 0); // p01.tem（Rock）
+					map.SetTile(cell, 103, 0); // p01.temï¼ˆRockï¼‰
 					map.SetFlags(cell, kBuildable);
 					map.SetTerrainHeight(cell, 0);
 					break;
 				case Brush::Sand:
-					map.SetTile(cell, 255, 3); // 复用 clear1 的一个变体
+					map.SetTile(cell, 255, 3); // å¤ç”¨ clear1 çš„ä¸€ä¸ªå˜ä½“
 					map.SetFlags(cell, kWalkable | kBuildable);
 					map.SetTerrainHeight(cell, 0);
 					break;
@@ -189,17 +189,17 @@ TerrainKind TerrainOf(const Map& map, CellCoord c) {
 	return TerrainKind::Grass;
 }
 
-// 编辑器放置的实体（不进入 sim，纯编辑数据）。spriteIndex = CncAtlas 动态索引。
+// ç¼–è¾‘å™¨æ”¾ç½®çš„å®žä½“ï¼ˆä¸è¿›å…¥ simï¼Œçº¯ç¼–è¾‘æ•°æ®ï¼‰ã€‚spriteIndex = CncAtlas åŠ¨æ€ç´¢å¼•ã€‚
 struct PlacedEntity {
 	int spriteIndex = 0;
 	uint8_t player = 0;
 	CellCoord cell;
 };
 
-// ---- 拖放导入：把拖入的 PNG 作为新精灵追加到 assets/sprites.txt，然后调用 rts_import ----
-// 返回 true 表示成功（调用方据此重载图集）。
+// ---- æ‹–æ”¾å¯¼å…¥ï¼šæŠŠæ‹–å…¥çš„ PNG ä½œä¸ºæ–°ç²¾çµè¿½åŠ åˆ° assets/sprites.txtï¼Œç„¶åŽè°ƒç”¨ rts_import ----
+// è¿”å›ž true è¡¨ç¤ºæˆåŠŸï¼ˆè°ƒç”¨æ–¹æ®æ­¤é‡è½½å›¾é›†ï¼‰ã€‚
 bool AppendSpritesConfig(const std::vector<std::string>& files, std::string& status) {
-	// 按文件名分组：prefix = 去掉 "-数字.png" 的部分
+	// æŒ‰æ–‡ä»¶ååˆ†ç»„ï¼šprefix = åŽ»æŽ‰ "-æ•°å­—.png" çš„éƒ¨åˆ†
 	struct Group {
 		std::string prefix;
 		std::string dir;
@@ -232,7 +232,7 @@ bool AppendSpritesConfig(const std::vector<std::string>& files, std::string& sta
 		status = "Drop ignored: no PNG files";
 		return false;
 	}
-	// 读现有配置
+	// è¯»çŽ°æœ‰é…ç½®
 	std::vector<std::string> lines;
 	int maxRow = 0;
 	{
@@ -251,11 +251,11 @@ bool AppendSpritesConfig(const std::vector<std::string>& files, std::string& sta
 			lines = {"cell 80 64", "cols 64", "team 2", "team0 70 90 255", "team1 235 60 60", ""};
 		}
 	}
-	// 追加新精灵（单张 = 1 帧；多张 = 帧序列）
+	// è¿½åŠ æ–°ç²¾çµï¼ˆå•å¼  = 1 å¸§ï¼›å¤šå¼  = å¸§åºåˆ—ï¼‰
 	int row = maxRow;
 	int added = 0;
 	for (const auto& [prefix, g] : groups) {
-		// 精灵名：前缀大写（引擎 SpriteIdFromName 只认已知名；未知名会被忽略但仍生成图集）
+		// ç²¾çµåï¼šå‰ç¼€å¤§å†™ï¼ˆå¼•æ“Ž SpriteIdFromName åªè®¤å·²çŸ¥åï¼›æœªçŸ¥åä¼šè¢«å¿½ç•¥ä½†ä»ç”Ÿæˆå›¾é›†ï¼‰
 		std::string name = prefix;
 		for (char& ch : name) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
 		char lineBuf[256];
@@ -275,7 +275,7 @@ bool AppendSpritesConfig(const std::vector<std::string>& files, std::string& sta
 	return true;
 }
 
-// 运行 rts_import（同步）
+// è¿è¡Œ rts_importï¼ˆåŒæ­¥ï¼‰
 bool RunImportTool(const std::string& framesDir, std::string& status) {
 	std::string cmd = "build\\rts_import.exe \"" + framesDir + "\" assets\\sprites.txt assets\\cnc_atlas.bmp assets\\cnc_atlas.txt";
 	const int rc = std::system(cmd.c_str());
@@ -291,7 +291,7 @@ bool SaveEntities(const char* path, const std::vector<PlacedEntity>& list) {
 	if (!f) return false;
 	std::fprintf(f, "RTSENT 2\n");
 	for (const auto& e : list) {
-		// 用精灵名保存（跨重启/重新导入稳定）
+		// ç”¨ç²¾çµåä¿å­˜ï¼ˆè·¨é‡å¯/é‡æ–°å¯¼å…¥ç¨³å®šï¼‰
 		std::fprintf(f, "%s %d %d %d\n", CncAtlas::NameAt(e.spriteIndex), static_cast<int>(e.player), e.cell.x, e.cell.y);
 	}
 	std::fclose(f);
@@ -336,12 +336,12 @@ bool LoadEntities(const char* path, std::vector<PlacedEntity>& out) {
 } // namespace
 
 int main(int argc, char** argv) {
-	// 可选：命令行直接指定要加载的地图（省得模拟按键）
+	// å¯é€‰ï¼šå‘½ä»¤è¡Œç›´æŽ¥æŒ‡å®šè¦åŠ è½½çš„åœ°å›¾ï¼ˆçœå¾—æ¨¡æ‹ŸæŒ‰é”®ï¼‰
 	std::string cliMapPath;
 	if (argc > 1) cliMapPath = argv[1];
 
 	Win32Window window;
-	if (!window.Create("RTS Engine — Map Editor", 1400, 800)) return 1;
+	if (!window.Create("RTS Engine â€” Map Editor", 1400, 800)) return 1;
 
 	GLRenderer renderer;
 	if (!renderer.Initialize(window.DeviceContext())) {
@@ -357,13 +357,13 @@ int main(int argc, char** argv) {
 
 	int terrW = 0, terrH = 0;
 	std::vector<uint8_t> terrPixels;
-	// 多套 tileset：全部载入，按地图的 TilesetName 切换（缺省 TEMPERAT）
+	// å¤šå¥— tilesetï¼šå…¨éƒ¨è½½å…¥ï¼ŒæŒ‰åœ°å›¾çš„ TilesetName åˆ‡æ¢ï¼ˆç¼ºçœ TEMPERATï¼‰
 	TileSet::LoadSet("TEMPERAT", "assets/tileset_TEMPERAT.txt");
 	TileSet::LoadSet("SNOW", "assets/tileset_SNOW.txt");
 	TileSet::LoadSet("INTERIOR", "assets/tileset_INTERIOR.txt");
 	TileSet::UseSet("TEMPERAT");
 	if (!TerrainGfx::Load(TileSet::CurrentBitmapPath(), terrPixels, terrW, terrH)) {
-		terrPixels = TerrainGfx::Build(terrW, terrH); // 回退：程序化纯色
+		terrPixels = TerrainGfx::Build(terrW, terrH); // å›žé€€ï¼šç¨‹åºåŒ–çº¯è‰²
 	}
 
 	uint32_t terrainTex = renderer.UploadTexture(terrPixels, terrW, terrH);
@@ -395,10 +395,10 @@ int main(int argc, char** argv) {
 
 	Brush brush = Brush::Grass;
 	int brushRadius = 1;
-	int selectedSprite = -1; // -1 = 地形模式
-	int panelTab = 0;        // 0 = UNITS（C&C 单位图集）, 1 = TERRAIN（tileset 模板）
+	int selectedSprite = -1; // -1 = åœ°å½¢æ¨¡å¼
+	int panelTab = 0;        // 0 = UNITSï¼ˆC&C å•ä½å›¾é›†ï¼‰, 1 = TERRAINï¼ˆtileset æ¨¡æ¿ï¼‰
 
-	// 地形面板的候选项：每种 TerrainType 取第一个 1×1 模板作为代表
+	// åœ°å½¢é¢æ¿çš„å€™é€‰é¡¹ï¼šæ¯ç§ TerrainType å–ç¬¬ä¸€ä¸ª 1Ã—1 æ¨¡æ¿ä½œä¸ºä»£è¡¨
 	struct TerrainChoice {
 		int templateId = 0;
 		std::string label;
@@ -419,10 +419,10 @@ int main(int argc, char** argv) {
 	bool showGrid = false;
 	std::string status = "Ready";
 
-	// 命令行指定地图：直接加载（省得模拟 Ctrl+O）
+	// å‘½ä»¤è¡ŒæŒ‡å®šåœ°å›¾ï¼šç›´æŽ¥åŠ è½½ï¼ˆçœå¾—æ¨¡æ‹Ÿ Ctrl+Oï¼‰
 	if (!cliMapPath.empty()) {
 		if (map.LoadBinary(cliMapPath)) {
-			// meta / entities 从地图名推导（foo.map → foo_meta.txt / foo_actors.txt）
+			// meta / entities ä»Žåœ°å›¾åæŽ¨å¯¼ï¼ˆfoo.map â†’ foo_meta.txt / foo_actors.txtï¼‰
 			const size_t dot = cliMapPath.find_last_of('.');
 			const std::string base = (dot == std::string::npos) ? cliMapPath : cliMapPath.substr(0, dot);
 			map.LoadMeta(base + "_meta.txt");
@@ -458,33 +458,33 @@ int main(int argc, char** argv) {
 		const float mx = static_cast<float>(window.MouseX());
 		const float my = static_cast<float>(window.MouseY());
 
-		// ---- 相机 ----
+		// ---- ç›¸æœº ----
 		const float pan = 520.0f * (1.0f / 60.0f) / camera.zoom;
 		if (window.IsKeyDown('W') || window.IsKeyDown(VK_UP)) camera.centerY -= pan;
 		if (window.IsKeyDown('S') || window.IsKeyDown(VK_DOWN)) camera.centerY += pan;
 		if (window.IsKeyDown('A') || window.IsKeyDown(VK_LEFT)) camera.centerX -= pan;
 		if (window.IsKeyDown('D') || window.IsKeyDown(VK_RIGHT)) camera.centerX += pan;
-		// 边缘滚动已禁用：鼠标移出窗口时 Win32 报告的坐标会落在边缘，导致相机被推走。
-		// 编辑器用 WASD/方向键平移即可（游戏内可选启用边缘滚动）。
+		// è¾¹ç¼˜æ»šåŠ¨å·²ç¦ç”¨ï¼šé¼ æ ‡ç§»å‡ºçª—å£æ—¶ Win32 æŠ¥å‘Šçš„åæ ‡ä¼šè½åœ¨è¾¹ç¼˜ï¼Œå¯¼è‡´ç›¸æœºè¢«æŽ¨èµ°ã€‚
+		// ç¼–è¾‘å™¨ç”¨ WASD/æ–¹å‘é”®å¹³ç§»å³å¯ï¼ˆæ¸¸æˆå†…å¯é€‰å¯ç”¨è¾¹ç¼˜æ»šåŠ¨ï¼‰ã€‚
 		const int wheel = window.ConsumeWheel();
 		if (wheel != 0) camera.ZoomAt((wheel > 0) ? 1.1f : 1.0f / 1.1f, mx, my);
 		camera.viewW = W;
 		camera.viewH = H;
 
-		// ---- 拖放导入（PNG 拖进窗口）----
+		// ---- æ‹–æ”¾å¯¼å…¥ï¼ˆPNG æ‹–è¿›çª—å£ï¼‰----
 		{
 			const auto dropped = window.ConsumeDroppedFiles();
 			if (!dropped.empty()) {
 				std::string msg;
 				if (AppendSpritesConfig(dropped, msg)) {
-					// 用第一个文件的目录作为帧目录
+					// ç”¨ç¬¬ä¸€ä¸ªæ–‡ä»¶çš„ç›®å½•ä½œä¸ºå¸§ç›®å½•
 					const std::string& first = dropped.front();
 					const size_t slash = first.find_last_of("\\/");
 					const std::string dir = (slash == std::string::npos) ? std::string(".") : first.substr(0, slash);
 					if (!RunImportTool(dir, msg)) {
 						status = msg;
 					} else {
-						// 重载图集（纹理 + 元数据）
+						// é‡è½½å›¾é›†ï¼ˆçº¹ç† + å…ƒæ•°æ®ï¼‰
 					
 	CncAtlas::LoadMeta("assets/cnc_atlas.txt");
 
@@ -507,7 +507,7 @@ int main(int argc, char** argv) {
 			}
 		}
 
-		// ---- 笔刷切换 ----
+		// ---- ç¬”åˆ·åˆ‡æ¢ ----
 		static const int keyMap[kBrushCount] = {'1', '2', '3', '4', '5', '6', '0'};
 		for (int i = 0; i < kBrushCount; ++i) {
 			if (window.IsKeyDown(keyMap[i])) { brush = static_cast<Brush>(i); selectedSprite = -1; }
@@ -516,19 +516,19 @@ int main(int argc, char** argv) {
 		if (window.IsKeyDown('[') && brushRadius > 0) --brushRadius;
 		if (window.IsKeyDown(']') && brushRadius < 8) ++brushRadius;
 
-		// ---- 悬停格 ----
+		// ---- æ‚¬åœæ ¼ ----
 		{
 			float wx = 0, wy = 0;
 			camera.ScreenToWorld(mx, my, wx, wy);
 			hoverCell = ScreenToCell(ScreenPos{static_cast<int32_t>(wx), static_cast<int32_t>(wy)});
 		}
 
-		// ---- 布局 ----
+		// ---- å¸ƒå±€ ----
 		const float canvasW = static_cast<float>(W) - panelW;
 		const bool inCanvas = (mx < canvasW && my > topH && my < static_cast<float>(H) - botH);
 		const bool inPanel = (mx >= canvasW && my > topH && my < static_cast<float>(H) - botH);
 
-		// ---- 图集面板（右侧，动态：只显示有元数据的精灵，包含运行时导入的）----
+		// ---- å›¾é›†é¢æ¿ï¼ˆå³ä¾§ï¼ŒåŠ¨æ€ï¼šåªæ˜¾ç¤ºæœ‰å…ƒæ•°æ®çš„ç²¾çµï¼ŒåŒ…å«è¿è¡Œæ—¶å¯¼å…¥çš„ï¼‰----
 		std::vector<int> panelSprites;
 		for (int i = 0; i < CncAtlas::Count(); ++i) {
 			int w = 0, h = 0;
@@ -536,7 +536,7 @@ int main(int argc, char** argv) {
 			if (w > 0 && h > 0) panelSprites.push_back(i);
 		}
 		const int spriteCount = static_cast<int>(panelSprites.size());
-		// 面板 tab 栏（UNITS / TERRAIN）
+		// é¢æ¿ tab æ ï¼ˆUNITS / TERRAINï¼‰
 		const float tabH = 26.0f;
 		const ui::Rect tabUnits{canvasW + 8.0f, topH + 6.0f, (panelW - 20.0f) * 0.5f, tabH};
 		const ui::Rect tabTerrain{tabUnits.x + tabUnits.w + 4.0f, topH + 6.0f, (panelW - 20.0f) * 0.5f, tabH};
@@ -550,7 +550,7 @@ int main(int argc, char** argv) {
 				spriteRects[static_cast<size_t>(i)] = ui::Rect{canvasW + 8.0f, y0, panelW - 16.0f, itemH};
 			}
 		}
-		// TERRAIN 面板：3 列网格，每项 62×62（缩略图 + 名字）
+		// TERRAIN é¢æ¿ï¼š3 åˆ—ç½‘æ ¼ï¼Œæ¯é¡¹ 62Ã—62ï¼ˆç¼©ç•¥å›¾ + åå­—ï¼‰
 		const int terrainCount = static_cast<int>(terrainChoices.size());
 		const float terrCellW = (panelW - 24.0f) / 3.0f;
 		const float terrCellH = 62.0f;
@@ -564,20 +564,20 @@ int main(int argc, char** argv) {
 				terrCellW - 4.0f, terrCellH};
 		}
 
-		// ---- 左键：面板选择 / 画布绘制 ----
+		// ---- å·¦é”®ï¼šé¢æ¿é€‰æ‹© / ç”»å¸ƒç»˜åˆ¶ ----
 		static bool prevLeft = false;
 		static CellCoord lastBrushCell(-99999, -99999);
 		const bool leftNow = window.IsMouseDown(0);
 		if (!leftNow) lastBrushCell = CellCoord(-99999, -99999);
 		if (leftNow) {
 			if (inPanel) {
-				// tab 切换
+				// tab åˆ‡æ¢
 				if (tabUnits.Contains(mx, my)) {
 					panelTab = 0;
-					g_selectedTemplate = -1; // 回到单位模式
+					g_selectedTemplate = -1; // å›žåˆ°å•ä½æ¨¡å¼
 				} else if (tabTerrain.Contains(mx, my)) {
 					panelTab = 1;
-					selectedSprite = -1; // 回到地形模式
+					selectedSprite = -1; // å›žåˆ°åœ°å½¢æ¨¡å¼
 				}
 				if (panelTab == 0) {
 					for (int i = 0; i < spriteCount; ++i) {
@@ -600,7 +600,7 @@ int main(int argc, char** argv) {
 				}
 			} else if (inCanvas && map.InBounds(hoverCell)) {
 				if (selectedSprite >= 0) {
-					// 放置（避免重叠：同格只放一个）
+					// æ”¾ç½®ï¼ˆé¿å…é‡å ï¼šåŒæ ¼åªæ”¾ä¸€ä¸ªï¼‰
 					bool exists = false;
 					for (const auto& e : placed) {
 						if (e.cell.x == hoverCell.x && e.cell.y == hoverCell.y) { exists = true; break; }
@@ -613,7 +613,7 @@ int main(int argc, char** argv) {
 						placed.push_back(e);
 					}
 				} else {
-					// 地形笔刷：首次落笔画单格，之后从上一格 Bresenham 连到当前格
+					// åœ°å½¢ç¬”åˆ·ï¼šé¦–æ¬¡è½ç¬”ç”»å•æ ¼ï¼Œä¹‹åŽä»Žä¸Šä¸€æ ¼ Bresenham è¿žåˆ°å½“å‰æ ¼
 					if (lastBrushCell.x == -99999 || lastBrushCell.y == -99999) {
 						ApplyBrush(map, hoverCell, brush, brushRadius);
 					} else if (lastBrushCell.x != hoverCell.x || lastBrushCell.y != hoverCell.y) {
@@ -623,7 +623,7 @@ int main(int argc, char** argv) {
 				}
 			}
 		}
-		// 右键：删除放置物
+		// å³é”®ï¼šåˆ é™¤æ”¾ç½®ç‰©
 		if (window.IsMouseDown(1) && inCanvas) {
 			for (size_t i = 0; i < placed.size(); ++i) {
 				if (placed[i].cell.x == hoverCell.x && placed[i].cell.y == hoverCell.y) {
@@ -635,14 +635,14 @@ int main(int argc, char** argv) {
 		}
 		prevLeft = leftNow;
 
-		// ---- 保存/加载 ----
+		// ---- ä¿å­˜/åŠ è½½ ----
 		{
 			static bool ctrlSPrev = false, ctrlOPrev = false;
 			const bool ctrl = window.IsKeyDown(VK_CONTROL);
 			const bool sNow = window.IsKeyDown('S');
 			const bool oNow = window.IsKeyDown('O');
 			if (ctrl && sNow && !ctrlSPrev) {
-				// 二进制（与 OpenRA map.bin 同构：头 17B + tiles/heights/resources 三段）
+				// äºŒè¿›åˆ¶ï¼ˆä¸Ž OpenRA map.bin åŒæž„ï¼šå¤´ 17B + tiles/heights/resources ä¸‰æ®µï¼‰
 				const bool okMap = map.SaveBinary("map_export.map");
 				const bool okMeta = map.SaveMeta("map_meta.txt");
 				const bool okEnt = SaveEntities("map_entities.txt", placed);
@@ -651,10 +651,10 @@ int main(int argc, char** argv) {
 			}
 			if (ctrl && oNow && !ctrlOPrev) {
 				bool okMap = map.LoadBinary("map_export.map");
-				if (!okMap) okMap = map.LoadFromText("map_export.map"); // 兼容旧的文本地图
+				if (!okMap) okMap = map.LoadFromText("map_export.map"); // å…¼å®¹æ—§çš„æ–‡æœ¬åœ°å›¾
 				map.LoadMeta("map_meta.txt"); // bounds / tileset
-				// 按地图的 tileset 切换图集：需要重新读 bmp 并重传纹理
-				// 注意：HasSet 不做别名解析（WINTER→SNOW），所以这里只用 UseSet
+				// æŒ‰åœ°å›¾çš„ tileset åˆ‡æ¢å›¾é›†ï¼šéœ€è¦é‡æ–°è¯» bmp å¹¶é‡ä¼ çº¹ç†
+				// æ³¨æ„ï¼šHasSet ä¸åšåˆ«åè§£æžï¼ˆWINTERâ†’SNOWï¼‰ï¼Œæ‰€ä»¥è¿™é‡Œåªç”¨ UseSet
 				if (TileSet::UseSet(map.TilesetName())) {
 					std::vector<uint8_t> px;
 					int tw = 0, th = 0;
@@ -682,13 +682,13 @@ int main(int argc, char** argv) {
 			status = "New map 128x128";
 		}
 
-		// ---- 渲染：地形 + 放置物 ----
+		// ---- æ¸²æŸ“ï¼šåœ°å½¢ + æ”¾ç½®ç‰© ----
 		SpriteBatch terrainBatch;
 		SpriteBatch entityBatch;
 		terrainBatch.Begin();
 		entityBatch.Begin();
 		{
-			// 视口裁剪：把画布四角逆投影到格子坐标，取包围范围（等距投影下不能直接除以 kTileW）
+			// è§†å£è£å‰ªï¼šæŠŠç”»å¸ƒå››è§’é€†æŠ•å½±åˆ°æ ¼å­åæ ‡ï¼Œå–åŒ…å›´èŒƒå›´ï¼ˆç­‰è·æŠ•å½±ä¸‹ä¸èƒ½ç›´æŽ¥é™¤ä»¥ kTileWï¼‰
 			std::vector<CellCoord> cells;
 			{
 				float vx0 = 0, vy0 = 0, vx1 = 0, vy1 = 0;
@@ -709,8 +709,8 @@ int main(int argc, char** argv) {
 				}
 			}
 			std::sort(cells.begin(), cells.end(), [](const CellCoord& a, const CellCoord& b) {
-				// 画家算法：等距投影下屏幕 Y = (x + y) * kStepY，必须按 x+y 排序，
-			// 这样后画的（更靠下的）tile 才能正确覆盖前一个 tile 的下半部分。
+				// ç”»å®¶ç®—æ³•ï¼šç­‰è·æŠ•å½±ä¸‹å±å¹• Y = (x + y) * kStepYï¼Œå¿…é¡»æŒ‰ x+y æŽ’åºï¼Œ
+			// è¿™æ ·åŽç”»çš„ï¼ˆæ›´é ä¸‹çš„ï¼‰tile æ‰èƒ½æ­£ç¡®è¦†ç›–å‰ä¸€ä¸ª tile çš„ä¸‹åŠéƒ¨åˆ†ã€‚
 			return (a.x + a.y) < (b.x + b.y);
 			});
 			for (const CellCoord& c : cells) {
@@ -719,17 +719,16 @@ int main(int argc, char** argv) {
 				const TerrainKind tk = TerrainOf(map, c);
 				const float tw = static_cast<float>(TerrainGfx::kRenderW);
 				const float th = static_cast<float>(TerrainGfx::kRenderH);
-				// 地图里存的 (templateId, index) → tileset 图集 UV
+				// åœ°å›¾é‡Œå­˜çš„ (templateId, index) â†’ tileset å›¾é›† UV
 				const TileRef tr = map.Tile(c);
 				float tu0 = 0, tv0 = 0, tu1 = 1, tv1 = 1;
 				TileSet::GetUV(tr.templateId, tr.index, tu0, tv0, tu1, tv1);
 				terrainBatch.AddSprite(static_cast<float>(p.x) - tw * 0.5f,
 					static_cast<float>(p.y) - th * 0.5f, tw, th, tu0, tv0, tu1, tv1,
 					TerrainGfx::TintFor(tk));
-				if (map.ResourceAmount(c) > 0) {
+				if (map.ResourceAmount(c) > 0)
 					terrainBatch.AddSolid(static_cast<float>(p.x) - 8.0f,
 						static_cast<float>(p.y) - 4.0f, 16.0f, 8.0f, 0xE0D4A017u);
-				}
 			}
 			if (showGrid) {
 				for (const CellCoord& c : cells) {
@@ -740,7 +739,7 @@ int main(int argc, char** argv) {
 						static_cast<float>(kTileH), 0x30FFFFFFu);
 				}
 			}
-			// 放置的实体（C&C 精灵，按 x+y 排序）
+			// æ”¾ç½®çš„å®žä½“ï¼ˆC&C ç²¾çµï¼ŒæŒ‰ x+y æŽ’åºï¼‰
 			if (cncOk) {
 				std::vector<PlacedEntity> sorted = placed;
 				std::sort(sorted.begin(), sorted.end(), [](const PlacedEntity& a, const PlacedEntity& b) {
@@ -757,7 +756,7 @@ int main(int argc, char** argv) {
 						static_cast<float>(sw), static_cast<float>(sh), u0, v0, u1, v1, 0xFFFFFFFFu);
 				}
 			}
-			// 悬停高亮
+			// æ‚¬åœé«˜äº®
 			if (map.InBounds(hoverCell) && inCanvas) {
 				const ScreenPos p = ProjectCell(hoverCell, map.TerrainHeight(hoverCell));
 				const uint32_t hc = (selectedSprite >= 0) ? 0x80FFD040u : 0x80FFFFFFu;
@@ -772,7 +771,7 @@ int main(int argc, char** argv) {
 		entityBatch.End();
 
 		renderer.BeginFrame(W, H);
-		// ---- 帧图（UE5 RDG 风格）：World → UI → Icons → Text ----
+		// ---- å¸§å›¾ï¼ˆUE5 RDG é£Žæ ¼ï¼‰ï¼šWorld â†’ UI â†’ Icons â†’ Text ----
 		RenderGraph graph;
 		graph.AddPass("World", [&](PassContext& ctx) {
 			renderer.DrawTexturedBatch(terrainBatch.Vertices(), camera, terrainTex);
@@ -785,13 +784,13 @@ int main(int argc, char** argv) {
 			}
 		});
 
-		// ---- UI：顶部工具栏 + 右侧图集面板 + 底部状态栏 ----
+		// ---- UIï¼šé¡¶éƒ¨å·¥å…·æ  + å³ä¾§å›¾é›†é¢æ¿ + åº•éƒ¨çŠ¶æ€æ  ----
 		std::vector<SpriteVertex> uiVerts;
 		ui::BuildPanel(uiVerts, ui::Rect{0, 0, static_cast<float>(W), topH}, 0xEE202020);
 		ui::BuildPanel(uiVerts, ui::Rect{0, static_cast<float>(H) - botH, static_cast<float>(W), botH}, 0xEE202020);
 		ui::BuildPanel(uiVerts, ui::Rect{canvasW, topH, panelW, static_cast<float>(H) - topH - botH}, 0xEE181818);
 
-		// 地形笔刷按钮
+		// åœ°å½¢ç¬”åˆ·æŒ‰é’®
 		const float btnW = 82.0f;
 		const float btnH = 26.0f;
 		const float btnY = (topH - btnH) * 0.5f;
@@ -808,7 +807,7 @@ int main(int argc, char** argv) {
 			ui::BuildButton(uiVerts, btn, fill, border);
 		}
 
-		// 图集面板项（背景 + 选中高亮）
+		// å›¾é›†é¢æ¿é¡¹ï¼ˆèƒŒæ™¯ + é€‰ä¸­é«˜äº®ï¼‰
 		if (panelTab == 0) {
 			for (int i = 0; i < spriteCount; ++i) {
 				const bool active = (selectedSprite == panelSprites[static_cast<size_t>(i)]);
@@ -825,7 +824,7 @@ int main(int argc, char** argv) {
 			}
 		}
 
-		// 图集图标（屏幕坐标精灵，cncTex）
+		// å›¾é›†å›¾æ ‡ï¼ˆå±å¹•åæ ‡ç²¾çµï¼ŒcncTexï¼‰
 		std::vector<SpriteVertex> iconVerts;
 		std::vector<SpriteVertex> terrainIconVerts;
 		if (cncOk && panelTab == 0) {
@@ -843,7 +842,7 @@ int main(int argc, char** argv) {
 			}
 		}
 		if (panelTab == 1 && TileSet::Loaded()) {
-			// 地形缩略图走 tileset 图集（terrTex），不能混进单位图集的 iconVerts
+			// åœ°å½¢ç¼©ç•¥å›¾èµ° tileset å›¾é›†ï¼ˆterrTexï¼‰ï¼Œä¸èƒ½æ··è¿›å•ä½å›¾é›†çš„ iconVerts
 			for (int i = 0; i < terrainCount; ++i) {
 				const auto& tc = terrainChoices[static_cast<size_t>(i)];
 				float u0 = 0, v0 = 0, u1 = 1, v1 = 1;
@@ -857,7 +856,7 @@ int main(int argc, char** argv) {
 			}
 		}
 
-		// 文字
+		// æ–‡å­—
 		std::vector<SpriteVertex> textVerts;
 		for (int i = 0; i < kBrushCount; ++i) {
 			char label[32];
@@ -865,7 +864,7 @@ int main(int argc, char** argv) {
 			text::Build(textVerts, label, brushRects[i].x + 8.0f, brushRects[i].y + 7.0f, 1.0f,
 				(selectedSprite < 0 && static_cast<int>(brush) == i) ? 0xFFFFFFFF : 0xFFB0B0B0);
 		}
-		// tab 栏
+		// tab æ 
 		ui::BuildPanel(uiVerts, tabUnits, (panelTab == 0) ? 0xFF3A5A7A : 0xFF262626);
 		ui::BuildPanel(uiVerts, tabTerrain, (panelTab == 1) ? 0xFF3A5A7A : 0xFF262626);
 		text::Build(textVerts, "UNITS", tabUnits.x + 12.0f, tabUnits.y + 17.0f, 1.0f,
