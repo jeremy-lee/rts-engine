@@ -16,6 +16,7 @@
 #include "render/snapshot.h"
 #include "render/tileset.h"
 #include "render/render_graph.h"
+#include "render/rhi.h"
 #include "render/sprite_batch.h"
 #include "render/camera.h"
 #include "render/gl_renderer.h"
@@ -164,10 +165,12 @@ int main(int argc, char** argv) {
 	SetWorkingDirToExe();
 	uint64_t seed = 101;
 	bool autoshot = false;
+	bool offscreen = false; // 离屏 RT 验证通路（需求：FBO 不支持则自动回退）
 	for (int i = 1; i < argc; ++i) {
 		const std::string arg = argv[i];
 		if (arg == "--seed" && i + 1 < argc) seed = static_cast<uint64_t>(std::atoi(argv[++i]));
 		else if (arg == "--autoshot") autoshot = true;
+		else if (arg == "--offscreen") offscreen = true;
 	}
 
 	Win32Window window;
@@ -443,6 +446,13 @@ int main(int argc, char** argv) {
 		ui::BuildPanel(uiVerts, ui::Rect{0, 0, static_cast<float>(W), 40}, 0xE0202020);
 
 		// ---- 帧图（UE5 RDG 风格）：World → UI → Text ----
+		// 可选离屏通路：先画到 FBO，再整屏 blit 回 backbuffer（为后处理预留）
+		rhi::Device& rhiDev = rhi::GetDevice();
+		rhi::Device::RenderTargetRef rt{};
+		if (offscreen && rhiDev.SupportsRenderTargets()) {
+			rt = rhiDev.CreateRenderTarget(W, H);
+			if (rt) rhiDev.BindRenderTarget(rt);
+		}
 		renderer.BeginFrame(W, H);
 		RenderGraph graph;
 		graph.AddPass("World", [&](PassContext& ctx) {
@@ -495,6 +505,17 @@ int main(int argc, char** argv) {
 			ctx.stats.vertices = static_cast<uint32_t>(tv.size());
 		});
 		graph.Execute(W, H, dt);
+		if (rt) {
+			// 离屏 → backbuffer：整屏贴一次
+			rhiDev.BindRenderTarget(rhi::Device::RenderTargetRef{});
+			renderer.BeginFrame(W, H);
+			std::vector<SpriteVertex> blit(6);
+			// FBO 的纹理原点在左下，而我们的屏幕坐标 y 向下 → blit 时翻转 v
+			BuildQuad(0.0f, 0.0f, static_cast<float>(W), static_cast<float>(H),
+				0.0f, 1.0f, 1.0f, 0.0f, 0xFFFFFFFFu, blit.data());
+			renderer.DrawScreenTextured(blit, rhiDev.RenderTargetTexture(rt));
+			rhiDev.DestroyRenderTarget(rt);
+		}
 		// 帧图统计（F3，对应 UE5 stat rhi）
 		{
 			static bool showStats = false;

@@ -38,6 +38,19 @@ public:
 	bool Init();
 	void Shutdown();
 
+	// ---- 离屏渲染目标（GL_EXT_framebuffer_object；不支持时返回 0）----
+	// 对应 UE5 的 FRHIRenderTargetView / FRHITexture 作为 RT 使用。
+	struct RenderTargetRef {
+		uint32_t id = 0; // 0 = backbuffer
+		explicit operator bool() const { return id != 0; }
+	};
+	bool SupportsRenderTargets() const { return m_supportsFBO; }
+	const char* RendererString() const { return m_rendererString; }
+	RenderTargetRef CreateRenderTarget(int width, int height);
+	void BindRenderTarget(RenderTargetRef rt); // 传 0 回到 backbuffer
+	void DestroyRenderTarget(RenderTargetRef rt);
+	uint32_t RenderTargetTexture(RenderTargetRef rt) const;
+
 	// ---- 资源 ----
 	TextureRef CreateTexture(const TextureDesc& desc, const void* rgba);
 	void UpdateTexture(TextureRef tex, const void* rgba, int width, int height);
@@ -60,8 +73,17 @@ private:
 		int width = 0;
 		int height = 0;
 	};
+	struct RtEntry {
+		uint32_t fbo = 0;
+		uint32_t colorTex = 0;
+		int width = 0;
+		int height = 0;
+	};
 	std::vector<Entry> m_textures; // 0 号槽保留（kInvalidTexture）
 	std::vector<uint32_t> m_free;
+	std::vector<RtEntry> m_renderTargets; // 0 号槽保留（backbuffer）
+	bool m_supportsFBO = false;
+	const char* m_rendererString = "";
 	bool m_blend = false;
 	bool m_texture2D = false;
 	bool m_depthTest = false;

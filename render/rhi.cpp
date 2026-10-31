@@ -7,11 +7,45 @@
 #include <GL/gl.h>
 
 #include <cstdio>
+#include <cstring>
 
 namespace rts {
 namespace rhi {
 
+// ---- GL_EXT_framebuffer_object 函数指针（GL 1.1 头文件里没有）----
+#ifndef GL_FRAMEBUFFER_EXT
+#define GL_FRAMEBUFFER_EXT 0x8D40
+#endif
+#ifndef GL_COLOR_ATTACHMENT0_EXT
+#define GL_COLOR_ATTACHMENT0_EXT 0x8CE0
+#endif
+#ifndef GL_FRAMEBUFFER_COMPLETE_EXT
+#define GL_FRAMEBUFFER_COMPLETE_EXT 0x8CD5
+#endif
+
+typedef void (APIENTRY* PFN_GenFramebuffersEXT)(GLsizei, GLuint*);
+typedef void (APIENTRY* PFN_BindFramebufferEXT)(GLenum, GLuint);
+typedef void (APIENTRY* PFN_FramebufferTexture2DEXT)(GLenum, GLenum, GLenum, GLuint, GLint);
+typedef GLenum (APIENTRY* PFN_CheckFramebufferStatusEXT)(GLenum);
+typedef void (APIENTRY* PFN_DeleteFramebuffersEXT)(GLsizei, const GLuint*);
+
 namespace {
+PFN_GenFramebuffersEXT g_genFBO = nullptr;
+PFN_BindFramebufferEXT g_bindFBO = nullptr;
+PFN_FramebufferTexture2DEXT g_fboTex = nullptr;
+PFN_CheckFramebufferStatusEXT g_checkFBO = nullptr;
+PFN_DeleteFramebuffersEXT g_delFBO = nullptr;
+
+bool LoadFboEntryPoints() {
+	if (g_genFBO != nullptr) return true;
+	g_genFBO = reinterpret_cast<PFN_GenFramebuffersEXT>(wglGetProcAddress("glGenFramebuffersEXT"));
+	g_bindFBO = reinterpret_cast<PFN_BindFramebufferEXT>(wglGetProcAddress("glBindFramebufferEXT"));
+	g_fboTex = reinterpret_cast<PFN_FramebufferTexture2DEXT>(wglGetProcAddress("glFramebufferTexture2DEXT"));
+	g_checkFBO = reinterpret_cast<PFN_CheckFramebufferStatusEXT>(wglGetProcAddress("glCheckFramebufferStatusEXT"));
+	g_delFBO = reinterpret_cast<PFN_DeleteFramebuffersEXT>(wglGetProcAddress("glDeleteFramebuffersEXT"));
+	return g_genFBO && g_bindFBO && g_fboTex && g_checkFBO && g_delFBO;
+}
+
 void ApplyParam(GLenum target, GLint nearest) {
 	glTexParameteri(target, GL_TEXTURE_MIN_FILTER, nearest ? GL_NEAREST : GL_LINEAR);
 	glTexParameteri(target, GL_TEXTURE_MAG_FILTER, nearest ? GL_NEAREST : GL_LINEAR);
@@ -25,6 +59,17 @@ bool Device::Init() {
 	m_textures.clear();
 	m_textures.emplace_back(); // 槽 0 = 无效
 	m_free.clear();
+	m_renderTargets.clear();
+	m_renderTargets.emplace_back(); // 槽 0 = backbuffer
+	m_rendererString = reinterpret_cast<const char*>(glGetString(GL_RENDERER));
+	if (m_rendererString == nullptr) m_rendererString = "unknown";
+	m_supportsFBO = false;
+	const char* exts = reinterpret_cast<const char*>(glGetString(GL_EXTENSIONS));
+	if (exts != nullptr && std::strstr(exts, "GL_EXT_framebuffer_object") != nullptr) {
+		m_supportsFBO = LoadFboEntryPoints();
+	}
+	std::printf("[rhi] renderer=%s  FBO=%s\n", m_rendererString, m_supportsFBO ? "yes" : "no");
+	std::fflush(stdout);
 	m_initialized = true;
 	return true;
 }
@@ -142,6 +187,60 @@ void Device::Clear(uint32_t rgba) {
 	const float a = static_cast<float>((rgba >> 24) & 0xFF) / 255.0f;
 	glClearColor(r, g, b, a);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+
+Device::RenderTargetRef Device::CreateRenderTarget(int width, int height) {
+	if (!m_supportsFBO || width <= 0 || height <= 0) return RenderTargetRef{};
+	GLuint fbo = 0;
+	GLuint tex = 0;
+	g_genFBO(1, &fbo);
+	if (fbo == 0) return RenderTargetRef{};
+	glGenTextures(1, &tex);
+	if (tex == 0) { g_delFBO(1, &fbo); return RenderTargetRef{}; }
+	glBindTexture(GL_TEXTURE_2D, tex);
+	ApplyParam(GL_TEXTURE_2D, 1);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+	g_bindFBO(GL_FRAMEBUFFER_EXT, fbo);
+	g_fboTex(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, tex, 0);
+	const GLenum status = g_checkFBO(GL_FRAMEBUFFER_EXT);
+	g_bindFBO(GL_FRAMEBUFFER_EXT, 0);
+	if (status != GL_FRAMEBUFFER_COMPLETE_EXT) {
+		std::fprintf(stderr, "[rhi] FBO incomplete (0x%X), disabling render targets\n", status);
+		g_delFBO(1, &fbo);
+		const GLuint n = tex;
+		glDeleteTextures(1, &n);
+		m_supportsFBO = false;
+		return RenderTargetRef{};
+	}
+	RtEntry e;
+	e.fbo = fbo;
+	e.colorTex = tex;
+	e.width = width;
+	e.height = height;
+	const uint32_t id = static_cast<uint32_t>(m_renderTargets.size());
+	m_renderTargets.push_back(e);
+	return RenderTargetRef{id};
+}
+
+void Device::BindRenderTarget(RenderTargetRef rt) {
+	if (!m_supportsFBO) return;
+	if (rt.id == 0 || rt.id >= m_renderTargets.size()) {
+		g_bindFBO(GL_FRAMEBUFFER_EXT, 0);
+		return;
+	}
+	g_bindFBO(GL_FRAMEBUFFER_EXT, m_renderTargets[rt.id].fbo);
+}
+
+void Device::DestroyRenderTarget(RenderTargetRef rt) {
+	if (!m_supportsFBO || rt.id == 0 || rt.id >= m_renderTargets.size()) return;
+	RtEntry& e = m_renderTargets[rt.id];
+	if (e.fbo != 0) { const GLuint f = e.fbo; g_delFBO(1, &f); e.fbo = 0; }
+	if (e.colorTex != 0) { const GLuint t = e.colorTex; glDeleteTextures(1, &t); e.colorTex = 0; }
+}
+
+uint32_t Device::RenderTargetTexture(RenderTargetRef rt) const {
+	if (rt.id == 0 || rt.id >= m_renderTargets.size()) return 0;
+	return m_renderTargets[rt.id].colorTex;
 }
 
 Stats Device::GetStats() const {
