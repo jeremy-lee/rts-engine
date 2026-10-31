@@ -5,6 +5,7 @@
 //   底部命令面板按钮：建造兵营 / 生产步兵 / 生产坦克
 //   1/2/3 按类型全选；WASD/方向键平移；滚轮缩放
 #include <cstdio>
+#include <filesystem>
 #include <cstdint>
 #include <chrono>
 #include <string>
@@ -99,7 +100,32 @@ buildings:
       - tank
 )");
 
+// P1-4：外部地图（.oramap 由 oramap_import 转出的 <base>.bin + <base>_meta.txt，或我们的 .map）
+// 一旦给了路径就用它开局，而不是 GenerateTestMap。
+std::string g_mapBinaryPath;   // 已转换好的二进制地图
+std::string g_mapMetaPath;     // 配套的 _meta.txt（可选）
+
+bool LoadExternalMap(Map& out) {
+	if (g_mapBinaryPath.empty()) return false;
+	Map loaded;
+	if (!loaded.LoadBinary(g_mapBinaryPath)) {
+		std::fprintf(stderr, "[game] failed to load map: %s\n", g_mapBinaryPath.c_str());
+		return false;
+	}
+	if (!g_mapMetaPath.empty()) {
+		if (!loaded.LoadMeta(g_mapMetaPath)) {
+			std::fprintf(stderr, "[game] failed to load meta: %s (continuing)\n", g_mapMetaPath.c_str());
+		}
+	}
+	out = std::move(loaded);
+	return true;
+}
+
 Map MakeMap() {
+	if (!g_mapBinaryPath.empty()) {
+		Map loaded;
+		if (LoadExternalMap(loaded)) return loaded;
+	}
 	Map map = Map::GenerateTestMap(128, 128, 2024);
 	map.SetResourceAmount(CellCoord(30, 30), 8000);
 	map.SetResourceAmount(CellCoord(98, 98), 8000);
@@ -135,8 +161,69 @@ int main(int argc, char** argv) {
 	SetWorkingDirToExe();
 	// --autoshot：跑若干帧后用 glReadPixels 存一张 BMP（in-game 截图，避开外部截屏的 DPI 干扰）
 	bool autoShot = false;
+	// --map <path>：用外部地图开局。支持 .oramap（内部调用 rts_oramap_import 转换）、
+	// 已转换的 .bin（配同名 _meta.txt）以及我们自己的 .map。
+	std::string mapArg;
 	for (int i = 1; i < argc; ++i) {
-		if (std::string(argv[i]) == "--autoshot") autoShot = true;
+		const std::string a = argv[i];
+		if (a == "--autoshot") autoShot = true;
+		else if (a == "--map" && i + 1 < argc) { mapArg = argv[++i]; }
+		else if (!a.empty() && a[0] != '-' && mapArg.empty()) mapArg = a;   // 位置参数也当作地图
+	}
+	if (!mapArg.empty()) {
+		std::filesystem::path mp(mapArg);
+		const std::string ext = mp.extension().string();
+		std::string base;
+		if (ext == ".oramap" || std::filesystem::is_directory(mp)) {
+			// 交给 rts_oramap_import 转成 <base>.bin + <base>_meta.txt
+			base = (std::filesystem::temp_directory_path() / ("rts_import_" + mp.stem().string())).string();
+			// 用 exe 同目录的导入器，避免依赖 PATH（SetWorkingDirToExe 只改了 cwd）
+			char exeBuf[MAX_PATH] = {};
+			GetModuleFileNameA(nullptr, exeBuf, MAX_PATH);
+			std::string exeDir(exeBuf);
+			const size_t slash = exeDir.find_last_of("\\/");
+			if (slash != std::string::npos) exeDir = exeDir.substr(0, slash + 1);
+			const std::string importer = exeDir + "rts_oramap_import.exe";
+			const std::string cmd = "\"" + importer + "\" \"" + mp.string() + "\" \"" + base + "\"";
+
+			// 用 CreateProcessA 而不是 std::system：system 会经由 cmd.exe 中转，
+			// 在资源重定向/引号场景下返回码不可靠，这里要的是子进程真实退出码。
+			int rc = -1;
+			{
+				std::string cmdline = cmd;   // CreateProcess 需要可写缓冲
+				STARTUPINFOA si = {};
+				si.cb = sizeof(si);
+				PROCESS_INFORMATION pi = {};
+				const BOOL ok = CreateProcessA(nullptr, cmdline.data(), nullptr, nullptr, FALSE,
+					0, nullptr, nullptr, &si, &pi);
+				if (ok) {
+					WaitForSingleObject(pi.hProcess, 30000);
+					DWORD exitCode = 1;
+					GetExitCodeProcess(pi.hProcess, &exitCode);
+					rc = static_cast<int>(exitCode);
+					CloseHandle(pi.hProcess);
+					CloseHandle(pi.hThread);
+				}
+			}
+
+			if (rc == 0) {
+				// rts_oramap_import 的输出：<base>.map + <base>_meta.txt (+ <base>_actors.txt)
+				g_mapBinaryPath = base + ".map";
+				g_mapMetaPath = base + "_meta.txt";
+				std::printf("[game] imported %s -> %s\n", mp.string().c_str(), g_mapBinaryPath.c_str());
+			} else {
+				std::fprintf(stderr, "[game] oramap import failed (rc=%d) for %s\n", rc, mp.string().c_str());
+			}
+		} else if (ext == ".bin" || ext == ".map") {
+			base = (mp.parent_path() / mp.stem()).string();
+			g_mapBinaryPath = mp.string();
+			const std::string meta = base + "_meta.txt";
+			if (std::filesystem::exists(meta)) g_mapMetaPath = meta;
+		}
+		if (!g_mapBinaryPath.empty()) {
+			std::printf("[game] map: %s%s\n", g_mapBinaryPath.c_str(),
+				g_mapMetaPath.empty() ? "" : " (+meta)");
+		}
 	}
 	// M22：联机模式（--host 或 --client <ip>）
 	LockstepSession netSession;
