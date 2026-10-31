@@ -8,8 +8,8 @@
 //   WorldRenderer.ScreenPosition: (TileSize.W * pos.X / TileScale, TileSize.H * (pos.Y - pos.Z) / TileScale)
 //                       ⇒ 屏幕 (24x + 12, 24y + 12)  ⇒ 格中心 = 格坐标 × 24 + 半格
 //
-// 我们的 TileSize 取 32（整数、纹理友好），语义完全相同：
-//   格中心 = (x * 32 + 16, y * 32 + 16 - height * kHeightStep)
+// 我们的 TileSize 与 OpenRA 完全一致，取 24（1:1，不放大 tile）：
+//   格中心 = (x * 24 + 12, y * 24 + 12 - height * kHeightStep)
 // 高度步长取一格（OpenRA: screenY -= TileSize.H * Z / TileScale，Z = 1024*height ⇒ 每级恰好一格）。
 //
 // 设计文档 L1：世界↔屏幕转换只写这一份，全引擎复用；只依赖 core 数据类型，不依赖图形库。
@@ -20,9 +20,9 @@
 namespace rts {
 
 // ---- 投影常量（像素）----
-inline constexpr int32_t kTileW = 32;         // 一格宽（屏幕像素）
-inline constexpr int32_t kTileH = 32;         // 一格高
-inline constexpr int32_t kHeightStep = 32;    // 每级高度抬升像素（= 一格）
+inline constexpr int32_t kTileW = 24;         // 一格宽（= OpenRA TileSize.Width，tile 1:1）
+inline constexpr int32_t kTileH = 24;         // 一格高（= OpenRA TileSize.Height）
+inline constexpr int32_t kHeightStep = 24;    // 每级高度抬升像素（= 一格）
 
 // 屏幕坐标（世界像素，可为负；相机在 M3 处理）
 struct ScreenPos {

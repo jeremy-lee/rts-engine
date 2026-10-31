@@ -29,9 +29,9 @@ public:
 	// 图集里每个 tile 的采样尺寸（C&C TMP = 24×24）
 	static constexpr int kTileW = 24;
 	static constexpr int kTileH = 24;
-	// 屏幕绘制尺寸 = 32×32（正交网格，一格一 tile，与 OpenRA Rectangular 一致）
-	static constexpr int kRenderW = 32;
-	static constexpr int kRenderH = 32;
+	// 屏幕绘制尺寸 = 24×24（与 OpenRA TileSize 一致，tile 1:1 不放大）
+	static constexpr int kRenderW = 24;
+	static constexpr int kRenderH = 24;
 	// 程序化回退纹理的 tile 尺寸（32×16）
 	static constexpr int kProceduralW = 32;
 	static constexpr int kProceduralH = 16;

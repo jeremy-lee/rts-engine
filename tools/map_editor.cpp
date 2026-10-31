@@ -422,7 +422,11 @@ int main(int argc, char** argv) {
 	// 命令行指定地图：直接加载（省得模拟 Ctrl+O）
 	if (!cliMapPath.empty()) {
 		if (map.LoadBinary(cliMapPath)) {
-			map.LoadMeta("map_meta.txt");
+			// meta / entities 从地图名推导（foo.map → foo_meta.txt / foo_actors.txt）
+			const size_t dot = cliMapPath.find_last_of('.');
+			const std::string base = (dot == std::string::npos) ? cliMapPath : cliMapPath.substr(0, dot);
+			map.LoadMeta(base + "_meta.txt");
+			LoadEntities((base + "_actors.txt").c_str(), placed);
 			if (TileSet::UseSet(map.TilesetName())) {
 				std::vector<uint8_t> px;
 				int tw = 0, th = 0;
