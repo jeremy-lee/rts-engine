@@ -376,6 +376,8 @@ bool BuildOne(const std::vector<MixArchive>& mixes, const uint8_t pal[256][3],
 			const int g = base + static_cast<int>(i);
 			const int col = g % kTilesPerRow;
 			const int row = g / kTilesPerRow;
+			// 注意：不要做菱形蒙版。OpenRA 的 RA 网格是 Rectangular（正交铺贴，间距 = TileSize），
+			// TMP 的 24x24 必须满幅铺满；裁成菱形会在正交网格里留下缝隙（出现棋盘格）。
 			for (int y = 0; y < t.h; ++y) {
 				for (int x = 0; x < t.w; ++x) {
 					const uint8_t idx = t.indexed[static_cast<size_t>(y) * t.w + x];

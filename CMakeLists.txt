@@ -143,6 +143,10 @@ if(WIN32)
     # .oramap 导入（zip 解包 + inflate + map.bin + map.yaml）
     add_executable(rts_oramap_import tools/oramap_import.cpp)
 
+    # 离线地形预览（脱离 GL/编辑器，客观判定拼接是否正确）
+    add_executable(rts_map_preview tools/render_map_preview.cpp)
+    target_include_directories(rts_map_preview PRIVATE third_party)
+
     add_executable(rts_autotest_visual tools/autotest_visual.cpp)
     target_link_libraries(rts_autotest_visual PRIVATE rts_render)
 endif()
