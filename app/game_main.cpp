@@ -421,18 +421,25 @@ int main(int argc, char** argv) {
 		// ---- 布局 ----
 		const float topBarH = 36.0f;
 		const float bottomH = 90.0f;
-		btnBuild.rect = ui::Rect{10.0f, static_cast<float>(H) - bottomH + 14.0f, 170.0f, 62.0f};
+		// 侧栏（OpenRA 风格）：右侧竖排，从下往上依次是建造图标、生产队列、资金/电力。
+		const float sidebarW = 210.0f;
+		const float sideX = static_cast<float>(W) - sidebarW + 12.0f;
+		const float sideW = sidebarW - 24.0f;
+		const float sideBottom = static_cast<float>(H) - bottomH - 12.0f;
+		const float btnH = 54.0f;
+		const float btnGap = 8.0f;
+		btnBuild.rect = ui::Rect{sideX, sideBottom - btnH, sideW, btnH};
 		btnBuild.label = "BUILD (300)";
-		btnInfantry.rect = ui::Rect{192.0f, static_cast<float>(H) - bottomH + 14.0f, 170.0f, 62.0f};
+		btnInfantry.rect = ui::Rect{sideX, sideBottom - 2.0f * (btnH + btnGap), sideW, btnH};
 		btnInfantry.label = "INFANTRY (50)";
-		btnTank.rect = ui::Rect{374.0f, static_cast<float>(H) - bottomH + 14.0f, 170.0f, 62.0f};
+		btnTank.rect = ui::Rect{sideX, sideBottom - 3.0f * (btnH + btnGap), sideW, btnH};
 		btnTank.label = "TANK (150)";
-		btnTurret.rect = ui::Rect{556.0f, static_cast<float>(H) - bottomH + 14.0f, 170.0f, 62.0f};
+		btnTurret.rect = ui::Rect{sideX, sideBottom - 4.0f * (btnH + btnGap), sideW, btnH};
 		btnTurret.label = "TURRET (200)";
 
-		// 小地图布局
+		// 小地图挪到左下，避开右侧侧栏
 		const float mmSize = 150.0f;
-		const float mmX = static_cast<float>(W) - mmSize - 10.0f;
+		const float mmX = 10.0f;
 		const float mmY = static_cast<float>(H) - bottomH - mmSize - 10.0f;
 
 		const int credits = sim.GetWorld().Credits(0);
@@ -998,11 +1005,13 @@ int main(int argc, char** argv) {
 			text::Build(textVerts, btnTank.label,
 				btnTank.rect.x + 10.0f, btnTank.rect.y + 18.0f, 1.6f,
 				btnTank.enabled ? 0xFFFFFFFF : 0xFF888888);
+			text::Build(textVerts, btnTurret.label,
+				btnTurret.rect.x + 10.0f, btnTurret.rect.y + 18.0f, 1.6f,
+				btnTurret.enabled ? 0xFFFFFFFF : 0xFF888888);
 
 			char info[160];
 			std::snprintf(info, sizeof(info), "SELECTED %zu", selection.size());
-			text::Build(textVerts, info, btnTank.rect.x + btnTank.rect.w + 30.0f,
-				static_cast<float>(H) - bottomH + 20.0f, 1.5f, 0xFFC0C0C0);
+			text::Build(textVerts, info, sideX + 4.0f, btnTurret.rect.y - 34.0f, 1.5f, 0xFFC0C0C0);
 
 			// 生产进度
 			const Actor* producing = nullptr;
@@ -1011,8 +1020,8 @@ int main(int argc, char** argv) {
 				if (a.producer.queued > 0) { producing = &a; break; }
 			}
 			if (producing != nullptr && producing->producer.total > 0) {
-				const float px = btnTank.rect.x + btnTank.rect.w + 30.0f;
-				const float py = static_cast<float>(H) - bottomH + 52.0f;
+				const float px = sideX + 4.0f;
+				const float py = btnTurret.rect.y - 18.0f;
 				const float ratio = static_cast<float>(producing->producer.total - producing->producer.remaining)
 					/ static_cast<float>(producing->producer.total);
 				ui::BuildPanel(uiVerts, ui::Rect{px, py, 140.0f, 14.0f}, 0xFF202020);
