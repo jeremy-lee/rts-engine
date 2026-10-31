@@ -27,7 +27,13 @@ inline constexpr int32_t kTileH = 24;         // tile 画布高
 // TileScale = 1024 → ScreenPosition = (24x+12, 24y+12)，步长 = tile 尺寸。
 inline constexpr int32_t kStepX = kTileW;   // 24
 inline constexpr int32_t kStepY = kTileH;   // 24
-inline constexpr int32_t kHeightStep = 12;    // 每级高度抬升像素
+// 高度**不**参与地形 tile 的投影。原因：地形 tile 是 24x24 的整格贴图，
+// 一旦按高度上移（原来的 12px/级），tile 下方就会露出未绘制的清屏色——
+// 表现为地面上零散的黑色块（h=1 露半格、h=2 露整格）。
+// OpenRA 里 tile 上移后下方由相邻 tile 的 canvas 覆盖，而我们的地形 tile
+// 是紧贴的整格矩形，没有那段覆盖，所以这里必须取 0。
+// 单位/建筑的高度表现（后面要做）应在各自 sprite 的偏移里处理，不动地形网格。
+inline constexpr int32_t kHeightStep = 0;
 
 // 屏幕坐标（世界像素，可为负；相机在 M3 处理）
 struct ScreenPos {

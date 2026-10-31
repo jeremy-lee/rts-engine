@@ -219,7 +219,10 @@ Map Map::GenerateTestMap(int32_t width, int32_t height, uint64_t seed) {
 			if (r < 8) {
 				// 高地（仍是草地，抬升一级）
 				map.SetTile(c, 255, static_cast<uint8_t>(rng.Range(16)));
-				map.SetTerrainHeight(c, static_cast<uint8_t>(1 + rng.Range(2)));
+				// 高度只能是 0 或 1：kHeightStep=12 是半格，h=2 会整体上移一整格
+				// (2*12=24=kStepY)，导致高地 tile 完全叠住上方格子、自身位置空出来
+				// 露出清屏色（就是"黑块"）。
+				map.SetTerrainHeight(c, static_cast<uint8_t>(1));
 			} else if (r < 12) {
 				// 水域障碍（不可通行/不可建造）
 				map.SetTile(c, 1, 0);
