@@ -57,6 +57,12 @@ public:
 	// （MobileInfo 速度、HealthInfo 血量、ArmamentInfo 武器）取值，
 	// 取不到时回退到硬编码的 UnitDef。
 	void SetActorRules(const Ruleset* r) { m_actorRules = r; }
+
+	// P2-7：按玩家视野重算战争迷雾。
+	//   fog=2 可见    —— 落在任一己方 actor 的 Vision 半径内
+	//   fog=1 已探索  —— 曾经可见过（保留）
+	//   fog=0 未探索  —— 从未见过
+	void RecomputeFog(uint8_t playerId);
 	const Ruleset* ActorRules() const { return m_actorRules; }
 
 	// ---- 经济（M5）----

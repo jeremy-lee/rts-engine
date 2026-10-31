@@ -441,7 +441,7 @@ int main(int argc, char** argv) {
 
 	// M14：渲染后端切换（F1 = GL / 软件渲染）
 	bool softwareMode = false; // TEMP: GL 验证
-	bool revealAll = true;    // TEMP: 全揭示验证
+	bool revealAll = false;   // P2-7：默认按玩家视野计算迷雾，F2 可切换全揭示（调试）
 	float markerX = 0.0f, markerY = 0.0f; // 命令目标标记（世界坐标）
 	float markerTimer = 0.0f;
 	uint32_t swTex = 0;

@@ -554,3 +554,38 @@ bool World::LoadFromText(const std::string& text) {
 }
 
 } // namespace rts
+
+namespace rts {
+
+// P2-7：战争迷雾重算。每次把所有格的 fog=2 降级成 fog=1（已探索），
+// 再按玩家的 actor 视野重新点亮 fog=2。这样"看得见"是实时的，
+// "看见过"会永久保留，和 OpenRA 的 Shroud/Fog 语义一致。
+void World::RecomputeFog(uint8_t playerId) {
+	const int32_t w = m_map.Width();
+	const int32_t h = m_map.Height();
+	for (int32_t y = 0; y < h; ++y)
+		for (int32_t x = 0; x < w; ++x) {
+			const CellCoord c(x, y);
+			if (m_map.Fog(c) == 2) m_map.SetFog(c, 1);
+		}
+
+	for (const Actor& a : m_entities.All()) {
+		if (!a.alive || a.playerId != playerId) continue;
+		if (!a.Has(kCompVision)) continue;
+		const CellCoord center = a.pos.ToCell();
+		// Vision.range 是子格，换算成格（向上取整，保证边缘不漏）
+		const int32_t rCells = (a.vision.range + kSubPerCell - 1) / kSubPerCell;
+		for (int32_t dy = -rCells; dy <= rCells; ++dy) {
+			for (int32_t dx = -rCells; dx <= rCells; ++dx) {
+				// 圆形视野（用子格距离判断，避免方形视野）
+				const int32_t distSq = dx * dx + dy * dy;
+				if (distSq > rCells * rCells) continue;
+				const CellCoord c(center.x + dx, center.y + dy);
+				if (!m_map.InBounds(c)) continue;
+				m_map.SetFog(c, 2);
+			}
+		}
+	}
+}
+
+} // namespace rts

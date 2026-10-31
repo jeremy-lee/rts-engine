@@ -34,6 +34,8 @@ public:
 			ai.Update(m_world, m_commands);
 		}
 		m_world.Advance(m_commands);
+		// P2-7：每 tick 重算玩家 0 的战争迷雾（其他玩家的视野暂不参与渲染）
+		m_world.RecomputeFog(0);
 	}
 
 	// 推进 n 个 tick
