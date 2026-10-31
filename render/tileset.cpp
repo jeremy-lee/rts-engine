@@ -100,6 +100,9 @@ const TileSet::TerrainType* TileSet::FindTerrain(const std::string& name) {
 
 bool TileSet::GetUV(int templateId, int index, float& u0, float& v0, float& u1, float& v1) {
 	const Template* t = Find(templateId);
+	// 未知模板回退到 clear1（255）：导入别的 tileset（WINTER/DESERT）的地图时，
+	// 模板 id 在我们这套 TEMPERAT 图集里不存在，宁可画成草地也不要花屏。
+	if (t == nullptr) t = Find(255);
 	if (t == nullptr || t->frameCount <= 0) {
 		u0 = 0.0f; v0 = 0.0f; u1 = 1.0f; v1 = 1.0f;
 		return false;
@@ -122,6 +125,7 @@ bool TileSet::GetUV(int templateId, int index, float& u0, float& v0, float& u1, 
 
 const std::string& TileSet::TerrainOf(int templateId, int index) {
 	const Template* t = Find(templateId);
+	if (t == nullptr) t = Find(255); // 未知模板按草地处理
 	if (t == nullptr) return s_unknownTerrain;
 	auto it = t->terrain.find(index);
 	if (it != t->terrain.end()) return it->second;

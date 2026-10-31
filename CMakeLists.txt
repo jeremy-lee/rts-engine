@@ -140,6 +140,9 @@ if(WIN32)
     # 全量地形集导入（tileset yaml + 所有 TMP → 多行图集 + 模板元数据）
     add_executable(rts_build_tileset tools/build_tileset.cpp)
 
+    # .oramap 导入（zip 解包 + inflate + map.bin + map.yaml）
+    add_executable(rts_oramap_import tools/oramap_import.cpp)
+
     add_executable(rts_autotest_visual tools/autotest_visual.cpp)
     target_link_libraries(rts_autotest_visual PRIVATE rts_render)
 endif()
