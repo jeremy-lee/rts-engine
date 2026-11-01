@@ -57,3 +57,7 @@ grid_map*
 *.map
 *.bmp
 *_shot.png
+
+# 临时日志
+*.err
+*.log
