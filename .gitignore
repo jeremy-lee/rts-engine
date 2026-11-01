@@ -51,3 +51,9 @@ gl.png
 
 # RenderDoc 抓帧文件（体积大，不入库）
 *.rdc
+
+# 测试用地图（二进制、会随导入器变化，不入库）
+grid_map*
+*.map
+*.bmp
+*_shot.png
