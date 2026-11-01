@@ -1,5 +1,6 @@
 // RTS Engine — sim/campaign.cpp
 #include "campaign.h"
+#include <algorithm>
 #include "command.h"
 #include "command_queue.h"
 #include "gamedefs.h"
@@ -84,12 +85,20 @@ void Campaign::SpawnWave(World& world, CommandQueue& queue, const WaveDef& wave)
 	for (const auto& wu : wave.units) {
 		const UnitDef* def = rules.FindUnit(wu.type);
 		if (def == nullptr) continue;
+		// 波次坐标来自关卡 yaml；用真实地图（比如 130x74）时这些坐标可能越界，
+		// 越界后 FindNearestWalkable 会把整波单位堆到地图角上。先夹进地图内。
+		const int32_t mapW = world.Width();
+		const int32_t mapH = world.Height();
+		const int32_t baseX = std::min(std::max(1, wu.pos.x), std::max(1, mapW - 2));
+		const int32_t baseY = std::min(std::max(1, wu.pos.y), std::max(1, mapH - 2));
 		for (int32_t i = 0; i < wu.count; ++i) {
 			Command c;
 			c.type = CommandType::Spawn;
 			c.playerId = m_enemyPlayer;
-			c.x = wu.pos.x * kSubPerCell + (i % 3) * 256;
-			c.y = wu.pos.y * kSubPerCell + (i / 3) * 256;
+			const int32_t sx = std::min(baseX + (i % 3), mapW - 2);
+			const int32_t sy = std::min(baseY + (i / 3), mapH - 2);
+			c.x = sx * kSubPerCell;
+			c.y = sy * kSubPerCell;
 			c.targetId = static_cast<uint32_t>(def->numericId);
 			queue.Push(c);
 		}

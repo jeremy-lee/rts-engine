@@ -389,38 +389,51 @@ int main(int argc, char** argv) {
 		sim.GetWorld().AddCredits(0, 2000);
 		sim.GetWorld().AddCredits(1, 1500);
 		{
+			// 出生点按地图尺寸算，不能写死：测试地图是 128x128（(60,60) 合适），
+			// 但真实 RA 地图可能是 130x74，(60,60) 已经贴近边缘、(100,100) 直接越界，
+			// 单位会被 FindNearestWalkable 吸附到地图角上，看起来像"基地在屏幕外"。
+			const int32_t mw = sim.GetWorld().Width();
+			const int32_t mh = sim.GetWorld().Height();
+			const int32_t baseX = mw / 2;
+			const int32_t baseY = mh / 2;
+			// 第二个玩家放在对角，避免开局就贴身
+			const int32_t enemyX = mw - 1 - baseX / 2;
+			const int32_t enemyY = mh - 1 - baseY / 2;
+
 			Command c;
 			c.type = CommandType::Spawn;
 			c.playerId = 0;
-			c.x = 60 * kSubPerCell;
-			c.y = 60 * kSubPerCell;
+			c.x = baseX * kSubPerCell;
+			c.y = baseY * kSubPerCell;
 			c.targetId = 0;
 			pushCommand(c);
 			sim.Step();
 			c.targetId = 1;
-			c.x = 62 * kSubPerCell;
+			c.x = (baseX + 2) * kSubPerCell;
 			pushCommand(c);
-			c.x = 60 * kSubPerCell;
-			c.y = 62 * kSubPerCell;
+			c.x = baseX * kSubPerCell;
+			c.y = (baseY + 2) * kSubPerCell;
 			pushCommand(c);
-		}
-		{
-			// 起始基地：一个兵营（buildingId 1 = barracks）。没有它 BUILD 恒为 0，
-			// 玩家也没有能下 Produce 命令的建筑（Spawn 只能造单位，建筑要走 Build）。
-			Command c;
+
+			// 兵营放在基地左上方
 			c.type = CommandType::Build;
 			c.playerId = 0;
-			c.x = 57 * kSubPerCell;
-			c.y = 57 * kSubPerCell;
+			c.x = (baseX - 3) * kSubPerCell;
+			c.y = (baseY - 3) * kSubPerCell;
 			c.targetId = 1;
 			pushCommand(c);
 
-			// AI 也给它一个兵营，避免开局就被玩家单方面碾压
+			// AI 也给它一个兵营
 			c.playerId = 1;
-			c.x = 78 * kSubPerCell;
-			c.y = 78 * kSubPerCell;
+			c.x = enemyX * kSubPerCell;
+			c.y = enemyY * kSubPerCell;
 			pushCommand(c);
 
+			// 把上面排队的 Spawn/Build 全部执行掉。之前只 Step 过一次，
+			// 后面的单位与兵营还留在命令队列里，导致紧接着的相机定位
+			// 只看得到第一个单位、看不到基地建筑。
+			sim.Step();
+			sim.Step();
 		}
 		campaign = Campaign(levelDef, 0, 1);
 		selection.clear();
@@ -437,8 +450,11 @@ int main(int argc, char** argv) {
 		Command c;
 		c.type = CommandType::Spawn;
 		c.playerId = myPlayer;
-		c.x = (myPlayer == 0) ? 60 * kSubPerCell : 75 * kSubPerCell;
-		c.y = (myPlayer == 0) ? 60 * kSubPerCell : 75 * kSubPerCell;
+		// 联机出生点同样按地图尺寸换算
+		c.x = ((myPlayer == 0) ? sim.GetWorld().Width() / 2
+			: sim.GetWorld().Width() * 3 / 4) * kSubPerCell;
+		c.y = ((myPlayer == 0) ? sim.GetWorld().Height() / 2
+			: sim.GetWorld().Height() * 3 / 4) * kSubPerCell;
 		c.targetId = 1; // infantry
 		localCmds.push_back(c);
 		gameState = GameState::Playing;
@@ -456,7 +472,7 @@ int main(int argc, char** argv) {
 
 	// M14：渲染后端切换（F1 = GL / 软件渲染）
 	bool softwareMode = false; // TEMP: GL 验证
-	bool revealAll = false;   // P2-7：默认按玩家视野计算迷雾，F2 可切换全揭示（调试）
+	bool revealAll = true;    // 开发阶段默认全揭示（迷雾功能已实现，F2 可切回真实视野）
 	float markerX = 0.0f, markerY = 0.0f; // 命令目标标记（世界坐标）
 	float markerTimer = 0.0f;
 	uint32_t swTex = 0;
@@ -489,6 +505,39 @@ int main(int argc, char** argv) {
 
 	// 直接开局：跳过 LevelSelect，让 rts_game 一启动就能打（否则玩家没单位，只能看地形）。
 	if (!netMode && !levelPaths.empty()) startLevel(0);
+
+	// 相机初始对准玩家基地。之前从来没设过初始位置，相机停在 (0,0) 附近，
+	// 而地图世界坐标从 (12,12) 起，于是开局看到的是一片地图外的黑色。
+	{
+		// 优先对准玩家的建筑（基地），其次任意己方单位，最后退回地图中心。
+		// 只对准第一个单位会让基地（建筑在单位旁边几格之外）歪到屏幕边缘。
+		bool centered = false;
+		for (const auto& a : sim.GetWorld().Entities().All()) {
+			if (!a.alive || a.playerId != 0 || !a.Has(kCompBuilding)) continue;
+			const ScreenPos p = ProjectCell(a.pos.ToCell(), 0);
+			camera.centerX = static_cast<float>(p.x);
+			camera.centerY = static_cast<float>(p.y);
+			centered = true;
+			break;
+		}
+		for (const auto& a : sim.GetWorld().Entities().All()) {
+			if (centered) break;
+			if (!a.alive || a.playerId != 0) continue;
+			const ScreenPos p = ProjectCell(a.pos.ToCell(), 0);
+			camera.centerX = static_cast<float>(p.x);
+			camera.centerY = static_cast<float>(p.y);
+			centered = true;
+			break;
+		}
+
+		if (!centered) {
+			// 没有单位就退回地图中心
+			const int32_t cw = sim.GetWorld().Width();
+			const int32_t ch = sim.GetWorld().Height();
+			camera.centerX = static_cast<float>(cw * kStepX / 2);
+			camera.centerY = static_cast<float>(ch * kStepY / 2);
+		}
+	}
 
 	while (window.PumpMessages()) {
 		const auto now = std::chrono::steady_clock::now();
@@ -599,7 +648,7 @@ int main(int argc, char** argv) {
 				}
 				if (best != 0) { selection.assign(1, best); audio.Play(Sfx::Click); }
 				else selection.clear();
-				std::fprintf(stderr, "[input] click-select: best=%u -> selection=%zu\n", best, selection.size());
+
 			} else {
 				selection.clear();
 				const int x0 = std::min(dragStartX, window.MouseX());
@@ -722,7 +771,7 @@ int main(int argc, char** argv) {
 					markerY = mp.y;
 					markerTimer = 0.6f;
 				}
-				std::fprintf(stderr, "[input] right-click: selection=%zu enemy=%u\n", selection.size(), enemy);
+
 				for (EntityId id : selection) {
 					Command cmd;
 					cmd.playerId = 0;
@@ -737,8 +786,7 @@ int main(int argc, char** argv) {
 						// 正交：屏幕像素 → 子格坐标（每格 kTileW/kTileH 像素）
 						cmd.x = static_cast<int32_t>(mp.x) * kSubPerCell / kTileW;
 						cmd.y = static_cast<int32_t>(mp.y) * kSubPerCell / kTileH;
-						std::fprintf(stderr, "[input]   move unit=%u -> cell(%d,%d)\n", id,
-							cmd.x / kSubPerCell, cmd.y / kSubPerCell);
+
 						audio.Play(Sfx::Move);
 					}
 					pushCommand(cmd);
