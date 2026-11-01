@@ -5,6 +5,7 @@
 //   底部命令面板按钮：建造兵营 / 生产步兵 / 生产坦克
 //   1/2/3 按类型全选；WASD/方向键平移；滚轮缩放
 #include <cstdio>
+#include <cstdlib>
 #include <filesystem>
 #include <cstdint>
 #include <chrono>
@@ -277,8 +278,14 @@ int main(int argc, char** argv) {
 	CncAtlas::LoadMeta("assets/cnc_atlas.txt"); // 精灵尺寸/布局（缺失会让单位尺寸为 0）
 	std::vector<uint8_t> cncPixels;
 	int cncW = 0, cncH = 0;
-	const bool cncOk = CncAtlas::Load("assets/cnc_atlas.bmp", cncPixels, cncW, cncH);
-	const uint32_t cncTex = cncOk ? renderer.UploadTexture(cncPixels, cncW, cncH) : 0;
+	bool cncOk = CncAtlas::Load("assets/cnc_atlas.bmp", cncPixels, cncW, cncH);
+	const uint32_t cncTexRaw = cncOk ? renderer.UploadTexture(cncPixels, cncW, cncH) : 0;
+	std::fprintf(stderr, "[cnc] load=%d size=%dx%d pixels=%zu tex=%u\n",
+		cncOk ? 1 : 0, cncW, cncH, cncPixels.size(), cncTexRaw);
+	// 纹理上传失败（tex==0）时，DrawTexturedBatch 会直接 return，单位一个像素都画不出来，
+	// 所以要把它当成"图集不可用"，退回纯色绘制，至少能看到单位在哪。
+	if (cncTexRaw == 0) cncOk = false;
+	const uint32_t cncTex = cncTexRaw;
 
 	// 软件渲染用：精灵代表色（无纹理时）
 	auto spriteRepColor = [](int idx) -> uint32_t {
@@ -936,10 +943,12 @@ int main(int argc, char** argv) {
 		SpriteBatch terrainBatch, unitBatch;
 		terrainBatch.Begin();
 		unitBatch.Begin();
+
 		for (const auto& s : snapshot.sprites) {
 			const float ix = s.prevX + (s.worldX - s.prevX) * interp;
 			const float iy = s.prevY + (s.worldY - s.prevY) * interp;
-			if (s.cncSprite >= 0 && cncOk) {
+			const bool forceSolid = (std::getenv("RTS_SOLID_UNITS") != nullptr);
+			if (s.cncSprite >= 0 && cncOk && !forceSolid) {
 				float u0 = 0.0f, v0 = 0.0f, u1 = 1.0f, v1 = 1.0f;
 				const int team = (s.player == 1) ? 1 : 0;
 				CncAtlas::GetUV(static_cast<CncSpriteId>(s.cncSprite), team, s.facing, s.animFrame, u0, v0, u1, v1);
@@ -1025,6 +1034,12 @@ int main(int argc, char** argv) {
 
 		terrainBatch.End();
 		unitBatch.End();
+		static int dbgB = 0;
+		if (dbgB < 3) {
+			std::fprintf(stderr, "[batch] terrain=%zu unit=%zu\n",
+				terrainBatch.Vertices().size(), unitBatch.Vertices().size());
+			++dbgB;
+		}
 
 		// ---- VFX：曳光 / 命中 / 死亡爆炸 ----
 		std::vector<SpriteVertex> fxVerts;
@@ -1166,10 +1181,14 @@ int main(int argc, char** argv) {
 				renderer.DrawTexturedBatch(terrainBatch.Vertices(), camera, terrainTex); // 地形用混合：菱形 tile 的透明角要透出下层
 				ctx.stats.drawCalls = 1;
 				ctx.stats.vertices = static_cast<uint32_t>(terrainBatch.Vertices().size());
+			});
+			// 单位单独一个 pass：和地形挤在同一个 pass 里时两次 DrawTexturedBatch
+			// 共用同一套 VBO/scratch 状态，实测单位会被吞掉（顶点数明明是对的）。
+			graph.AddPass("Units", [&](PassContext& ctx) {
 				if (cncOk) {
 					renderer.DrawTexturedBatch(unitBatch.Vertices(), camera, cncTex);
-					ctx.stats.drawCalls += 1;
-					ctx.stats.vertices += static_cast<uint32_t>(unitBatch.Vertices().size());
+					ctx.stats.drawCalls = 1;
+					ctx.stats.vertices = static_cast<uint32_t>(unitBatch.Vertices().size());
 				}
 			});
 		}
