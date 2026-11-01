@@ -1208,6 +1208,16 @@ int main(int argc, char** argv) {
 			if (placingBuilding) {
 				// 放置模式下给个明确提示，否则玩家会以为点地图没反应
 				std::snprintf(info, sizeof(info), "PLACING - RMB CANCEL");
+			} else if (!selection.empty()) {
+				// 把选中单位的实时格子坐标显示出来：单位到底动没动，看这行数字最直接
+				const Actor* sel = sim.GetWorld().Entities().Get(selection[0]);
+				if (sel != nullptr) {
+					const CellCoord sc = sel->pos.ToCell();
+					std::snprintf(info, sizeof(info), "SEL #%u (%d,%d) spd=%d",
+						sel->id, sc.x, sc.y, sel->movable.speed);
+				} else {
+					std::snprintf(info, sizeof(info), "SELECTED %zu", selection.size());
+				}
 			} else {
 				std::snprintf(info, sizeof(info), "SELECTED %zu", selection.size());
 			}
