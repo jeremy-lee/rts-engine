@@ -61,3 +61,7 @@ grid_map*
 # 临时日志
 *.err
 *.log
+
+# ComfyUI 测试产物（生成物，不入库）
+artifacts/
+comfy.log
