@@ -7,6 +7,7 @@
 #include <vector>
 #include <algorithm>
 #include "sim/world.h"
+#include "sim/activity.h"
 #include "projection.h"
 #include "assets.h"
 #include "cnc_assets.h"
@@ -28,6 +29,13 @@ struct RenderSprite {
 	uint8_t player = 255;  // 所属玩家（255 = 无，用于软件后端着色）
 	WAngle facing{};       // 朝向（OpenRA WAngle：1024 = 360°）
 	uint8_t animFrame = 0; // 动画帧：0=stand，1-4=run
+	// 炮塔（OpenRA Turreted）：独立的层与独立朝向。turretSprite = -1 表示该单位没有炮塔。
+	int turretSprite = -1;
+	WAngle turretFacing{};
+	float turretW = 0.0f;
+	float turretH = 0.0f;
+	float turretOffsetX = 0.0f; // 炮塔相对车身中心的偏移（对准车身）
+	float turretOffsetY = 0.0f;
 };
 
 struct RenderEffect {
@@ -162,6 +170,28 @@ struct RenderSnapshot {
 			s.prevX = static_cast<float>(pp.x) - s.w * 0.5f;
 			s.prevY = static_cast<float>(pp.y) - s.h * 0.5f;
 			s.cncSprite = static_cast<int>(cid);
+			// 炮塔：独立图层 + 独立朝向（OpenRA Turreted）。
+			// 有攻击目标时炮塔指向目标，否则跟随车身。
+			if (CncAtlas::HasTurret(static_cast<int>(cid))) {
+				s.turretSprite = static_cast<int>(cid);
+				int tw = 0, th = 0;
+				CncAtlas::GetTurretSize(static_cast<int>(cid), tw, th);
+				s.turretW = static_cast<float>(tw);
+				s.turretH = static_cast<float>(th);
+				// 炮塔画布通常比车身小，居中叠到车身上
+				s.turretOffsetX = (s.w - s.turretW) * 0.5f;
+				s.turretOffsetY = (s.h - s.turretH) * 0.5f;
+				WAngle tf = a.movable.facing;
+				if (a.activity.type == ActivityType::Attack &&
+					a.activity.targetEntity != kInvalidEntity) {
+					if (const Actor* tgt = world.Entities().Get(a.activity.targetEntity)) {
+						const int32_t dx = tgt->pos.x - a.pos.x;
+						const int32_t dy = tgt->pos.y - a.pos.y;
+						if (dx != 0 || dy != 0) tf = activity::FacingFromDelta(dx, dy);
+					}
+				}
+				s.turretFacing = tf;
+			}
 			// 朝向：单位取 Movable.facing，建筑固定 0
 			s.facing = a.Has(kCompBuilding) ? WAngle(0) : a.movable.facing;
 			// 动画帧：移动时循环 run 帧
@@ -172,7 +202,10 @@ struct RenderSnapshot {
 			if (a.Has(kCompBuilding) || (!inCombat && !a.movable.moving && sinceMove > 10)) {
 				s.animFrame = 0; // stand
 			} else {
-				s.animFrame = static_cast<uint8_t>(1 + (world.CurrentTick() / 3) % 6); // 10 FPS，6 帧循环
+				// assets/sprites.txt 的帧约定：run = runStart + facing*6 + (frame-1)，
+				// 且 frames=7 表示 1 帧 stand + 6 帧 run。所以这里必须从 1 开始，
+				// 0 是 stand（静止时下面那个分支已经处理）。写成 0..5 会把 stand 混进跑步循环。
+				s.animFrame = static_cast<uint8_t>(1 + (world.CurrentTick() / 3) % 6); // 10 FPS，6 帧 run
 			}
 			units.push_back(s);
 		}

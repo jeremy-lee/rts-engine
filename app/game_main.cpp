@@ -285,6 +285,7 @@ int main(int argc, char** argv) {
 	// 纹理上传失败（tex==0）时，DrawTexturedBatch 会直接 return，单位一个像素都画不出来，
 	// 所以要把它当成"图集不可用"，退回纯色绘制，至少能看到单位在哪。
 	if (cncTexRaw == 0) cncOk = false;
+
 	const uint32_t cncTex = cncTexRaw;
 
 	// 软件渲染用：精灵代表色（无纹理时）
@@ -407,6 +408,12 @@ int main(int argc, char** argv) {
 			const int32_t enemyX = mw - 1 - baseX / 2;
 			const int32_t enemyY = mh - 1 - baseY / 2;
 
+			// 坦克的 numericId 按名字查，别写死数字
+			uint32_t tankNumericId = 0;
+			if (const UnitDef* tankDef = kRules.FindUnit("tank")) {
+				tankNumericId = static_cast<uint32_t>(tankDef->numericId);
+			}
+
 			Command c;
 			c.type = CommandType::Spawn;
 			c.playerId = 0;
@@ -419,6 +426,15 @@ int main(int argc, char** argv) {
 			c.x = (baseX + 2) * kSubPerCell;
 			pushCommand(c);
 			c.x = baseX * kSubPerCell;
+			c.y = (baseY + 2) * kSubPerCell;
+			pushCommand(c);
+
+			// 再补一辆坦克：kRules 里的单位顺序是 harvester/infantry/tank，
+			// 上面用的 0/1 只会刷出矿车和步兵，坦克（带独立炮塔）从来没出现过。
+			c.type = CommandType::Spawn;
+			c.playerId = 0;
+			c.targetId = tankNumericId;
+			c.x = (baseX + 2) * kSubPerCell;
 			c.y = (baseY + 2) * kSubPerCell;
 			pushCommand(c);
 
@@ -509,6 +525,7 @@ int main(int argc, char** argv) {
 	double fpsTimer = 0.0;
 	int fpsFrames = 0;
 	double fps = 0.0;
+	static int g_dbgUnit = 0;
 
 	// 直接开局：跳过 LevelSelect，让 rts_game 一启动就能打（否则玩家没单位，只能看地形）。
 	if (!netMode && !levelPaths.empty()) startLevel(0);
@@ -956,7 +973,22 @@ int main(int argc, char** argv) {
 				if (softwareMode && s.player != 255) {
 					tint = (s.player == 0) ? 0xFF00C8FF : 0xFFFF4040;
 				}
+				if (g_dbgUnit < 6) {
+					std::fprintf(stderr, "[u] cnc=%d turret=%d pos=(%.0f,%.0f) uv=(%.4f,%.4f,%.4f,%.4f) w=%.0f\n",
+						s.cncSprite, s.turretSprite, ix, iy, u0, v0, u1, v1, s.w);
+					++g_dbgUnit;
+				}
 				unitBatch.AddSprite(s.worldX, s.worldY, s.w, s.h, u0, v0, u1, v1, tint);
+				// 炮塔独立一层（OpenRA Turreted）：车身用移动朝向，炮塔用目标朝向。
+				// 之前炮塔被烧进车身贴图，所以永远朝前，坦克开火时炮口不对着目标。
+				if (s.turretSprite >= 0) {
+					float tu0 = 0.0f, tv0 = 0.0f, tu1 = 0.0f, tv1 = 0.0f;
+					CncAtlas::GetTurretUV(s.turretSprite, team, s.turretFacing, tu0, tv0, tu1, tv1);
+					if (tu1 > tu0 && tv1 > tv0) {
+						unitBatch.AddSprite(ix + s.turretOffsetX, iy + s.turretOffsetY,
+							s.turretW, s.turretH, tu0, tv0, tu1, tv1, tint);
+					}
+				}
 			} else if (!softwareMode && s.spriteIndex >= 0) {
 				// 地形：程序化 64×32 纹理（1:1）
 				float u0 = 0.0f, v0 = 0.0f, u1 = 1.0f, v1 = 1.0f;
