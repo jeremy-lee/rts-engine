@@ -32,6 +32,17 @@ public:
 	bool IsMouseDown(int button) const { return button >= 0 && button < 3 && m_mouse[button]; }
 	int MouseX() const { return m_mouseX; }
 	int MouseY() const { return m_mouseY; }
+	// 鼠标是否真的悬在窗口客户区内。
+	// 没有这个判断时，游戏启动后（或 --autoshot 时）鼠标坐标是 (0,0)，
+	// 会被边缘滚动逻辑当成"鼠标停在左上角"，相机于是每帧往左上漂，
+	// 几秒后单位就滚出视野了 —— 看起来像"单位没有渲染"。
+	bool MouseInWindow() const {
+		if (m_hwnd == nullptr) return false;
+		POINT p;
+		if (!::GetCursorPos(&p)) return false;
+		if (!::ScreenToClient(m_hwnd, &p)) return false;
+		return p.x >= 0 && p.y >= 0 && p.x < m_width && p.y < m_height;
+	}
 	int ConsumeWheel() { const int w = m_wheel; m_wheel = 0; return w; }
 
 	// 文件拖放（WM_DROPFILES）：取出并清空本次拖入的文件路径

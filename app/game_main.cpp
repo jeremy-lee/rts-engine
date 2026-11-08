@@ -580,6 +580,10 @@ int main(int argc, char** argv) {
 			camera.ZoomAt((wheel > 0) ? 1.1f : 1.0f / 1.1f, mx, my);
 		}
 		// OpenRA 风格：鼠标到窗口边缘自动滚动（避开顶部/底部 UI）
+		// 必须先确认鼠标真的在窗口里：否则启动时/--autoshot 时坐标是 (0,0)，
+		// 会被当成"停在左上角"，相机每帧往左上漂，几秒后单位就滚出视野，
+		// 表现得像"单位没渲染"（排查这个假象花了很多轮）。
+		if (window.MouseInWindow())
 		{
 			const float edge = 24.0f;
 			const float scroll = 900.0f * static_cast<float>(dt) / camera.zoom;
@@ -1185,6 +1189,7 @@ int main(int argc, char** argv) {
 			// 单位单独一个 pass：和地形挤在同一个 pass 里时两次 DrawTexturedBatch
 			// 共用同一套 VBO/scratch 状态，实测单位会被吞掉（顶点数明明是对的）。
 			graph.AddPass("Units", [&](PassContext& ctx) {
+
 				if (cncOk) {
 					renderer.DrawTexturedBatch(unitBatch.Vertices(), camera, cncTex);
 					ctx.stats.drawCalls = 1;
