@@ -570,20 +570,25 @@ int main(int argc, char** argv) {
 				static_cast<float>(mh) * static_cast<float>(kTileH));
 		}
 		const float panSpeed = 500.0f * static_cast<float>(dt) / camera.zoom;
-		if (window.IsKeyDown('W') || window.IsKeyDown(VK_UP)) camera.centerY -= panSpeed;
-		if (window.IsKeyDown('S') || window.IsKeyDown(VK_DOWN)) camera.centerY += panSpeed;
-		if (window.IsKeyDown('A') || window.IsKeyDown(VK_LEFT)) camera.centerX -= panSpeed;
-		if (window.IsKeyDown('D') || window.IsKeyDown(VK_RIGHT)) camera.centerX += panSpeed;
+		// --autoshot 是自动化验证路径：任何输入都不该移动相机，否则截到的画面
+		// 和"开局应该看到什么"对不上，会把渲染问题误判成相机问题（已经踩过）。
+		if (!autoShot) {
+			if (window.IsKeyDown('W') || window.IsKeyDown(VK_UP)) camera.centerY -= panSpeed;
+			if (window.IsKeyDown('S') || window.IsKeyDown(VK_DOWN)) camera.centerY += panSpeed;
+			if (window.IsKeyDown('A') || window.IsKeyDown(VK_LEFT)) camera.centerX -= panSpeed;
+			if (window.IsKeyDown('D') || window.IsKeyDown(VK_RIGHT)) camera.centerX += panSpeed;
+		}
 
 		const int wheel = window.ConsumeWheel();
-		if (wheel != 0) {
+		if (wheel != 0 && !autoShot) {
 			camera.ZoomAt((wheel > 0) ? 1.1f : 1.0f / 1.1f, mx, my);
 		}
 		// OpenRA 风格：鼠标到窗口边缘自动滚动（避开顶部/底部 UI）
-		// 必须先确认鼠标真的在窗口里：否则启动时/--autoshot 时坐标是 (0,0)，
-		// 会被当成"停在左上角"，相机每帧往左上漂，几秒后单位就滚出视野，
-		// 表现得像"单位没渲染"（排查这个假象花了很多轮）。
-		if (window.MouseInWindow())
+		// 两个前提缺一不可：
+		//   1. 不是 --autoshot（自动化截图必须锁定取景）
+		//   2. 鼠标真的在窗口内（启动时坐标是 (0,0)，会被当成停在左上角，
+		//      相机每帧往左上漂，几秒后单位滚出视野，看起来像"单位没渲染"）
+		if (!autoShot && window.MouseInWindow())
 		{
 			const float edge = 24.0f;
 			const float scroll = 900.0f * static_cast<float>(dt) / camera.zoom;
