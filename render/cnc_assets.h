@@ -36,8 +36,7 @@ public:
 	static constexpr int kCellW = 80;
 	static constexpr int kCellH = 64;
 	static constexpr int kCols = 64; // 32 朝向 × 2 阵营（坦克）
-	static constexpr int kRows = 36; // 与 assets/cnc_atlas.bmp 一致（34 行车身 + 2 行炮塔）
-	static constexpr int kMaxSprites = 32; // 元数据表容量（sprite + turret 共用索引）
+	static constexpr int kRows = 34; // 2 坦克行 + 28 步兵/矿车行 + 4 建筑行
 
 	// 加载 PNG（stb_image），输出 RGBA 像素
 	static bool Load(const std::string& path, std::vector<uint8_t>& outPixels, int& outW, int& outH);
@@ -49,46 +48,6 @@ public:
 	}
 
 	static constexpr int kUnitFrames = 7; // 0 = stand，1-6 = run 动画（完整 6 帧循环）
-
-	// ---- 炮塔（OpenRA Turreted / turreted sequence）----
-	// 炮塔是独立图层：车身按移动朝向，炮塔按目标朝向，两者角度可以不同。
-	// 元数据来自 assets/cnc_atlas.txt 的 `turret <name> <row> <w> <h>` 行。
-	struct TurretMeta {
-		int row = -1;  // -1 = 该单位没有炮塔
-		int w = 0;
-		int h = 0;
-	};
-
-	static TurretMeta& TurretAt(int index) {
-		static TurretMeta table[kMaxSprites];
-		return table[index < 0 || index >= kMaxSprites ? 0 : index];
-	}
-
-	static bool HasTurret(int index) { return TurretAt(index).row >= 0; }
-
-	// 炮塔 UV：和车身同一套布局（32 朝向 × 2 阵营），但行号取自 turret 元数据
-	static void GetTurretUV(int index, int team, WAngle facing, float& u0, float& v0, float& u1, float& v1) {
-		const TurretMeta& tm = TurretAt(index);
-		if (tm.row < 0) { u0 = 0; v0 = 0; u1 = 0; v1 = 0; return; }
-		const int t = (team == 1) ? 1 : 0;
-		const int f32 = facing.angle / 32;              // 0-31
-		const int col = ((32 - f32) % 32) + t * 32;
-		const int ox = col * kCellW + (kCellW - tm.w) / 2;
-		const int oy = tm.row * kCellH + (kCellH - tm.h) / 2;
-		Sheet& sheet = ImgSheet();
-		if (!sheet.Valid()) {
-			sheet.width = kCols * kCellW;
-			sheet.height = kRows * kCellH;
-		}
-		const SpriteRect r = MakeSpriteRect(sheet, ox, oy, tm.w, tm.h);
-		u0 = r.u0; v0 = r.v0; u1 = r.u1; v1 = r.v1;
-	}
-
-	static void GetTurretSize(int index, int& w, int& h) {
-		const TurretMeta& tm = TurretAt(index);
-		w = tm.w;
-		h = tm.h;
-	}
 
 	// ---- 资源驱动的精灵元数据（OpenRA sequences yaml 语义）----
 	// 尺寸/布局不再硬编码：从 assets/cnc_atlas.txt 加载（图集变化时无需改代码）。
@@ -169,15 +128,6 @@ public:
 				}
 				continue;
 			}
-			// turret <name> <row> <w> <h>：炮塔单独一层（OpenRA Turreted）
-			if (key == "turret") {
-				std::string tname;
-				TurretMeta tm;
-				if (!(iss >> tname >> tm.row >> tm.w >> tm.h)) continue;
-				const int ti = FindByName(tname);
-				if (ti >= 0) TurretAt(ti) = tm;
-				continue;
-			}
 			if (key != "sprite") continue;
 			std::string name;
 			SpriteMeta m;
@@ -199,10 +149,7 @@ public:
 		if (index < 0 || index >= Count()) { u0 = 0; v0 = 0; u1 = 1; v1 = 1; return; }
 		const int t = (team == 1) ? 1 : 0;
 		const SpriteMeta& m = MetaTable()[static_cast<size_t>(index)];
-		// OpenRA 语义：sequence 的帧号对 Length 取模（循环播放），不是 clamp 到最后一帧。
-		// clamp 会让所有超出长度的时间点都停在最后一帧，看起来像动画卡住。
-		int k = (m.frames > 0) ? (frame % m.frames) : 0;
-		if (k < 0) k += m.frames;
+		const int k = (frame < 0) ? 0 : (frame >= m.frames ? m.frames - 1 : frame);
 		int row = m.row;
 		int col = 0;
 		if (m.facings == 32) {

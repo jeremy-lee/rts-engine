@@ -5,6 +5,7 @@
 namespace rts {
 namespace activity {
 
+namespace {
 // 由位移增量计算 8 方向朝向（整数运算，确定性）
 // 0=北, 1=东北, 2=东, 3=东南, 4=南, 5=西南, 6=西, 7=西北（顺时针）
 WAngle FacingFromDelta(int32_t dx, int32_t dy) {
@@ -23,6 +24,7 @@ WAngle FacingFromDelta(int32_t dx, int32_t dy) {
 	else f = 7;                                    // 西北
 	return WAngle(f * 128);
 }
+} // namespace
 
 void SetMoveTo(Actor& a, SubCoord target, Tick now) {
 	a.activity.type = ActivityType::MoveTo;
