@@ -241,6 +241,21 @@ int main(int argc, char** argv) {
 		totalRows = std::max(totalRows, d.row + rows * cfg.teamCount);
 	}
 
+	// 炮塔单独占行。OpenRA 里 Turreted trait 的炮塔是独立序列、独立旋转，
+	// 所以不能像以前那样把炮塔烧进车身贴图（那样炮塔永远朝前）。
+	// 32 朝向 × 2 阵营 = 64 列，正好一行。
+	std::vector<int> turretRow(cfg.sprites.size(), -1);
+	{
+		int next = totalRows;
+		for (size_t i = 0; i < cfg.sprites.size(); ++i) {
+			const SpriteDef& d = cfg.sprites[i];
+			if (d.mode == "tank32" && d.turretStart >= 0) {
+				turretRow[i] = next++;
+			}
+		}
+		totalRows = next;
+	}
+
 	const int atlasW = cfg.cols * cfg.cellW;
 	const int atlasH = totalRows * cfg.cellH;
 	std::vector<uint8_t> atlas(static_cast<size_t>(atlasW) * atlasH * 4, 0);
@@ -274,6 +289,7 @@ int main(int argc, char** argv) {
 
 	for (const auto& d : cfg.sprites) {
 		int maxW = 0, maxH = 0;
+		int turretMaxW = 0, turretMaxH = 0;
 		const bool isTank = (d.mode == "tank32");
 		const bool isBuilding = (d.mode == "building");
 		const int facings = (d.facings == 0) ? 1 : d.facings;
@@ -301,12 +317,31 @@ int main(int argc, char** argv) {
 						std::fprintf(stderr, "[import] missing %s\n", nameBuf);
 						continue;
 					}
-					if (isTank && d.turretStart >= 0) {
+					if (isTank && d.turretStart >= 0 && turretRow[&d - cfg.sprites.data()] >= 0) {
 						char turretBuf[256];
 						std::snprintf(turretBuf, sizeof(turretBuf), "%s/%s-%04d.png", framesDir.c_str(), d.prefix.c_str(), d.turretStart + f);
 						Image turret;
 						if (LoadPng(turretBuf, turret)) {
-							img = Composite(img, turret);
+							// 炮塔单独裁剪/独立行，不再 Composite 进车身
+							int tox = 0, toy = 0, tow = 0, toh = 0;
+							if (CropBBox(turret, tox, toy, tow, toh)) {
+								Image tcropped;
+								tcropped.w = tow;
+								tcropped.h = toh;
+								tcropped.px.resize(static_cast<size_t>(tow) * toh * 4);
+								for (int y = 0; y < toh; ++y) {
+									for (int x = 0; x < tow; ++x) {
+										const size_t so = (static_cast<size_t>(toy + y) * turret.w + (tox + x)) * 4;
+										const size_t dstC = (static_cast<size_t>(y) * tow + x) * 4;
+										std::memcpy(&tcropped.px[dstC], &turret.px[so], 4);
+									}
+								}
+								ApplyTeam(tcropped, cfg.team[team]);
+								const int tcol = (facings == 32) ? (f + team * 32) : (f + team * 8);
+								place(tcropped, tcol, turretRow[&d - cfg.sprites.data()]);
+								turretMaxW = std::max(turretMaxW, tow);
+								turretMaxH = std::max(turretMaxH, toh);
+							}
 						}
 					}
 					int ox = 0, oy = 0, ow = 0, oh = 0;
@@ -334,6 +369,14 @@ int main(int argc, char** argv) {
 		std::snprintf(metaBuf, sizeof(metaBuf), "sprite %s %d %d %d %d %d",
 			d.name.c_str(), d.row, maxW, maxH, facings, d.frames);
 		metaLines.push_back(metaBuf);
+		if (turretMaxW > 0) {
+			char turretMeta[256];
+			std::snprintf(turretMeta, sizeof(turretMeta), "turret %s %d %d %d",
+				d.name.c_str(), turretRow[&d - cfg.sprites.data()], turretMaxW, turretMaxH);
+			metaLines.push_back(turretMeta);
+			std::printf("[import] %-12s turret row=%d bbox=%dx%d\n", d.name.c_str(),
+				turretRow[&d - cfg.sprites.data()], turretMaxW, turretMaxH);
+		}
 		std::printf("[import] %-12s row=%d maxBBox=%dx%d facings=%d frames=%d\n",
 			d.name.c_str(), d.row, maxW, maxH, facings, d.frames);
 	}

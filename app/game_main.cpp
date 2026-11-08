@@ -422,6 +422,17 @@ int main(int argc, char** argv) {
 			c.y = (baseY + 2) * kSubPerCell;
 			pushCommand(c);
 
+			// 再补一辆坦克：kRules 的单位顺序是 harvester/infantry/tank，
+			// 上面用的 0/1 只会刷出矿车和步兵，带炮塔的坦克从来没出现过。
+			if (const UnitDef* tankDef = kRules.FindUnit("tank")) {
+				c.type = CommandType::Spawn;
+				c.playerId = 0;
+				c.targetId = static_cast<uint32_t>(tankDef->numericId);
+				c.x = (baseX + 2) * kSubPerCell;
+				c.y = (baseY + 2) * kSubPerCell;
+				pushCommand(c);
+			}
+
 			// 兵营放在基地左上方
 			c.type = CommandType::Build;
 			c.playerId = 0;
@@ -965,7 +976,17 @@ int main(int argc, char** argv) {
 				if (softwareMode && s.player != 255) {
 					tint = (s.player == 0) ? 0xFF00C8FF : 0xFFFF4040;
 				}
-				unitBatch.AddSprite(s.worldX, s.worldY, s.w, s.h, u0, v0, u1, v1, tint);
+				unitBatch.AddSprite(ix, iy, s.w, s.h, u0, v0, u1, v1, tint);
+				// 炮塔独立一层（OpenRA Turreted）：车身按移动朝向，炮塔按目标朝向。
+				// 导入器已经把炮塔放到独立图集行，这里只是多画一个 quad。
+				if (s.turretSprite >= 0) {
+					float tu0 = 0.0f, tv0 = 0.0f, tu1 = 0.0f, tv1 = 0.0f;
+					CncAtlas::GetTurretUV(s.turretSprite, team, s.turretFacing, tu0, tv0, tu1, tv1);
+					if (tu1 > tu0 && tv1 > tv0) {
+						unitBatch.AddSprite(ix + s.turretOffsetX, iy + s.turretOffsetY,
+							s.turretW, s.turretH, tu0, tv0, tu1, tv1, tint);
+					}
+				}
 			} else if (!softwareMode && s.spriteIndex >= 0) {
 				// 地形：程序化 64×32 纹理（1:1）
 				float u0 = 0.0f, v0 = 0.0f, u1 = 1.0f, v1 = 1.0f;
