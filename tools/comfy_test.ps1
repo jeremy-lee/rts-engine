@@ -1,9 +1,13 @@
-# ComfyUI text-to-image test harness
-# Usage: .\comfy_test.ps1 -Ckpt "model.safetensors" -Prompt "..." -Out "prefix" [-Width 512] [-Height 512] [-Steps 20] [-Cfg 7]
+# ComfyUI text-to-image harness with optional LoRA
+# Usage:
+#   .\comfy_test.ps1 -Ckpt "v1-5.safetensors" -Prompt "..." -Out "prefix"
+#   .\comfy_test.ps1 -Ckpt "v1-5.safetensors" -Prompt "..." -Out "prefix" -Lora "PixelArtRedmond15V.safetensors" -LoraStrength 1.0
 param(
     [Parameter(Mandatory=$true)][string]$Ckpt,
     [Parameter(Mandatory=$true)][string]$Prompt,
     [Parameter(Mandatory=$true)][string]$Out,
+    [string]$Lora = "",
+    [double]$LoraStrength = 1.0,
     [int]$Width = 512,
     [int]$Height = 512,
     [int]$Steps = 20,
@@ -15,18 +19,31 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-# Minimal graph: CheckpointLoader -> 2x CLIPTextEncode -> EmptyLatent -> KSampler -> VAEDecode -> SaveImage
+# When a LoRA is given the graph becomes:
+#   Checkpoint(4) -> LoraLoader(A) -> CLIPTextEncode(6,7) -> KSampler(3) ...
+# The model/clip consumers below are re-pointed at "A" instead of "4".
+if ($Lora -ne "") {
+    $modelSrc = '["A", 0]'
+    $clipSrc  = '["A", 1]'
+    $loraNode = '"A": {"class_type": "LoraLoader", "inputs": {"model": ["4", 0], "clip": ["4", 1], "lora_name": "' + $Lora + '", "strength_model": ' + $LoraStrength + ', "strength_clip": ' + $LoraStrength + '}},'
+} else {
+    $modelSrc = '["4", 0]'
+    $clipSrc  = '["4", 1]'
+    $loraNode = ''
+}
+
 $json = @"
 {
   "prompt": {
     "4": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": "$Ckpt"}},
+    $loraNode
     "5": {"class_type": "EmptyLatentImage", "inputs": {"width": $Width, "height": $Height, "batch_size": 1}},
-    "6": {"class_type": "CLIPTextEncode", "inputs": {"text": "$Prompt", "clip": ["4", 1]}},
-    "7": {"class_type": "CLIPTextEncode", "inputs": {"text": "$Negative", "clip": ["4", 1]}},
+    "6": {"class_type": "CLIPTextEncode", "inputs": {"text": "$Prompt", "clip": $clipSrc}},
+    "7": {"class_type": "CLIPTextEncode", "inputs": {"text": "$Negative", "clip": $clipSrc}},
     "3": {"class_type": "KSampler", "inputs": {
         "seed": $Seed, "steps": $Steps, "cfg": $Cfg,
         "sampler_name": "euler", "scheduler": "normal", "denoise": 1.0,
-        "model": ["4", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["5", 0]
+        "model": $modelSrc, "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["5", 0]
     }},
     "8": {"class_type": "VAEDecode", "inputs": {"samples": ["3", 0], "vae": ["4", 2]}},
     "9": {"class_type": "SaveImage", "inputs": {"images": ["8", 0], "filename_prefix": "$Out"}}
@@ -50,8 +67,7 @@ while ((Get-Date) -lt $deadline) {
             $entry = $h.$promptId
             # A prompt can appear in /history with status error and no images at all.
             # Checking only for images made this script print DONE for failures.
-            $statusStr = $entry.status.status_str
-            if ($statusStr -eq "error") {
+            if ($entry.status.status_str -eq "error") {
                 $failed = $true
                 $errs = @($entry.status.messages | Where-Object { $_[0] -eq "execution_error" })
                 foreach ($e in $errs) {
