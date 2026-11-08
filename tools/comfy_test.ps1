@@ -41,13 +41,26 @@ Write-Host "submitted prompt_id=$promptId"
 
 $deadline = (Get-Date).AddMinutes(8)
 $done = $false
+$failed = $false
 while ((Get-Date) -lt $deadline) {
     Start-Sleep -Seconds 3
     try {
         $h = Invoke-RestMethod -Uri "$Server/history/$promptId" -TimeoutSec 20
         if ($h.PSObject.Properties.Name -contains $promptId) {
+            $entry = $h.$promptId
+            # A prompt can appear in /history with status error and no images at all.
+            # Checking only for images made this script print DONE for failures.
+            $statusStr = $entry.status.status_str
+            if ($statusStr -eq "error") {
+                $failed = $true
+                $errs = @($entry.status.messages | Where-Object { $_[0] -eq "execution_error" })
+                foreach ($e in $errs) {
+                    Write-Host "ERROR: $($e[1].exception_type): $($e[1].exception_message)"
+                }
+                break
+            }
             $done = $true
-            $outs = $h.$promptId.outputs
+            $outs = $entry.outputs
             foreach ($nodeId in $outs.PSObject.Properties.Name) {
                 $imgs = $outs.$nodeId.images
                 if ($imgs) {
@@ -60,5 +73,6 @@ while ((Get-Date) -lt $deadline) {
         }
     } catch { }
 }
+if ($failed) { Write-Host "FAILED"; exit 1 }
 if (-not $done) { Write-Host "TIMEOUT after 8 minutes"; exit 1 }
 Write-Host "DONE"
