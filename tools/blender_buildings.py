@@ -316,11 +316,40 @@ def mesh_bounds():
     return lo, hi
 
 
+def mutate(seed):
+    """Deterministic per-variant jitter: overall scale + colour temperature.
+
+    Structure stays the same (we are not going to write 56 distinct buildings by hand),
+    but scale and hue variation stops the adapter from memorising one exact silhouette
+    and colour for each class. Seeded so a rebuild reproduces the same set.
+    """
+    import random
+    rng = random.Random(seed)
+    s = rng.uniform(0.88, 1.14)
+    warm = rng.uniform(0.9, 1.12)
+    for ob in bpy.data.objects:
+        if ob.type != "MESH":
+            continue
+        ob.scale = (ob.scale.x * s, ob.scale.y * s, ob.scale.z * s)
+        ob.location = (ob.location.x * s, ob.location.y * s, ob.location.z * s)
+        for m in ob.data.materials:
+            if not m or not m.use_nodes:
+                continue
+            b = m.node_tree.nodes.get("Principled BSDF")
+            if not b:
+                continue
+            col = list(b.inputs["Base Color"].default_value)
+            col[0] = min(1.0, col[0] * warm)
+            col[2] = min(1.0, col[2] * (2.0 - warm) * 0.5 + col[2] * 0.5)
+            b.inputs["Base Color"].default_value = (col[0], col[1], col[2], 1.0)
+
+
 def main():
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
     out = argv[0] if argv else "."
     facings, size = 8, 512
     only = None
+    variants = 1
     i = 1
     while i < len(argv):
         if argv[i] == "--facings" and i + 1 < len(argv):
@@ -329,15 +358,21 @@ def main():
             size = int(argv[i + 1]); i += 2
         elif argv[i] == "--only" and i + 1 < len(argv):
             only = set(argv[i + 1].split(",")); i += 2
+        elif argv[i] == "--variants" and i + 1 < len(argv):
+            variants = int(argv[i + 1]); i += 2
         else:
             i += 1
     os.makedirs(out, exist_ok=True)
 
     names = [n for n in BUILDINGS if (only is None or n in only)]
     for name in names:
+      for v in range(variants):
+        tag = name if variants == 1 else f"{name}_v{v}"
         MATS.clear()
         bpy.ops.wm.read_factory_settings(use_empty=True)
         BUILDINGS[name]()
+        if variants > 1:
+            mutate(hash(name) % 100000 + v * 7919)
         lo, hi = mesh_bounds()
         centre = (lo + hi) * 0.5
         extent = max(hi.x - lo.x, hi.y - lo.y, (hi.z - lo.z) * 1.4)
@@ -369,9 +404,9 @@ def main():
                 centre.z + dist * math.cos(pitch),
             )
             bpy.context.view_layer.update()
-            sc.render.filepath = os.path.join(out, f"{name}_f{f:02d}.png")
+            sc.render.filepath = os.path.join(out, f"{tag}_f{f:02d}.png")
             bpy.ops.render.render(write_still=True)
-        print(f"[built] {name}: {facings} facings", flush=True)
+        print(f"[built] {tag}: {facings} facings", flush=True)
 
     print(f"[done] {len(names)} buildings -> {out}")
 

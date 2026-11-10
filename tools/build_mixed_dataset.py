@@ -30,19 +30,23 @@ def load_pal(path):
 
 
 def quantise(rgba, pal):
+    """Palette-quantise with a unique-colour shortcut.
+
+    A 512x512 image has 262k pixels but only a few thousand distinct colours, so we
+    quantise the UNIQUE colours and map back. That turns 67M distance computations per
+    image into a few hundred thousand, which matters across a 600+ image set.
+    """
     a = np.asarray(rgba).copy()
     rgb = a[:, :, :3].astype(np.int32)
-    mask = a[:, :, 3] > 8
+    alpha = a[:, :, 3]
+    mask = alpha > 8
     if not mask.any():
         return rgba
     flat = rgb[mask]
-    out = np.empty_like(flat)
-    step = 4096
-    for i in range(0, len(flat), step):
-        chunk = flat[i:i + step]
-        d = ((chunk[:, None, :] - pal[None, :, :]) ** 2).sum(axis=2)
-        out[i:i + step] = pal[d.argmin(axis=1)]
-    rgb[mask] = out
+    uniq, inverse = np.unique(flat.reshape(-1, 3), axis=0, return_inverse=True)
+    d = ((uniq[:, None, :] - pal[None, :, :]) ** 2).sum(axis=2)
+    mapped = pal[d.argmin(axis=1)]
+    rgb[mask] = mapped[inverse.reshape(-1)]
     a[:, :, :3] = rgb.astype(np.uint8)
     return Image.fromarray(a, "RGBA")
 
@@ -61,19 +65,29 @@ def add_outline(rgba, strength=0.45):
 
 
 def render_to_pixel(path, pal, sprite=SPRITE):
-    """Blender render -> quantised sprite -> blown back up with NEAREST."""
+    """Blender render -> palette-quantised image at (close to) native resolution.
+
+    IMPORTANT: this used to reduce to 48px and blow back up with NEAREST. That stamped a
+    visible square grid over every training image - the model learned the grid as ground
+    texture and reproduced it in every generation. Now we keep the render near native
+    size (fit to the canvas, never below 75% of it) and only quantise, so the pixel feel
+    comes from the palette and the hard edges, not from upscaled blocks.
+    """
     im = Image.open(path).convert("RGBA")
     bbox = im.getbbox()
     if bbox:
         im = im.crop(bbox)
     w, h = im.size
-    sc = min(sprite / w, sprite / h)
+    target = int(CANVAS * 0.9)          # fill most of the canvas, no tiny-sprite look
+    sc = min(target / w, target / h)
+    # never downscale below ~192px: that is where the block artifact starts to dominate
+    sc = max(sc, 192.0 / max(w, h))
     nw, nh = max(1, int(round(w * sc))), max(1, int(round(h * sc)))
-    small = im.resize((nw, nh), Image.LANCZOS)
-    canvas = Image.new("RGBA", (sprite, sprite), (0, 0, 0, 0))
-    canvas.paste(small, ((sprite - nw) // 2, (sprite - nh) // 2), small)
+    resized = im.resize((nw, nh), Image.LANCZOS)
+    canvas = Image.new("RGBA", (CANVAS, CANVAS), (0, 0, 0, 0))
+    canvas.paste(resized, ((CANVAS - nw) // 2, (CANVAS - nh) // 2), resized)
     canvas = add_outline(quantise(canvas, pal))
-    return canvas.resize((CANVAS, CANVAS), Image.NEAREST)
+    return canvas
 
 
 def ra_sprite_to_canvas(path, pal):
@@ -99,7 +113,7 @@ def main():
     pal = load_pal(r"D:\rts-engine\assets_raw\ra\temperat.pal")
 
     render_sources = [
-        ("building", r"D:\rts-engine\artifacts\bld"),
+        ("building", r"D:\rts-engine\artifacts\bld2"),
         ("building", r"D:\rts-engine\artifacts\blender_out4"),
         ("vehicle", r"D:\rts-engine\artifacts\model_out2"),
         ("vehicle", r"D:\rts-engine\artifacts\model_out_plane"),
