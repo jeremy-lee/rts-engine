@@ -18,11 +18,11 @@ from PIL import Image, ImageFilter, ImageStat
 def load_pal(path):
     with open(path, "rb") as f:
         raw = f.read()
-    return np.array([[raw[i * 3] * 4, raw[i * 3 + 1] * 4, raw[i * 3 + 2] * 4] for i in range(256)], dtype=np.int16)
+    return np.array([[raw[i * 3] * 4, raw[i * 3 + 1] * 4, raw[i * 3 + 2] * 4] for i in range(256)], dtype=np.int32)
 
 
 def quantise(img, pal):
-    a = np.asarray(img.convert("RGB"), dtype=np.int16)
+    a = np.asarray(img.convert("RGB"), dtype=np.int32)
     flat = a.reshape(-1, 3)
     # chunked nearest-colour so we do not allocate a 200k x 256 distance matrix at once
     out = np.empty_like(flat)
@@ -36,7 +36,7 @@ def quantise(img, pal):
 
 def knockout_bg(img, tol=38):
     """Flat background from the corners."""
-    a = np.asarray(img.convert("RGB"), dtype=np.int16)
+    a = np.asarray(img.convert("RGB"), dtype=np.int32)
     h, w, _ = a.shape
     corners = np.array([a[0, 0], a[0, w - 1], a[h - 1, 0], a[h - 1, w - 1]])
     bg = np.median(corners, axis=0)
