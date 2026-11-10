@@ -47,19 +47,29 @@ def main():
         except Exception:
             continue
 
+    # Take up to MAX_PER_SPRITE frames per sprite, evenly spaced. One frame per sprite
+    # gave only 18 images and the LoRA memorised them; multiple facings/states of the
+    # same structure add real variety while keeping the style consistent.
+    MAX_PER_SPRITE = 8
     count = 0
     for base, files in sorted(bybase.items()):
         files.sort()
-        f = files[len(files) // 2]          # middle frame = neutral facing
-        im = Image.open(f).convert("RGBA")
-        if im.width > size or im.height > size:
-            continue
-        canvas = Image.new("RGBA", (size, size), (40, 40, 40, 255))
-        canvas.paste(im, ((size - im.width) // 2, (size - im.height) // 2), im)
-        canvas.convert("RGB").save(os.path.join(dst, base + ".png"))
-        with open(os.path.join(dst, base + ".txt"), "w", encoding="utf-8") as fh:
-            fh.write(CAPTION.format(name=base) + "\n")
-        count += 1
+        take = min(MAX_PER_SPRITE, len(files))
+        step = max(1, len(files) // take)
+        picked = files[::step][:take]
+        for idx, f in enumerate(picked):
+            im = Image.open(f).convert("RGBA")
+            if im.width > size or im.height > size:
+                continue
+            if im.getbbox() is None:
+                continue
+            canvas = Image.new("RGBA", (size, size), (40, 40, 40, 255))
+            canvas.paste(im, ((size - im.width) // 2, (size - im.height) // 2), im)
+            name = f"{base}_{idx:02d}"
+            canvas.convert("RGB").save(os.path.join(dst, name + ".png"))
+            with open(os.path.join(dst, name + ".txt"), "w", encoding="utf-8") as fh:
+                fh.write(CAPTION.format(name=base) + "\n")
+            count += 1
 
     print(f"dataset images: {count}")
     print("sprites:", ", ".join(sorted(bybase.keys())))
