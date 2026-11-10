@@ -54,7 +54,7 @@ $json = @"
 
 $resp = Invoke-RestMethod -Uri "$Server/prompt" -Method Post -Body $json -ContentType "application/json" -TimeoutSec 60
 $promptId = $resp.prompt_id
-Write-Host "submitted prompt_id=$promptId"
+Write-Output "submitted prompt_id=$promptId"
 
 $deadline = (Get-Date).AddMinutes(8)
 $done = $false
@@ -71,7 +71,7 @@ while ((Get-Date) -lt $deadline) {
                 $failed = $true
                 $errs = @($entry.status.messages | Where-Object { $_[0] -eq "execution_error" })
                 foreach ($e in $errs) {
-                    Write-Host "ERROR: $($e[1].exception_type): $($e[1].exception_message)"
+                    Write-Output "ERROR: $($e[1].exception_type): $($e[1].exception_message)"
                 }
                 break
             }
@@ -81,7 +81,7 @@ while ((Get-Date) -lt $deadline) {
                 $imgs = $outs.$nodeId.images
                 if ($imgs) {
                     foreach ($im in $imgs) {
-                        Write-Host "IMAGE: $($im.filename) subfolder=$($im.subfolder) type=$($im.type)"
+                        Write-Output "IMAGE: $($im.filename) subfolder=$($im.subfolder) type=$($im.type)"
                     }
                 }
             }
@@ -89,6 +89,6 @@ while ((Get-Date) -lt $deadline) {
         }
     } catch { }
 }
-if ($failed) { Write-Host "FAILED"; exit 1 }
-if (-not $done) { Write-Host "TIMEOUT after 8 minutes"; exit 1 }
-Write-Host "DONE"
+if ($failed) { Write-Output "FAILED"; exit 1 }
+if (-not $done) { Write-Output "TIMEOUT after 8 minutes"; exit 1 }
+Write-Output "DONE"
