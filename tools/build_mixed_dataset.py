@@ -119,6 +119,7 @@ def main():
         ("vehicle", r"D:\rts-engine\artifacts\model_out_plane"),
         ("vehicle", r"D:\rts-engine\artifacts\model_out_turretcar"),
         ("vehicle", r"D:\rts-engine\artifacts\model_out_zeppelin"),
+        ("vehicle", r"D:\rts-engine\artifacts\veh"),
     ]
 
     n_render = 0
