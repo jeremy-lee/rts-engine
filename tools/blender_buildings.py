@@ -63,8 +63,23 @@ def cone(loc, r1, r2, depth, material, verts=12):
 
 
 # ---------------------------------------------------------------- palette
-RED = lambda: mat("red", (0.40, 0.05, 0.05))
-RED_DARK = lambda: mat("red_dark", (0.24, 0.03, 0.03))
+# Wall colour is a variable, not a constant. Every building used to share one red, and
+# the resulting LoRA over-weighted red so hard that tanks came out scarlet. Picking from
+# a pool per variant teaches "these are military structures" instead of "everything is
+# red". The first entry is red so C&C's signature look stays the most common one.
+WALL_COLOURS = [
+    ("red", (0.40, 0.05, 0.05), (0.24, 0.03, 0.03)),
+    ("sand", (0.46, 0.36, 0.16), (0.28, 0.21, 0.09)),
+    ("olive", (0.26, 0.30, 0.14), (0.15, 0.18, 0.08)),
+    ("slate", (0.24, 0.26, 0.30), (0.14, 0.15, 0.18)),
+    ("rust", (0.34, 0.16, 0.07), (0.20, 0.09, 0.04)),
+    ("bone", (0.44, 0.42, 0.34), (0.27, 0.26, 0.21)),
+]
+WALL_PICK = 0
+
+
+RED = lambda: mat("wall", WALL_COLOURS[WALL_PICK][1])
+RED_DARK = lambda: mat("wall_dark", WALL_COLOURS[WALL_PICK][2])
 GREY = lambda: mat("grey", (0.34, 0.34, 0.36))
 GREY_DARK = lambda: mat("grey_dark", (0.16, 0.16, 0.18))
 STEEL = lambda: mat("steel", (0.26, 0.26, 0.29), 0.45, 0.7)
@@ -369,6 +384,9 @@ def main():
       for v in range(variants):
         tag = name if variants == 1 else f"{name}_v{v}"
         MATS.clear()
+        # cycle the wall colour across variants; red stays first so it dominates
+        global WALL_PICK
+        WALL_PICK = v % len(WALL_COLOURS)
         bpy.ops.wm.read_factory_settings(use_empty=True)
         BUILDINGS[name]()
         if variants > 1:
@@ -406,7 +424,7 @@ def main():
             bpy.context.view_layer.update()
             sc.render.filepath = os.path.join(out, f"{tag}_f{f:02d}.png")
             bpy.ops.render.render(write_still=True)
-        print(f"[built] {tag}: {facings} facings", flush=True)
+        print(f"[built] {tag}: {facings} facings ({WALL_COLOURS[WALL_PICK][0]})", flush=True)
 
     print(f"[done] {len(names)} buildings -> {out}")
 

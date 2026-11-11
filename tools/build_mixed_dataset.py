@@ -113,7 +113,7 @@ def main():
     pal = load_pal(r"D:\rts-engine\assets_raw\ra\temperat.pal")
 
     render_sources = [
-        ("building", r"D:\rts-engine\artifacts\bld2"),
+        ("building", r"D:\rts-engine\artifacts\bld3"),
         ("building", r"D:\rts-engine\artifacts\blender_out4"),
         ("vehicle", r"D:\rts-engine\artifacts\model_out2"),
         ("vehicle", r"D:\rts-engine\artifacts\model_out_plane"),
