@@ -55,12 +55,18 @@ def main():
         print(__doc__)
         return 1
     src, pal_path, out = sys.argv[1], sys.argv[2], sys.argv[3]
-    size = 48
+    size = (48, 48)
     outline = 0.45
     i = 4
     while i < len(sys.argv):
         if sys.argv[i] == "--size" and i + 1 < len(sys.argv):
-            size = int(sys.argv[i + 1]); i += 2
+            v = sys.argv[i + 1].lower()
+            if "x" in v:
+                a, b = v.split("x")
+                size = (int(a), int(b))
+            else:
+                size = (int(v), int(v))
+            i += 2
         elif sys.argv[i] == "--outline" and i + 1 < len(sys.argv):
             outline = float(sys.argv[i + 1]); i += 2
         else:
@@ -76,11 +82,12 @@ def main():
 
     # fit preserving aspect, centred
     w, h = im.size
-    scale = min(size / w, size / h)
+    tw, th = size
+    scale = min(tw / w, th / h)
     nw, nh = max(1, int(round(w * scale))), max(1, int(round(h * scale)))
     small = im.resize((nw, nh), Image.LANCZOS)
-    canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    canvas.paste(small, ((size - nw) // 2, (size - nh) // 2), small)
+    canvas = Image.new("RGBA", (tw, th), (0, 0, 0, 0))
+    canvas.paste(small, ((tw - nw) // 2, (th - nh) // 2), small)
 
     a = np.asarray(canvas).copy()
     rgb = a[:, :, :3]
@@ -95,7 +102,7 @@ def main():
     Image.fromarray(a, "RGBA").save(out)
 
     vis = int((a[:, :, 3] > 8).sum())
-    print(f"{os.path.basename(out)} {size}x{size} visible={vis} ({100.0*vis/(size*size):.0f}%)")
+    print(f"{os.path.basename(out)} {tw}x{th} visible={vis} ({100.0*vis/(tw*th):.0f}%)")
     return 0
 
 

@@ -4,7 +4,7 @@ cols 64
 rows 36
 
 sprite Infantry 2 21 17 8 7
-sprite Tank 0 24 19 32 1
+sprite Tank 0 24 25 32 1
 turret Tank 34 20 14
 sprite LightTank 1 23 17 32 1
 turret LightTank 35 16 12
