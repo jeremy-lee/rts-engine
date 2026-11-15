@@ -31,6 +31,9 @@ void SetMoveTo(Actor& a, SubCoord target, Tick now) {
 	a.activity.targetEntity = kInvalidEntity;
 	a.movable.target = target;
 	a.movable.moving = true;
+	// 新目标重置余数，避免上一段移动的残余让起步方向偏掉
+	a.movable.errX = 0;
+	a.movable.errY = 0;
 }
 
 void SetAttack(Actor& a, EntityId target, Tick now) {
@@ -63,17 +66,27 @@ bool MoveTowards(World& world, Actor& actor, SubCoord target) {
 			return false;
 		}
 		actor.pos = target;
+		actor.movable.errX = 0;
+		actor.movable.errY = 0;
 		return true;
 	}
 
 	const int64_t d = static_cast<int64_t>(Isqrt(static_cast<uint64_t>(distSq)));
 	if (d == 0) return true;
-	const int64_t sx = (static_cast<int64_t>(dx) * speed) / d;
-	const int64_t sy = (static_cast<int64_t>(dy) * speed) / d;
+	// 带余数的归一化步进：把 dx/d、dy/d 的小数部分存进 errX/errY，下一 tick 补上。
+	// 旧实现是 (dx*speed)/d 后，若某分量为 0 就强行补 ±1 —— 那会让纯水平移动也往上偏一格，
+	// 且斜向只剩 45% 的速度，正是"不同方向不等距"的来源。
+	const int64_t numX = static_cast<int64_t>(dx) * speed + actor.movable.errX;
+	const int64_t numY = static_cast<int64_t>(dy) * speed + actor.movable.errY;
+	const int64_t sx = numX / d;
+	const int64_t sy = numY / d;
+	actor.movable.errX = static_cast<int32_t>(numX - sx * d);
+	actor.movable.errY = static_cast<int32_t>(numY - sy * d);
+	if (sx == 0 && sy == 0) return false;   // 余数已累积，下一 tick 会走出整格
 
 	SubCoord next(
-		actor.pos.x + static_cast<int32_t>(sx != 0 ? sx : (dx > 0 ? 1 : -1)),
-		actor.pos.y + static_cast<int32_t>(sy != 0 ? sy : (dy > 0 ? 1 : -1)));
+		actor.pos.x + static_cast<int32_t>(sx),
+		actor.pos.y + static_cast<int32_t>(sy));
 
 	const CellCoord nc = next.ToCell();
 	if (world.GetMap().InBounds(nc) && world.GetMap().Walkable(nc) &&

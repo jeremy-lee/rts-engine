@@ -91,6 +91,7 @@ set(RTS_TEST_SOURCES
     tests/test_turret.cpp
     tests/test_upgrade.cpp
     tests/test_save.cpp
+    tests/test_move_uniform.cpp
 )
 if(WIN32)
     list(APPEND RTS_TEST_SOURCES tests/test_net.cpp)

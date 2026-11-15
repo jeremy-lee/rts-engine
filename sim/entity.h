@@ -43,6 +43,11 @@ struct ActivityState {
 
 struct Movable {
 	SubCoord target;
+	// 移动余数（不足一个子格的残余）。SubCoord 是整数，斜向移动时 speed/√2 会截断，
+	// 若直接丢掉余数，斜向每 tick 只走 floor(speed/√2) 而正向走 speed，速度差 1.41 倍。
+	// 累积余数可让平均速度在所有方向一致 —— 这是 OpenRA 用连续 WPos 达到的效果。
+	int32_t errX = 0;
+	int32_t errY = 0;
 	int32_t speed = 32;      // 子格/tick（对齐 OpenRA MobileInfo.Speed）
 	int32_t turnSpeed = 512; // 每 tick 最大转角（对齐 OpenRA MobileInfo.TurnSpeed 默认值）
 	bool moving = false;
@@ -133,6 +138,11 @@ inline uint64_t HashActor(const Actor& a) {
 	h = HashMix(h, static_cast<uint64_t>(static_cast<uint32_t>(a.movable.target.y)));
 	h = HashMix(h, static_cast<uint64_t>(static_cast<uint32_t>(a.movable.speed)));
 	h = HashMix(h, a.movable.moving ? 1u : 0u);
+	// 移动余数影响后续位置，属于模拟状态，必须纳入哈希：否则两条余数不同、可见状态相同的
+	// 回放会被误判为一致（假阳性）。
+	h = HashMix(h, static_cast<uint64_t>(static_cast<uint32_t>(a.movable.errX)));
+	h = HashMix(h, static_cast<uint64_t>(static_cast<uint32_t>(a.movable.errY)));
+	h = HashMix(h, static_cast<uint64_t>(static_cast<uint32_t>(a.movable.facing.angle)));
 	h = HashMix(h, static_cast<uint64_t>(static_cast<uint32_t>(a.health.hp)));
 	h = HashMix(h, static_cast<uint64_t>(static_cast<uint32_t>(a.health.maxHp)));
 	h = HashMix(h, static_cast<uint64_t>(static_cast<uint32_t>(a.armament.range)));
