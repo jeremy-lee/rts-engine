@@ -22,18 +22,35 @@ import sys
 import bpy
 from mathutils import Vector
 
+def s2l(c):
+    """sRGB 0..1 -> linear 0..1.
+
+    Blender's Base Color socket expects LINEAR values, but palette colours are always
+    quoted as sRGB. Feeding sRGB numbers straight in renders them washed out: sRGB
+    (247,215,121) written as linear (0.97,0.84,0.47) comes back out of the renderer as
+    roughly (250,237,183) - the blue channel nearly doubles, which is exactly why our
+    tanks kept looking like pale cream instead of RA's saturated sand.
+    """
+    return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+
+
+def srgb(r, g, b):
+    return (s2l(r), s2l(g), s2l(b))
+
+
 MATS = {}
 # Colours taken from the actual RA tank sprite (2tnk-0000.png) rather than guessed.
 # Measured distribution, top entries by frequency:
 #   247,215,121 (highlight)  215,190,105  170,154,85 (mid)  134,113,56  85,77,36 (shadow)
 # Note how BRIGHT the highlight is - my earlier palette averaged 0.62/0.52/0.28 which is
 # 40% darker than the real thing, and that is why the in-game tank looked muddy.
+# sRGB values, converted to linear at use time so what we ask for is what renders.
 WALL_COLOURS = [
-    ("ra_sand", (0.97, 0.84, 0.47), (0.82, 0.71, 0.40)),
-    ("ra_grey", (0.82, 0.82, 0.84), (0.52, 0.52, 0.55)),
-    ("ra_olive", (0.62, 0.66, 0.34), (0.36, 0.39, 0.19)),
-    ("ra_red", (0.85, 0.24, 0.20), (0.48, 0.12, 0.10)),
-    ("ra_bone", (0.90, 0.86, 0.72), (0.58, 0.55, 0.44)),
+    ("ra_sand", srgb(0.97, 0.84, 0.47), srgb(0.62, 0.53, 0.26)),
+    ("ra_grey", srgb(0.82, 0.82, 0.84), srgb(0.46, 0.46, 0.50)),
+    ("ra_olive", srgb(0.56, 0.60, 0.30), srgb(0.30, 0.33, 0.15)),
+    ("ra_red", srgb(0.85, 0.24, 0.20), srgb(0.44, 0.10, 0.08)),
+    ("ra_bone", srgb(0.90, 0.86, 0.72), srgb(0.52, 0.49, 0.38)),
 ]
 WALL_PICK = 0
 
@@ -54,11 +71,11 @@ def mat(key, rgb, rough=0.8, metal=0.0):
 
 BODY = lambda: mat("body", WALL_COLOURS[WALL_PICK][1])
 BODY_D = lambda: mat("body_d", WALL_COLOURS[WALL_PICK][2])
-METAL = lambda: mat("metal", (0.24, 0.24, 0.26), 0.45, 0.7)
-TRACK = lambda: mat("track", (0.26, 0.25, 0.24), 0.9)
-GLASS = lambda: mat("glass", (0.09, 0.14, 0.19), 0.25)
-RUBBER = lambda: mat("rubber", (0.07, 0.07, 0.07), 0.95)
-ACCENT = lambda: mat("accent", (0.5, 0.42, 0.1), 0.6)
+METAL = lambda: mat("metal", srgb(0.52, 0.52, 0.55), 0.45, 0.7)
+TRACK = lambda: mat("track", srgb(0.30, 0.29, 0.27), 0.9)
+GLASS = lambda: mat("glass", srgb(0.20, 0.28, 0.36), 0.25)
+RUBBER = lambda: mat("rubber", srgb(0.16, 0.16, 0.16), 0.95)
+ACCENT = lambda: mat("accent", srgb(0.95, 0.88, 0.45), 0.6)
 
 
 def box(loc, size, material):
@@ -140,6 +157,35 @@ def t_ww2_medium():
     # THICK gun: 0.16 radius survives the downscale
     p.append(cyl((0.78, 0, 1.18), 0.16, 1.5, METAL(), rot=(0, math.radians(90), 0), verts=8))
     p.append(cyl((1.50, 0, 1.18), 0.20, 0.22, BODY_D(), rot=(0, math.radians(90), 0), verts=8))
+
+    # ---- detail pass -------------------------------------------------------
+    # Everything here is deliberately chunky: at 24 px a feature under ~2 px does not
+    # survive, so these are structural elements, not surface texture.
+    #1 fenders: a hard horizontal band over each track, very readable in silhouette
+    for side in (-1, 1):
+        p.append(box((0, side * 0.86, 0.72), (3.05, 0.30, 0.10), BODY()))
+    #2 spare track links bolted to the hull side (alternating light/dark reads as a stripe)
+    for side in (-1, 1):
+        for i in range(3):
+            p.append(box((-0.55 + i * 0.55, side * 0.78, 0.62), (0.42, 0.10, 0.26), BODY_D()))
+    #3 sloped glacis plate at the front - a lighter angled face
+    p.append(boxr((1.32, 0, 0.72), (0.30, 1.42, 0.52), BODY(),
+                  (0, math.radians(28), 0)))
+    #4 rear exhaust, sticking out so it breaks the silhouette
+    p.append(cyl((-1.48, 0.42, 0.62), 0.11, 0.42, BODY_D(), rot=(0, math.radians(90), 0), verts=8))
+    p.append(cyl((-1.48, -0.42, 0.62), 0.11, 0.42, BODY_D(), rot=(0, math.radians(90), 0), verts=8))
+    #5 turret machine gun: small but sits on top, catches the light
+    p.append(cyl((0.18, 0.34, 1.46), 0.055, 0.62, METAL(), rot=(0, math.radians(78), 0), verts=6))
+    #6 stowage box on the turret side
+    p.append(box((-0.34, 0.52, 1.16), (0.42, 0.22, 0.26), BODY_D()))
+    #7 commander's cupola rim
+    p.append(cyl((0.0, 0, 1.47), 0.20, 0.08, BODY(), verts=12))
+    #8 lifting eyes / bolt heads along the hull top edge
+    for side in (-1, 1):
+        for i in range(4):
+            p.append(box((-1.05 + i * 0.62, side * 0.62, 0.96), (0.12, 0.12, 0.08), BODY_D()))
+    #9 headlight, bright so it reads as a dot
+    p.append(cyl((1.42, -0.52, 0.86), 0.09, 0.10, ACCENT(), rot=(0, math.radians(90), 0), verts=6))
     return p
 
 
@@ -352,21 +398,25 @@ def setup_render(size):
 
 
 def setup_lights():
+    # Grey ambient washing out saturation was the reason the render measured (208,192,160)
+    # for a base colour of (0.97,0.84,0.47): the world light lifted the blue channel from
+    # 0.47 to 0.63 and the result read as cream instead of RA's saturated (247,215,121).
+    # Ambient is now weak and slightly warm, and the key light carries the exposure.
     key = bpy.data.lights.new("key", type="SUN")
-    key.energy = 3.2
+    key.energy = 4.6
     key.angle = math.radians(10)
     ko = bpy.data.objects.new("key", key)
     bpy.context.collection.objects.link(ko)
     ko.rotation_euler = (math.radians(55), 0, math.radians(-40))
     fill = bpy.data.lights.new("fill", type="SUN")
-    fill.energy = 1.2
+    fill.energy = 0.55
     fo = bpy.data.objects.new("fill", fill)
     bpy.context.collection.objects.link(fo)
     fo.rotation_euler = (math.radians(70), 0, math.radians(150))
     w = bpy.data.worlds.new("w")
     w.use_nodes = True
-    w.node_tree.nodes["Background"].inputs[0].default_value = (0.2, 0.2, 0.22, 1)
-    w.node_tree.nodes["Background"].inputs[1].default_value = 0.6
+    w.node_tree.nodes["Background"].inputs[0].default_value = (0.24, 0.20, 0.14, 1)
+    w.node_tree.nodes["Background"].inputs[1].default_value = 0.22
     bpy.context.scene.world = w
 
 
