@@ -351,6 +351,245 @@ def v_jeep():
     return p
 
 
+
+# ------------------------------------------------------------------ expansion set
+def t_light_tank():
+    p = []
+    p.append(box((0, 0, 0.42), (2.1, 1.2, 0.42), BODY()))
+    p.append(box((0, 0, 0.66), (1.8, 1.05, 0.14), BODY()))
+    p += tracks(2.1, 0.68, 0.26, 0.26)
+    p.append(cyl((0, 0, 0.86), 0.42, 0.32, BODY(), verts=12))
+    p.append(cyl((0, 0, 0.74), 0.50, 0.12, BODY_D(), verts=12))
+    p.append(cyl((0.58, 0, 0.86), 0.12, 1.05, METAL(), rot=(0, math.radians(90), 0), verts=8))
+    p.append(box((-0.32, 0, 1.06), (0.3, 0.26, 0.14), BODY_D()))
+    p.append(cyl((0.95, -0.42, 0.6), 0.07, 0.2, ACCENT(), rot=(0, math.radians(90), 0), verts=6))
+    return p
+
+
+def t_super_heavy():
+    p = []
+    p.append(box((0, 0, 0.72), (4.2, 2.2, 0.8), BODY()))
+    p.append(box((0, 0, 1.20), (3.8, 2.0, 0.22), BODY()))
+    p.append(box((0, 0, 0.36), (4.3, 2.26, 0.22), BODY_D()))
+    p += tracks(4.2, 1.20, 0.42, 0.42)
+    for side in (-1, 1):
+        for i in range(6):
+            p.append(cyl((-1.5 + i * 0.6, side * 1.40, 0.42), 0.22, 0.1, METAL(), rot=(math.radians(90), 0, 0)))
+    p.append(cyl((0, 0, 1.42), 0.88, 0.22, BODY_D(), verts=16))
+    p.append(cyl((0, 0, 1.66), 0.76, 0.42, BODY(), verts=16))
+    p.append(cyl((0, 0, 1.90), 0.42, 0.10, BODY_D(), verts=12))
+    p.append(cyl((0.95, 0, 1.66), 0.19, 2.0, METAL(), rot=(0, math.radians(90), 0), verts=8))
+    p.append(cyl((1.92, 0, 1.66), 0.24, 0.26, BODY_D(), rot=(0, math.radians(90), 0), verts=8))
+    return p
+
+
+def t_spaag():
+    p = []
+    p.append(box((0, 0, 0.46), (2.6, 1.5, 0.5), BODY()))
+    p += tracks(2.6, 0.90, 0.30, 0.30)
+    p.append(cyl((0, 0, 0.86), 0.72, 0.28, BODY_D(), verts=14))
+    p.append(box((0, 0, 1.06), (1.0, 1.0, 0.42), BODY()))
+    # twin autocannon angled up
+    for dy in (-0.22, 0.22):
+        p.append(cyl((0.72, dy, 1.30), 0.08, 1.5, METAL(),
+                     rot=(0, math.radians(62), 0), verts=6))
+    p.append(box((-0.5, 0, 1.28), (0.35, 0.7, 0.22), BODY_D()))   # radar
+    return p
+
+
+def t_recon():
+    p = []
+    p.append(box((0, 0, 0.44), (2.3, 1.3, 0.42), BODY()))
+    p.append(boxr((0.85, 0, 0.68), (0.8, 1.1, 0.34), BODY(), (0, math.radians(22), 0)))
+    p.append(box((-0.2, 0, 0.72), (0.6, 1.0, 0.24), GLASS()))
+    p += wheels(2, -0.75, 0.66, 0.26, 0.26, 0.0)
+    p += wheels(2, -0.75, -0.66, 0.26, 0.26, 0.0)
+    p += wheels(2, 0.70, 0.66, 0.24, 0.24, 0.0)
+    p += wheels(2, 0.70, -0.66, 0.24, 0.24, 0.0)
+    p.append(box((-1.05, 0, 1.00), (0.06, 0.9, 0.06), METAL()))     # antenna
+    p.append(cyl((1.15, 0, 0.55), 0.16, 0.2, ACCENT(), rot=(0, math.radians(90), 0), verts=6))
+    return p
+
+
+def t_engineer():
+    p = []
+    p.append(box((0, 0, 0.52), (2.5, 1.4, 0.5), BODY()))
+    # dozer blade up front
+    p.append(boxr((1.45, 0, 0.34), (0.22, 1.75, 0.62), BODY_D(), (0, math.radians(14), 0)))
+    p.append(box((1.20, 0, 0.62), (0.3, 0.3, 0.3), METAL()))
+    p += tracks(2.4, 0.82, 0.28, 0.28)
+    p.append(box((-0.35, 0, 0.86), (0.9, 1.05, 0.42), BODY()))
+    p.append(box((-0.35, 0, 0.9), (0.7, 0.9, 0.2), GLASS()))
+    p.append(box((-1.05, 0, 0.80), (0.35, 0.5, 0.28), BODY_D()))
+    return p
+
+
+def t_sam():
+    p = []
+    p.append(box((0.3, 0, 0.48), (2.6, 1.35, 0.5), BODY()))
+    p.append(box((1.05, 0, 0.74), (0.6, 1.0, 0.28), GLASS()))
+    p += wheels(3, -0.95, 0.72, 0.28, 0.28, 0.72)
+    p += wheels(3, -0.95, -0.72, 0.28, 0.28, 0.72)
+    # launch rails raised at 45 deg, with two big missiles
+    p.append(boxr((-0.55, 0, 1.10), (1.5, 1.1, 0.24), BODY_D(), (0, math.radians(-28), 0)))
+    for dy in (-0.34, 0.34):
+        p.append(cyl((-0.9, dy, 1.36), 0.14, 1.6, METAL(),
+                     rot=(0, math.radians(62), 0), verts=8))
+        p.append(cone((-1.60, dy, 1.78), 0.14, 0.02, 0.34, ACCENT(),
+                      rot=(0, math.radians(62), 0), verts=8))
+    return p
+
+
+def t_transport():
+    p = []
+    p.append(box((1.05, 0, 0.58), (0.9, 1.15, 0.62), BODY()))
+    p.append(box((1.05, 0, 0.94), (0.5, 0.95, 0.14), BODY_D()))
+    p.append(box((1.20, 0, 0.78), (0.4, 0.95, 0.28), GLASS()))
+    # canvas tilt over the cargo bed
+    p.append(box((-0.55, 0, 0.86), (1.9, 1.30, 0.62), BODY_D()))
+    p.append(box((-0.55, 0, 1.18), (1.95, 1.34, 0.10), BODY()))
+    for i in range(3):
+        p.append(cyl((-1.25 + i * 0.7, 0, 1.20), 0.07, 1.32, BODY(),
+                     rot=(math.radians(90), 0, 0), verts=6))
+    p += wheels(2, -1.15, 0.74, 0.27, 0.27, 0.72)
+    p += wheels(2, -1.15, -0.74, 0.27, 0.27, 0.72)
+    p += wheels(2, 0.85, 0.74, 0.27, 0.27, 0.0)
+    p += wheels(2, 0.85, -0.74, 0.27, 0.27, 0.0)
+    return p
+
+
+def t_command_car():
+    p = []
+    p.append(box((0, 0, 0.50), (2.4, 1.35, 0.5), BODY()))
+    p.append(box((-0.25, 0, 0.86), (1.3, 1.15, 0.44), BODY()))
+    p.append(box((0.75, 0, 0.76), (0.55, 1.0, 0.30), GLASS()))
+    p += wheels(2, -0.80, 0.70, 0.27, 0.27, 0.0)
+    p += wheels(2, -0.80, -0.70, 0.27, 0.27, 0.0)
+    p += wheels(2, 0.75, 0.70, 0.27, 0.27, 0.0)
+    p += wheels(2, 0.75, -0.70, 0.27, 0.27, 0.0)
+    # whip antenna + rotating dish: unmistakable command silhouette
+    p.append(box((-0.95, 0, 1.35), (0.06, 0.06, 1.0), METAL()))
+    p.append(cyl((-0.25, 0, 1.12), 0.30, 0.10, BODY_D(), verts=12))
+    return p
+
+
+# ------------------------------------------------------------------ aircraft set
+def a_heavy_bomber():
+    p = []
+    p.append(cyl((0, 0, 0.62), 0.34, 4.6, BODY(), rot=(0, math.radians(90), 0), verts=12))
+    p.append(cone((2.45, 0, 0.62), 0.34, 0.06, 0.7, BODY_D(), rot=(0, math.radians(90), 0), verts=12))
+    p.append(box((0.1, 0, 0.66), (1.3, 5.6, 0.12), BODY_D()))
+    p.append(box((-1.75, 0, 0.66), (0.7, 2.0, 0.10), BODY_D()))
+    p.append(box((-2.05, 0, 1.05), (0.4, 0.10, 0.85), BODY_D()))
+    p.append(box((1.05, 0, 0.92), (0.8, 0.46, 0.28), GLASS()))
+    for side in (-1, 1):
+        p.append(cyl((-0.25, side * 1.55, 0.50), 0.20, 0.55, BODY_D(),
+                     rot=(0, math.radians(90), 0), verts=10))
+        p.append(box((-0.25, side * 1.55, 0.50), (0.06, 0.9, 0.16), BODY_D()))
+    return p
+
+
+def a_recon_plane():
+    p = []
+    p.append(cyl((0, 0, 0.5), 0.22, 3.0, BODY(), rot=(0, math.radians(90), 0), verts=12))
+    p.append(cone((1.65, 0, 0.5), 0.22, 0.05, 0.5, BODY_D(), rot=(0, math.radians(90), 0), verts=12))
+    p.append(box((0.05, 0, 0.54), (0.75, 4.2, 0.08), BODY_D()))
+    p.append(box((-1.35, 0, 0.54), (0.45, 1.3, 0.07), BODY_D()))
+    p.append(box((-1.55, 0, 0.82), (0.32, 0.07, 0.55), BODY_D()))
+    p.append(box((0.75, 0, 0.76), (0.7, 0.4, 0.22), GLASS()))
+    p.append(cyl((1.75, 0, 0.5), 0.05, 0.08, METAL(), rot=(0, math.radians(90), 0), verts=6))
+    return p
+
+
+def a_seaplane():
+    p = []
+    p.append(cyl((0, 0, 0.72), 0.26, 3.0, BODY(), rot=(0, math.radians(90), 0), verts=12))
+    p.append(cone((1.68, 0, 0.72), 0.26, 0.05, 0.5, BODY_D(), rot=(0, math.radians(90), 0), verts=12))
+    p.append(box((0.05, 0, 0.76), (0.9, 3.8, 0.09), BODY_D()))
+    p.append(box((-1.35, 0, 0.76), (0.45, 1.2, 0.08), BODY_D()))
+    p.append(box((-1.55, 0, 1.02), (0.32, 0.07, 0.55), BODY_D()))
+    p.append(box((0.8, 0, 0.96), (0.7, 0.42, 0.24), GLASS()))
+    # floats
+    for side in (-1, 1):
+        p.append(cyl((0.1, side * 0.85, 0.26), 0.18, 2.0, BODY_D(),
+                     rot=(0, math.radians(90), 0), verts=10))
+        p.append(box((0.5, side * 0.85, 0.5), (0.08, 0.08, 0.4), METAL()))
+    return p
+
+
+def a_transport_plane():
+    p = []
+    p.append(box((0, 0, 0.75), (3.6, 0.6, 0.7), BODY()))
+    p.append(box((1.85, 0, 0.75), (0.5, 0.5, 0.55), BODY_D()))
+    p.append(box((1.9, 0, 0.95), (0.4, 0.4, 0.2), GLASS()))
+    p.append(box((0.05, 0, 1.10), (1.2, 5.0, 0.10), BODY_D()))
+    p.append(box((-1.6, 0, 1.15), (0.5, 1.9, 0.09), BODY_D()))
+    p.append(box((-1.85, 0, 1.55), (0.35, 0.09, 0.8), BODY_D()))
+    for side in (-1, 1):
+        p.append(cyl((0.25, side * 1.45, 0.62), 0.18, 0.5, BODY_D(),
+                     rot=(0, math.radians(90), 0), verts=10))
+    return p
+
+
+def a_ground_attack():
+    p = []
+    p.append(cyl((0, 0, 0.58), 0.34, 3.0, BODY(), rot=(0, math.radians(90), 0), verts=12))
+    p.append(cone((1.7, 0, 0.58), 0.34, 0.08, 0.6, BODY_D(), rot=(0, math.radians(90), 0), verts=12))
+    p.append(box((0.0, 0, 0.56), (1.0, 3.6, 0.12), BODY_D()))
+    p.append(box((-1.45, 0, 0.58), (0.5, 1.3, 0.09), BODY_D()))
+    p.append(box((-1.62, 0, 0.92), (0.34, 0.08, 0.7), BODY_D()))
+    p.append(box((1.0, 0, 0.88), (0.8, 0.44, 0.26), GLASS()))
+    # chin gun + underwing stores
+    p.append(cyl((1.9, 0, 0.42), 0.09, 0.9, METAL(), rot=(0, math.radians(90), 0), verts=6))
+    for side in (-1, 1):
+        for i in range(2):
+            p.append(cyl((0.1 - i * 0.55, side * 0.95, 0.40), 0.09, 0.6, BODY_D(),
+                         rot=(0, math.radians(90), 0), verts=6))
+    return p
+
+
+def a_jet_bomber():
+    p = []
+    p.append(cyl((0, 0, 0.58), 0.32, 3.4, BODY(), rot=(0, math.radians(90), 0), verts=12))
+    p.append(cone((1.85, 0, 0.58), 0.32, 0.06, 0.6, BODY_D(), rot=(0, math.radians(90), 0), verts=12))
+    for side in (-1, 1):
+        p.append(boxr((-0.35, side * 0.95, 0.56), (1.5, 1.7, 0.09), BODY_D(),
+                      (0, 0, side * math.radians(30))))
+        p.append(cyl((-0.55, side * 1.35, 0.44), 0.14, 0.7, METAL(),
+                     rot=(0, math.radians(90), 0), verts=8))
+    p.append(box((-1.45, 0, 0.58), (0.5, 1.6, 0.09), BODY_D()))
+    p.append(box((-1.62, 0, 0.95), (0.32, 0.08, 0.7), BODY_D()))
+    p.append(box((1.1, 0, 0.88), (0.7, 0.42, 0.24), GLASS()))
+    return p
+
+
+def a_vtol():
+    p = []
+    p.append(box((0, 0, 0.62), (2.8, 0.9, 0.6), BODY()))
+    p.append(box((1.45, 0, 0.68), (0.7, 0.7, 0.5), GLASS()))
+    p.append(box((0.1, 0, 0.98), (1.4, 0.32, 0.12), BODY_D()))
+    # two tilt rotors on stub wings
+    for side in (-1, 1):
+        p.append(box((0.25, side * 0.95, 0.66), (0.55, 1.1, 0.14), BODY_D()))
+        p.append(cyl((0.25, side * 1.35, 0.80), 0.10, 0.30, METAL(), verts=8))
+        p.append(box((0.25, side * 1.35, 0.98), (0.10, 1.5, 0.05), METAL()))
+    p.append(box((-1.35, 0, 0.72), (0.35, 1.5, 0.08), BODY_D()))
+    p.append(box((-1.5, 0, 1.0), (0.28, 0.06, 0.5), BODY_D()))
+    return p
+
+
+def a_zeppelin_air():
+    p = []
+    p.append(cyl((0, 0, 0.9), 0.55, 4.6, BODY(), rot=(0, math.radians(90), 0), verts=16))
+    p.append(cone((2.55, 0, 0.9), 0.55, 0.10, 0.8, BODY_D(), rot=(0, math.radians(90), 0), verts=16))
+    p.append(cone((-2.3, 0, 0.9), 0.55, 0.28, 0.7, BODY_D(), rot=(0, math.radians(-90), 0), verts=16))
+    p.append(box((-1.9, 0, 0.9), (0.8, 2.6, 0.10), BODY_D()))
+    p.append(box((-1.9, 0, 1.35), (0.7, 0.10, 0.9), BODY_D()))
+    # gondola underneath
+    p.append(box((0.2, 0, 0.34), (1.2, 0.5, 0.28), BODY_D()))
+    for side in (-1, 1):
+        p.append(cyl((0.2, side * 0.2, 0.20), 0.10, 0.2, METAL(), verts=6))
+    return p
 VEHICLES = {
     "ww1_rhomboid": t_ww1_rhomboid,
     "ww2_medium": t_ww2_medium,
@@ -367,6 +606,24 @@ VEHICLES = {
     "apc": v_apc,
     "mlrs": v_mlrs,
     "jeep": v_jeep,
+    # expansion: armoured set
+    "light_tank": t_light_tank,
+    "super_heavy": t_super_heavy,
+    "spaag": t_spaag,
+    "recon": t_recon,
+    "engineer": t_engineer,
+    "sam": t_sam,
+    "transport": t_transport,
+    "command_car": t_command_car,
+    # expansion: air set
+    "heavy_bomber": a_heavy_bomber,
+    "recon_plane": a_recon_plane,
+    "seaplane": a_seaplane,
+    "transport_plane": a_transport_plane,
+    "ground_attack": a_ground_attack,
+    "jet_bomber": a_jet_bomber,
+    "vtol": a_vtol,
+    "airship": a_zeppelin_air,
 }
 
 
