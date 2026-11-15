@@ -622,6 +622,271 @@ def a_zeppelin_air():
     p.append(box((0.95, 0, 0.34), (0.42, 0.52, 0.22), GLASS()))
     p.append(box((0.55, 0, 0.10), (1.0, 0.45, 0.12), METAL()))
     return p
+
+# ================================================================== PLA (1949-1991)
+# Cold-War People's Liberation Army inventory. Silhouette cues are what matter at 24px:
+# Type 59's dome turret + long 100mm gun, J-7's delta wing and nose shock cone, Q-5's
+# side intakes and pointed nose. Painted in olive (--paint ra_olive).
+PLA_GREEN = "ra_olive"
+
+
+def p_type59():
+    """Type 59: T-54 derivative. Dome turret, 100mm, five road wheels, rounded glacis."""
+    p = []
+    p.append(boxr((0.85, 0, 0.62), (0.9, 1.5, 0.46), BODY(), (0, math.radians(38), 0)))
+    p.append(box((-0.2, 0, 0.55), (2.6, 1.5, 0.52), BODY()))
+    p.append(box((0, 0, 0.32), (2.9, 1.56, 0.18), BODY_D()))
+    p += tracks(2.9, 0.86, 0.30, 0.34)
+    for side in (-1, 1):
+        for i in range(5):
+            p.append(cyl((-1.05 + i * 0.52, side * 1.02, 0.30), 0.21, 0.10, METAL(),
+                         rot=(math.radians(90), 0, 0)))
+    # dome turret: the signature shape
+    p.append(cyl((0, 0, 0.94), 0.70, 0.16, BODY_D(), verts=18))
+    p.append(box((0, 0, 1.14), (1.06, 1.06, 0.30), BODY()))
+    p.append(cyl((0, 0, 1.32), 0.50, 0.14, BODY(), verts=16))
+    p.append(cyl((0, 0, 1.42), 0.22, 0.08, BODY_D(), verts=12))       # hatch
+    # long 100mm with a bore evacuator
+    p.append(cyl((0.80, 0, 1.14), 0.13, 1.55, METAL(), rot=(0, math.radians(90), 0), verts=8))
+    p.append(cyl((0.55, 0, 1.14), 0.19, 0.26, BODY_D(), rot=(0, math.radians(90), 0), verts=8))
+    p.append(cyl((1.58, 0, 1.14), 0.15, 0.22, BODY_D(), rot=(0, math.radians(90), 0), verts=8))
+    p.append(box((-0.55, 0.45, 1.30), (0.28, 0.24, 0.18), BODY_D()))  # AA MG
+    return p
+
+
+def p_type62():
+    """Type 62: light tank, smaller and boxier than the 59 with an 85mm."""
+    p = []
+    p.append(boxr((0.62, 0, 0.50), (0.7, 1.15, 0.34), BODY(), (0, math.radians(34), 0)))
+    p.append(box((-0.15, 0, 0.46), (1.95, 1.15, 0.40), BODY()))
+    p.append(box((0, 0, 0.26), (2.1, 1.2, 0.14), BODY_D()))
+    p += tracks(2.1, 0.66, 0.24, 0.26)
+    p.append(box((0, 0, 0.76), (0.92, 0.92, 0.34), BODY()))
+    p.append(cyl((0, 0, 0.68), 0.56, 0.12, BODY_D(), verts=14))
+    p.append(cyl((0.62, 0, 0.76), 0.11, 1.15, METAL(), rot=(0, math.radians(90), 0), verts=8))
+    p.append(cyl((1.18, 0, 0.76), 0.13, 0.18, BODY_D(), rot=(0, math.radians(90), 0), verts=8))
+    return p
+
+
+def p_type63_apc():
+    """Type 63 APC: boxy tracked carrier, 12.7mm on an open ring."""
+    p = []
+    p.append(box((0, 0, 0.62), (2.9, 1.5, 0.62), BODY()))
+    p.append(box((0.9, 0, 0.94), (0.8, 1.1, 0.30), BODY()))
+    p.append(box((1.30, 0, 0.90), (0.3, 0.8, 0.20), GLASS()))
+    p.append(box((0, 0, 0.30), (3.0, 1.56, 0.16), BODY_D()))
+    p += tracks(2.9, 0.86, 0.28, 0.30)
+    # troop compartment roof hatches
+    for i in range(3):
+        p.append(box((-0.85 + i * 0.55, 0, 0.96), (0.40, 0.9, 0.10), BODY_D()))
+    p.append(cyl((-0.55, 0, 1.06), 0.26, 0.12, BODY_D(), verts=12))
+    p.append(cyl((-0.55, 0, 1.18), 0.06, 0.55, METAL(), verts=6))
+    return p
+
+
+def p_type70_spg():
+    """Type 70 122mm SPH: Type 63 chassis with an open-top howitzer."""
+    p = []
+    p.append(box((0, 0, 0.58), (2.9, 1.5, 0.55), BODY()))
+    p.append(box((0, 0, 0.30), (3.0, 1.56, 0.16), BODY_D()))
+    p += tracks(2.9, 0.86, 0.28, 0.30)
+    # fighting compartment: raised, open at the back
+    p.append(box((-0.35, 0, 1.00), (1.9, 1.35, 0.42), BODY_D()))
+    p.append(box((-1.25, 0, 1.05), (0.22, 1.35, 0.50), BODY()))
+    p.append(box((0.55, 0, 1.05), (0.22, 1.35, 0.50), BODY()))
+    p.append(cyl((0.85, 0, 1.16), 0.14, 2.0, METAL(), rot=(0, math.radians(80), 0), verts=8))
+    p.append(cyl((1.75, 0, 1.32), 0.17, 0.20, BODY_D(), rot=(0, math.radians(80), 0), verts=8))
+    return p
+
+
+def p_type89_spg():
+    """Type 89 120mm tank destroyer: long gun over a rear fighting compartment."""
+    p = []
+    p.append(box((0, 0, 0.55), (3.0, 1.5, 0.50), BODY()))
+    p.append(box((0, 0, 0.30), (3.1, 1.56, 0.16), BODY_D()))
+    p += tracks(3.0, 0.86, 0.28, 0.30)
+    p.append(box((-0.45, 0, 0.92), (1.6, 1.25, 0.42), BODY()))
+    p.append(box((-0.45, 0, 1.16), (1.2, 1.05, 0.14), BODY_D()))
+    p.append(cyl((0.9, 0, 0.95), 0.12, 2.6, METAL(), rot=(0, math.radians(90), 0), verts=8))
+    p.append(cyl((2.25, 0, 0.95), 0.15, 0.24, BODY_D(), rot=(0, math.radians(90), 0), verts=8))
+    return p
+
+
+def p_type63_aaa():
+    """Type 63 twin 37mm AA: open ring mount on a tracked chassis."""
+    p = []
+    p.append(box((0, 0, 0.55), (2.6, 1.45, 0.50), BODY()))
+    p.append(box((0, 0, 0.30), (2.7, 1.5, 0.14), BODY_D()))
+    p += tracks(2.6, 0.82, 0.26, 0.28)
+    p.append(cyl((0, 0, 0.86), 0.62, 0.16, BODY_D(), verts=16))
+    p.append(box((0, 0, 1.02), (0.85, 0.85, 0.28), BODY()))
+    for dy in (-0.20, 0.20):
+        p.append(cyl((0.62, dy, 1.22), 0.065, 1.35, METAL(),
+                     rot=(0, math.radians(58), 0), verts=6))
+    p.append(box((-0.48, 0, 1.20), (0.30, 0.55, 0.20), BODY_D()))
+    return p
+
+
+def p_wz523():
+    """WZ-523 wheeled APC: 6x6, sloped nose, small turret."""
+    p = []
+    p.append(boxr((1.15, 0, 0.60), (0.5, 1.3, 0.5), BODY(), (0, math.radians(30), 0)))
+    p.append(box((0, 0, 0.62), (2.7, 1.35, 0.58), BODY()))
+    p.append(box((0, 0, 0.20), (2.9, 1.42, 0.22), BODY_D()))
+    for i, x in enumerate((-1.0, 0.0, 0.95)):
+        for side in (-1, 1):
+            p.append(cyl((x, side * 0.72, 0.28), 0.27, 0.20, RUBBER(),
+                         rot=(math.radians(90), 0, 0)))
+    p.append(cyl((-0.15, 0, 0.98), 0.34, 0.30, BODY(), verts=12))
+    p.append(cyl((0.15, 0, 0.98), 0.07, 0.6, METAL(), rot=(0, math.radians(90), 0), verts=6))
+    p.append(box((1.28, 0, 0.80), (0.3, 0.7, 0.18), GLASS()))
+    return p
+
+
+def p_type83_152():
+    """Type 83 152mm SPH: big rear turret, very long gun."""
+    p = []
+    p.append(box((0, 0, 0.58), (3.4, 1.6, 0.55), BODY()))
+    p.append(box((0, 0, 0.32), (3.5, 1.66, 0.18), BODY_D()))
+    p += tracks(3.4, 0.90, 0.30, 0.32)
+    for side in (-1, 1):
+        for i in range(5):
+            p.append(cyl((-1.25 + i * 0.55, side * 1.06, 0.30), 0.20, 0.10, METAL(),
+                         rot=(math.radians(90), 0, 0)))
+    p.append(box((-0.70, 0, 1.05), (1.9, 1.45, 0.52), BODY()))
+    p.append(box((-0.70, 0, 1.34), (1.6, 1.2, 0.10), BODY_D()))
+    p.append(cyl((0.95, 0, 1.05), 0.14, 2.9, METAL(), rot=(0, math.radians(90), 0), verts=8))
+    p.append(cyl((2.42, 0, 1.05), 0.18, 0.26, BODY_D(), rot=(0, math.radians(90), 0), verts=8))
+    return p
+
+
+# ---------------------------------------------------------------- PLA aircraft
+def p_j5():
+    """J-5 (MiG-17): nose intake, swept wing, small tail fin."""
+    p = []
+    p.append(cyl((0, 0, 0.52), 0.30, 2.9, BODY(), rot=(0, math.radians(90), 0), verts=14))
+    p.append(cyl((1.46, 0, 0.52), 0.26, 0.22, BODY_D(), rot=(0, math.radians(90), 0), verts=14))
+    p.append(cyl((1.58, 0, 0.52), 0.10, 0.12, METAL(), rot=(0, math.radians(90), 0), verts=8))
+    for side in (-1, 1):
+        p.append(boxr((0.05, side * 0.62, 0.50), (1.25, 1.25, 0.09), BODY_D(),
+                      (0, 0, side * math.radians(35))))
+    p.append(box((-1.30, 0, 0.52), (0.55, 1.35, 0.08), BODY_D()))
+    p.append(box((-1.55, 0, 0.92), (0.40, 0.09, 0.80), BODY_D()))
+    p.append(box((0.55, 0, 0.76), (0.75, 0.44, 0.26), GLASS()))
+    return p
+
+
+def p_j6():
+    """J-6 (MiG-19): twin engines side by side, nose intake, big swept wing."""
+    p = []
+    for dy in (-0.19, 0.19):
+        p.append(cyl((0, dy, 0.52), 0.23, 3.1, BODY(), rot=(0, math.radians(90), 0), verts=12))
+    p.append(cyl((1.58, 0, 0.52), 0.33, 0.20, BODY_D(), rot=(0, math.radians(90), 0), verts=16))
+    for side in (-1, 1):
+        p.append(boxr((0.0, side * 0.72, 0.50), (1.45, 1.55, 0.09), BODY_D(),
+                      (0, 0, side * math.radians(38))))
+    p.append(box((-1.45, 0, 0.52), (0.65, 1.55, 0.08), BODY_D()))
+    p.append(box((-1.75, 0, 0.98), (0.42, 0.09, 0.92), BODY_D()))
+    p.append(box((0.50, 0, 0.78), (0.80, 0.44, 0.26), GLASS()))
+    return p
+
+
+def p_j7():
+    """J-7 (MiG-21): delta wing and a nose shock cone - the give-away features."""
+    p = []
+    p.append(cyl((0, 0, 0.52), 0.28, 3.2, BODY(), rot=(0, math.radians(90), 0), verts=14))
+    p.append(cone((1.72, 0, 0.52), 0.28, 0.02, 0.75, BODY_D(),
+                  rot=(0, math.radians(90), 0), verts=14))       # shock cone
+    for side in (-1, 1):
+        p.append(boxr((-0.35, side * 0.55, 0.50), (1.60, 1.30, 0.08), BODY_D(),
+                      (0, 0, side * math.radians(52))))          # delta
+    p.append(box((-1.45, 0, 0.52), (0.55, 1.05, 0.08), BODY_D()))
+    p.append(box((-1.70, 0, 0.88), (0.36, 0.08, 0.72), BODY_D()))
+    p.append(box((0.60, 0, 0.78), (0.85, 0.40, 0.24), GLASS()))
+    return p
+
+
+def p_q5():
+    """Q-5: pointed nose with SIDE intakes, swept wing - clearly not a J-5/J-6."""
+    p = []
+    p.append(cyl((0, 0, 0.52), 0.30, 3.1, BODY(), rot=(0, math.radians(90), 0), verts=14))
+    p.append(cone((1.68, 0, 0.52), 0.30, 0.04, 0.70, BODY_D(),
+                  rot=(0, math.radians(90), 0), verts=14))
+    for side in (-1, 1):
+        p.append(box((0.95, side * 0.52, 0.52), (1.0, 0.30, 0.30), BODY_D()))
+        p.append(boxr((0.0, side * 0.65, 0.50), (1.30, 1.30, 0.09), BODY_D(),
+                      (0, 0, side * math.radians(36))))
+    p.append(box((-1.40, 0, 0.52), (0.55, 1.30, 0.08), BODY_D()))
+    p.append(box((-1.62, 0, 0.90), (0.36, 0.08, 0.78), BODY_D()))
+    p.append(box((0.52, 0, 0.76), (0.70, 0.42, 0.24), GLASS()))
+    return p
+
+
+def p_h5():
+    """H-5 (Il-28): twin podded engines on a straight wing, glazed nose."""
+    p = []
+    p.append(cyl((0, 0, 0.58), 0.33, 3.6, BODY(), rot=(0, math.radians(90), 0), verts=14))
+    p.append(cone((1.95, 0, 0.58), 0.33, 0.10, 0.55, GLASS(),
+                  rot=(0, math.radians(90), 0), verts=14))
+    p.append(box((0.0, 0, 0.56), (1.2, 4.4, 0.10), BODY_D()))
+    p.append(box((-1.55, 0, 0.56), (0.6, 1.7, 0.10), BODY_D()))
+    p.append(box((-1.80, 0, 0.95), (0.36, 0.09, 0.82), BODY_D()))
+    for side in (-1, 1):
+        p.append(cyl((-0.15, side * 1.30, 0.44), 0.21, 0.75, BODY_D(),
+                     rot=(0, math.radians(90), 0), verts=10))
+    return p
+
+
+def p_h6():
+    """H-6 (Tu-16): big swept-wing bomber, engines buried in the wing roots."""
+    p = []
+    p.append(cyl((0, 0, 0.62), 0.38, 4.6, BODY(), rot=(0, math.radians(90), 0), verts=16))
+    p.append(cone((2.35, 0, 0.62), 0.38, 0.12, 0.65, GLASS(),
+                  rot=(0, math.radians(90), 0), verts=16))
+    for side in (-1, 1):
+        p.append(boxr((-0.10, side * 0.95, 0.60), (1.6, 2.2, 0.11), BODY_D(),
+                      (0, 0, side * math.radians(30))))
+        p.append(cyl((0.05, side * 0.62, 0.52), 0.19, 0.9, BODY_D(),
+                     rot=(0, math.radians(90), 0), verts=10))
+    p.append(box((-1.95, 0, 0.62), (0.7, 1.9, 0.10), BODY_D()))
+    p.append(box((-2.25, 0, 1.05), (0.42, 0.10, 0.90), BODY_D()))
+    return p
+
+
+def p_y5():
+    """Y-5 (An-2): biplane transport, radial cowl, boxy fuselage."""
+    p = []
+    p.append(box((0, 0, 0.58), (2.9, 0.62, 0.55), BODY()))
+    p.append(cyl((1.55, 0, 0.58), 0.30, 0.35, BODY_D(),
+                 rot=(0, math.radians(90), 0), verts=14))
+    p.append(box((0, 0, 0.96), (1.45, 4.0, 0.09), BODY_D()))
+    p.append(box((0, 0, 0.38), (1.45, 4.0, 0.09), BODY_D()))
+    for side in (-1, 1):
+        for x in (-0.55, 0.55):
+            p.append(box((x, side * 1.85, 0.67), (0.07, 0.07, 0.62), METAL()))
+    p.append(box((-1.50, 0, 0.62), (0.55, 1.70, 0.09), BODY_D()))
+    p.append(box((-1.72, 0, 1.02), (0.36, 0.09, 0.82), BODY_D()))
+    p.append(box((1.05, 0, 0.82), (0.55, 0.48, 0.22), GLASS()))
+    return p
+
+
+def p_z5():
+    """Z-5 (Mi-4): piston helicopter, boxy cabin, four-blade main rotor."""
+    p = []
+    p.append(box((0, 0, 0.62), (2.6, 0.95, 0.80), BODY()))
+    p.append(box((1.35, 0, 0.68), (0.75, 0.75, 0.62), GLASS()))
+    p.append(cyl((1.72, 0, 0.50), 0.24, 0.26, BODY_D(),
+                 rot=(0, math.radians(90), 0), verts=12))       # radial cowl
+    p.append(box((-2.05, 0, 0.66), (1.7, 0.24, 0.24), BODY()))
+    p.append(cyl((0, 0, 1.08), 0.10, 0.26, METAL()))
+    p.append(box((0, 0, 1.22), (0.18, 3.6, 0.06), METAL()))
+    p.append(box((0.9, 0, 1.22), (1.9, 0.12, 0.05), METAL()))
+    p.append(box((-2.85, 0, 0.95), (0.06, 0.65, 0.65), METAL()))
+    for side in (-1, 1):
+        p.append(box((-0.30, side * 0.52, 0.33), (1.5, 0.10, 0.12), METAL()))
+        p.append(cyl((0.15, side * 0.52, 0.28), 0.13, 0.10, RUBBER(),
+                     rot=(math.radians(90), 0, 0)))
+    return p
 VEHICLES = {
     "ww1_rhomboid": t_ww1_rhomboid,
     "ww2_medium": t_ww2_medium,
@@ -656,6 +921,23 @@ VEHICLES = {
     "jet_bomber": a_jet_bomber,
     "vtol": a_vtol,
     "airship": a_zeppelin_air,
+    # PLA cold-war set
+    "type59": p_type59,
+    "type62": p_type62,
+    "type63_apc": p_type63_apc,
+    "type70_spg": p_type70_spg,
+    "type89_spg": p_type89_spg,
+    "type63_aaa": p_type63_aaa,
+    "wz523": p_wz523,
+    "type83_152": p_type83_152,
+    "j5": p_j5,
+    "j6": p_j6,
+    "j7": p_j7,
+    "q5": p_q5,
+    "h5": p_h5,
+    "h6": p_h6,
+    "y5": p_y5,
+    "z5": p_z5,
 }
 
 
@@ -727,6 +1009,7 @@ def main():
     out = argv[0] if argv else "."
     facings, size, variants = 32, 512, 1
     only = None
+    paint = None
     i = 1
     while i < len(argv):
         if argv[i] == "--facings" and i + 1 < len(argv):
@@ -737,6 +1020,8 @@ def main():
             variants = int(argv[i + 1]); i += 2
         elif argv[i] == "--only" and i + 1 < len(argv):
             only = set(argv[i + 1].split(",")); i += 2
+        elif argv[i] == "--paint" and i + 1 < len(argv):
+            paint = argv[i + 1]; i += 2
         else:
             i += 1
     os.makedirs(out, exist_ok=True)
@@ -745,7 +1030,14 @@ def main():
     for name in names:
         for v in range(variants):
             global WALL_PICK
-            WALL_PICK = (v * 2) % len(WALL_COLOURS)
+            if paint is not None:
+                names = [n for n, _, _ in WALL_COLOURS]
+                if paint in names:
+                    WALL_PICK = names.index(paint)
+                else:
+                    print("[warn] unknown paint", paint, "have", names)
+            else:
+                WALL_PICK = (v * 2) % len(WALL_COLOURS)
             tag = name if variants == 1 else f"{name}_v{v}"
             MATS.clear()
             bpy.ops.wm.read_factory_settings(use_empty=True)
