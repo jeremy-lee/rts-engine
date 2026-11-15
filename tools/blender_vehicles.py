@@ -23,12 +23,15 @@ import bpy
 from mathutils import Vector
 
 MATS = {}
+# Vehicles need LIGHT paint, not camouflage. Measured in game: an olive-green tank on
+# dark-green grass reads as a smudge, while RA's own vehicles use sand/light grey for
+# exactly this reason. Ground terrain is dark, so unit paint must be bright.
 WALL_COLOURS = [
-    ("olive", (0.24, 0.27, 0.12), (0.14, 0.16, 0.07)),
-    ("sand", (0.44, 0.35, 0.15), (0.26, 0.20, 0.08)),
-    ("grey", (0.26, 0.27, 0.29), (0.15, 0.16, 0.17)),
-    ("rust", (0.32, 0.17, 0.08), (0.19, 0.10, 0.05)),
-    ("desert", (0.50, 0.42, 0.24), (0.30, 0.25, 0.14)),
+    ("sand", (0.62, 0.52, 0.28), (0.40, 0.33, 0.16)),
+    ("bone", (0.66, 0.62, 0.50), (0.42, 0.39, 0.31)),
+    ("lightgrey", (0.58, 0.58, 0.60), (0.36, 0.36, 0.38)),
+    ("khaki", (0.56, 0.50, 0.34), (0.35, 0.31, 0.21)),
+    ("paleblue", (0.52, 0.56, 0.60), (0.32, 0.35, 0.38)),
 ]
 WALL_PICK = 0
 
