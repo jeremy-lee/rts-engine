@@ -412,15 +412,30 @@ def t_recon():
 
 
 def t_engineer():
+    """Dozer blade + hydraulic rams, sized to survive at 24px.
+
+    First version failed because the blade was a thin plate seen nearly edge-on at most
+    facings - it read as a plain box. The blade is now tall and wide with a steep rake, it
+    is painted in the DARK tone so it separates from the bright hull, and two angled rams
+    connect it to the body so there is structure even when the blade is foreshortened.
+    """
     p = []
     p.append(box((0, 0, 0.52), (2.5, 1.4, 0.5), BODY()))
-    # dozer blade up front
-    p.append(boxr((1.45, 0, 0.34), (0.22, 1.75, 0.62), BODY_D(), (0, math.radians(14), 0)))
-    p.append(box((1.20, 0, 0.62), (0.3, 0.3, 0.3), METAL()))
-    p += tracks(2.4, 0.82, 0.28, 0.28)
-    p.append(box((-0.35, 0, 0.86), (0.9, 1.05, 0.42), BODY()))
-    p.append(box((-0.35, 0, 0.9), (0.7, 0.9, 0.2), GLASS()))
-    p.append(box((-1.05, 0, 0.80), (0.35, 0.5, 0.28), BODY_D()))
+    p.append(box((0, 0, 0.30), (2.6, 1.46, 0.14), BODY_D()))
+    p += tracks(2.4, 0.82, 0.28, 0.30)
+    p.append(box((-0.35, 0, 0.86), (0.95, 1.05, 0.44), BODY()))
+    p.append(box((-0.35, 0, 0.92), (0.72, 0.9, 0.2), GLASS()))
+    p.append(box((-1.05, 0, 0.82), (0.4, 0.55, 0.3), BODY_D()))
+    # blade: tall, wide, strongly raked, dark so it reads against the bright hull
+    p.append(boxr((1.55, 0, 0.55), (0.26, 2.15, 1.05), BODY_D(), (0, math.radians(30), 0)))
+    p.append(box((1.32, 0, 0.10), (0.45, 2.15, 0.16), METAL()))     # cutting edge
+    # hydraulic rams from hull to blade - visible from every facing
+    for dy in (-0.52, 0.52):
+        p.append(cyl((1.02, dy, 0.72), 0.09, 0.95, METAL(),
+                     rot=(0, math.radians(52), 0), verts=6))
+    # exhaust stack + roof beacon so the rear is not a blank slab either
+    p.append(cyl((-1.15, 0.45, 1.02), 0.09, 0.55, BODY_D(), verts=6))
+    p.append(cyl((-0.35, 0, 1.14), 0.13, 0.10, ACCENT(), verts=8))
     return p
 
 
@@ -579,16 +594,33 @@ def a_vtol():
 
 
 def a_zeppelin_air():
+    """Airship with a readable structure.
+
+    The first version was a bare cigar: hull plus tail fins that vanished at 24px. Now the
+    hull is banded with dark rings (so the cylinder reads as segmented rather than smooth),
+    the tail carries a large cruciform of four fins, two engine nacelles hang under the
+    centre where they break the silhouette, and the gondola is a proper glazed cabin.
+    """
     p = []
-    p.append(cyl((0, 0, 0.9), 0.55, 4.6, BODY(), rot=(0, math.radians(90), 0), verts=16))
-    p.append(cone((2.55, 0, 0.9), 0.55, 0.10, 0.8, BODY_D(), rot=(0, math.radians(90), 0), verts=16))
-    p.append(cone((-2.3, 0, 0.9), 0.55, 0.28, 0.7, BODY_D(), rot=(0, math.radians(-90), 0), verts=16))
-    p.append(box((-1.9, 0, 0.9), (0.8, 2.6, 0.10), BODY_D()))
-    p.append(box((-1.9, 0, 1.35), (0.7, 0.10, 0.9), BODY_D()))
-    # gondola underneath
-    p.append(box((0.2, 0, 0.34), (1.2, 0.5, 0.28), BODY_D()))
-    for side in (-1, 1):
-        p.append(cyl((0.2, side * 0.2, 0.20), 0.10, 0.2, METAL(), verts=6))
+    p.append(cyl((0, 0, 0.95), 0.56, 4.4, BODY(), rot=(0, math.radians(90), 0), verts=18))
+    p.append(cone((2.60, 0, 0.95), 0.56, 0.12, 0.85, BODY_D(), rot=(0, math.radians(90), 0), verts=18))
+    p.append(cone((-2.60, 0, 0.95), 0.56, 0.10, 0.85, BODY(), rot=(0, math.radians(-90), 0), verts=18))
+    # dark bands: make the envelope read as segmented, not as a smooth tube
+    for x in (-1.75, -0.85, 0.05, 0.95, 1.85):
+        p.append(cyl((x, 0, 0.95), 0.585, 0.12, BODY_D(), rot=(0, math.radians(90), 0), verts=18))
+    # cruciform tail: four big fins, unmistakable from any facing
+    p.append(box((-2.05, 0, 0.95), (1.0, 3.4, 0.12), BODY_D()))
+    p.append(box((-2.05, 0, 0.95), (1.0, 0.12, 2.6), BODY_D()))
+    p.append(box((-2.55, 0, 0.95), (0.30, 1.5, 0.10), ACCENT()))
+    # engine nacelles under the hull
+    for dy in (-0.75, 0.75):
+        p.append(box((-0.30, dy, 0.42), (0.85, 0.34, 0.30), BODY_D()))
+        p.append(cyl((0.20, dy, 0.42), 0.15, 0.24, METAL(),
+                     rot=(0, math.radians(90), 0), verts=8))
+    # gondola: glazed cabin with a nose
+    p.append(box((0.55, 0, 0.30), (1.35, 0.60, 0.36), BODY_D()))
+    p.append(box((0.95, 0, 0.34), (0.42, 0.52, 0.22), GLASS()))
+    p.append(box((0.55, 0, 0.10), (1.0, 0.45, 0.12), METAL()))
     return p
 VEHICLES = {
     "ww1_rhomboid": t_ww1_rhomboid,
