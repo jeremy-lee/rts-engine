@@ -23,15 +23,17 @@ import bpy
 from mathutils import Vector
 
 MATS = {}
-# Vehicles need LIGHT paint, not camouflage. Measured in game: an olive-green tank on
-# dark-green grass reads as a smudge, while RA's own vehicles use sand/light grey for
-# exactly this reason. Ground terrain is dark, so unit paint must be bright.
+# Colours taken from the actual RA tank sprite (2tnk-0000.png) rather than guessed.
+# Measured distribution, top entries by frequency:
+#   247,215,121 (highlight)  215,190,105  170,154,85 (mid)  134,113,56  85,77,36 (shadow)
+# Note how BRIGHT the highlight is - my earlier palette averaged 0.62/0.52/0.28 which is
+# 40% darker than the real thing, and that is why the in-game tank looked muddy.
 WALL_COLOURS = [
-    ("sand", (0.62, 0.52, 0.28), (0.40, 0.33, 0.16)),
-    ("bone", (0.66, 0.62, 0.50), (0.42, 0.39, 0.31)),
-    ("lightgrey", (0.58, 0.58, 0.60), (0.36, 0.36, 0.38)),
-    ("khaki", (0.56, 0.50, 0.34), (0.35, 0.31, 0.21)),
-    ("paleblue", (0.52, 0.56, 0.60), (0.32, 0.35, 0.38)),
+    ("ra_sand", (0.97, 0.84, 0.47), (0.67, 0.60, 0.33)),
+    ("ra_grey", (0.82, 0.82, 0.84), (0.52, 0.52, 0.55)),
+    ("ra_olive", (0.62, 0.66, 0.34), (0.36, 0.39, 0.19)),
+    ("ra_red", (0.85, 0.24, 0.20), (0.48, 0.12, 0.10)),
+    ("ra_bone", (0.90, 0.86, 0.72), (0.58, 0.55, 0.44)),
 ]
 WALL_PICK = 0
 
@@ -323,6 +325,17 @@ def setup_render(size):
     sc.render.film_transparent = True
     sc.render.image_settings.file_format = "PNG"
     sc.render.image_settings.color_mode = "RGBA"
+    # CRITICAL: Blender defaults to AgX/Filmic tone mapping, which desaturates and lifts
+    # everything. A sand-yellow material (0.97,0.84,0.47) was rendering as (180,172,151)
+    # grey-white, which is why units kept coming out muddy no matter what palette I set.
+    # Standard means "material colour goes straight to the PNG".
+    try:
+        sc.view_settings.view_transform = "Standard"
+        sc.view_settings.look = "None"
+        sc.view_settings.exposure = 0.0
+        sc.view_settings.gamma = 1.0
+    except Exception as e:
+        print("[warn] view transform:", e)
 
 
 def setup_lights():
