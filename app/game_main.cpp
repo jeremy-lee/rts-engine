@@ -282,6 +282,22 @@ int main(int argc, char** argv) {
 	const uint32_t cncTexRaw = cncOk ? renderer.UploadTexture(cncPixels, cncW, cncH) : 0;
 	std::fprintf(stderr, "[cnc] load=%d size=%dx%d pixels=%zu tex=%u\n",
 		cncOk ? 1 : 0, cncW, cncH, cncPixels.size(), cncTexRaw);
+	// 诊断（排查精灵尺寸/UV 问题时设 RTS_DEBUG_SPRITES=1 打开）：
+	// 打印每个 sprite 的元数据尺寸、UV 覆盖和实际落在图集的第几行，图集换行数时用它去对账。
+	if (std::getenv("RTS_DEBUG_SPRITES") != nullptr && cncH > 0) {
+		for (int di = 0; di < CncAtlas::Count(); ++di) {
+			int dw = 0, dh = 0;
+			CncAtlas::GetSizeAt(di, dw, dh);
+			float du0 = 0, dv0 = 0, du1 = 0, dv1 = 0;
+			CncAtlas::GetUVAt(di, 0, WAngle{0}, 0, du0, dv0, du1, dv1);
+			const float px = (du1 - du0) * static_cast<float>(cncW);
+			const float py = (dv1 - dv0) * static_cast<float>(cncH);
+			const float rowF = (dv0 * static_cast<float>(cncH)) / static_cast<float>(CncAtlas::kCellH);
+			std::fprintf(stderr,
+				"[cnc] sprite[%d] %-10s size=%dx%d  uvPx=%.1fx%.1f  row=%.2f\n",
+				di, CncAtlas::NameAt(di), dw, dh, px, py, rowF);
+		}
+	}
 	// 纹理上传失败（tex==0）时，DrawTexturedBatch 会直接 return，单位一个像素都画不出来，
 	// 所以要把它当成"图集不可用"，退回纯色绘制，至少能看到单位在哪。
 	if (cncTexRaw == 0) cncOk = false;
