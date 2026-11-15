@@ -118,18 +118,28 @@ def t_ww1_rhomboid():
 
 
 def t_ww2_medium():
+    """Features are deliberately EXAGGERATED for a 24px target.
+
+    At 24x32 a 0.07-radius gun barrel is well under one pixel and vanishes, which left a
+    featureless slab. RA art is drawn at the target size with chunky shapes, so this model
+    uses a thick barrel, a taller turret with a distinct ring, and dark trim that reads as
+    lines once downscaled. Real proportion accuracy is the wrong goal here - readability is.
+    """
     p = []
     p.append(box((0, 0, 0.5), (2.8, 1.5, 0.55), BODY()))
     p.append(box((0, 0, 0.84), (2.3, 1.3, 0.22), BODY()))
+    # dark side skirt: gives a hard horizontal line along the hull
+    p.append(box((0, 0, 0.30), (2.9, 1.56, 0.16), BODY_D()))
     p += tracks(2.8, 0.85, 0.32)
     for i in range(5):
         p.append(cyl((-1.0 + i * 0.5, 1.02, 0.32), 0.2, 0.1, METAL(), rot=(math.radians(90), 0, 0)))
-    # turret uses the BRIGHT tone, not the dark one: viewed from a 60-degree camera the
-    # turret IS the most visible surface, so painting it dark made the whole tank read as
-    # a dark blob. RA art puts the highlight on top faces and lets lighting darken the sides.
-    p.append(cyl((0, 0, 1.06), 0.55, 0.44, BODY(), verts=14))
-    p.append(cyl((0.62, 0, 1.06), 0.07, 1.1, METAL(), rot=(0, math.radians(90), 0)))
-    p.append(box((-0.5, 0, 1.16), (0.35, 0.3, 0.16), METAL()))
+    # turret ring (wide, dark) then turret (bright, tall) - two distinct bands
+    p.append(cyl((0, 0, 0.98), 0.68, 0.18, BODY_D(), verts=16))
+    p.append(cyl((0, 0, 1.18), 0.58, 0.40, BODY(), verts=16))
+    p.append(cyl((0, 0, 1.40), 0.34, 0.10, BODY_D(), verts=12))      # hatch
+    # THICK gun: 0.16 radius survives the downscale
+    p.append(cyl((0.78, 0, 1.18), 0.16, 1.5, METAL(), rot=(0, math.radians(90), 0), verts=8))
+    p.append(cyl((1.50, 0, 1.18), 0.20, 0.22, BODY_D(), rot=(0, math.radians(90), 0), verts=8))
     return p
 
 
