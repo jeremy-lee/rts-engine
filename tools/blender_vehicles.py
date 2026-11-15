@@ -29,7 +29,7 @@ MATS = {}
 # Note how BRIGHT the highlight is - my earlier palette averaged 0.62/0.52/0.28 which is
 # 40% darker than the real thing, and that is why the in-game tank looked muddy.
 WALL_COLOURS = [
-    ("ra_sand", (0.97, 0.84, 0.47), (0.67, 0.60, 0.33)),
+    ("ra_sand", (0.97, 0.84, 0.47), (0.82, 0.71, 0.40)),
     ("ra_grey", (0.82, 0.82, 0.84), (0.52, 0.52, 0.55)),
     ("ra_olive", (0.62, 0.66, 0.34), (0.36, 0.39, 0.19)),
     ("ra_red", (0.85, 0.24, 0.20), (0.48, 0.12, 0.10)),
@@ -55,7 +55,7 @@ def mat(key, rgb, rough=0.8, metal=0.0):
 BODY = lambda: mat("body", WALL_COLOURS[WALL_PICK][1])
 BODY_D = lambda: mat("body_d", WALL_COLOURS[WALL_PICK][2])
 METAL = lambda: mat("metal", (0.24, 0.24, 0.26), 0.45, 0.7)
-TRACK = lambda: mat("track", (0.10, 0.10, 0.11), 0.9)
+TRACK = lambda: mat("track", (0.26, 0.25, 0.24), 0.9)
 GLASS = lambda: mat("glass", (0.09, 0.14, 0.19), 0.25)
 RUBBER = lambda: mat("rubber", (0.07, 0.07, 0.07), 0.95)
 ACCENT = lambda: mat("accent", (0.5, 0.42, 0.1), 0.6)
@@ -124,7 +124,10 @@ def t_ww2_medium():
     p += tracks(2.8, 0.85, 0.32)
     for i in range(5):
         p.append(cyl((-1.0 + i * 0.5, 1.02, 0.32), 0.2, 0.1, METAL(), rot=(math.radians(90), 0, 0)))
-    p.append(cyl((0, 0, 1.06), 0.55, 0.44, BODY_D(), verts=14))
+    # turret uses the BRIGHT tone, not the dark one: viewed from a 60-degree camera the
+    # turret IS the most visible surface, so painting it dark made the whole tank read as
+    # a dark blob. RA art puts the highlight on top faces and lets lighting darken the sides.
+    p.append(cyl((0, 0, 1.06), 0.55, 0.44, BODY(), verts=14))
     p.append(cyl((0.62, 0, 1.06), 0.07, 1.1, METAL(), rot=(0, math.radians(90), 0)))
     p.append(box((-0.5, 0, 1.16), (0.35, 0.3, 0.16), METAL()))
     return p

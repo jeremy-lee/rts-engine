@@ -15,8 +15,8 @@ team1 235 60 60
 
 sprite Infantry  e1     8  7  unit8    0   16  -1  2
 # sprite Rocket e3 8 7 unit8 0 16 -1 2   # e3 素材未提取，暂注释
-sprite Tank      2tnk  32  1  tank32   0   -1  32  0
-sprite LightTank 1tnk  32  1  tank32   0   -1  32  1
+sprite Tank      2tnk  32  1  tank32   0   -1  -1  0
+sprite LightTank 1tnk  32  1  tank32   0   -1  -1  1
 sprite Harvester harv   8  7  unit8    0   16  -1  16
 sprite Barracks  tent   1  1  building 0   -1  -1  30
 sprite Factory   weap   1  1  building 0   -1  -1  32
