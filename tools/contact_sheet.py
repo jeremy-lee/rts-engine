@@ -47,7 +47,11 @@ def main():
         dr.text((6, y0 + CH // 2 - 6), t, fill=(238, 238, 238))
         for k in range(cols):
             f = k * step
-            p = os.path.join(base, t, "%s_%02d.png" % (t, f))
+            name = "%s_%02d.png" % (t, f)
+            # two layouts exist: base/<type>/<type>_NN.png and flat base/<type>_NN.png
+            p = os.path.join(base, t, name)
+            if not os.path.exists(p):
+                p = os.path.join(base, name)
             if not os.path.exists(p):
                 missing += 1
                 continue
