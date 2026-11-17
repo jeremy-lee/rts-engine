@@ -189,12 +189,25 @@ def main():
     pal = dominant_palette(pal_full, cropped, colours)
     print(f"palette {len(pal)} entries")
 
+    # ONE scale for the whole sheet. Scaling each facing independently to fit the budget
+    # gave every facing a different factor, so whichever facing happened to hit the height
+    # limit came out visibly larger than its neighbours (measured on type59: width held at
+    # 27-28 but height ranged 17-32, a ratio of 1.88, and f12 was the outlier). The camera
+    # renders every facing at the same ortho scale, so their relative sizes are already
+    # correct - they must simply share one reduction factor.
+    tw, th = budget
+    uniform = None
+    for im in cropped:
+        w, h = im.size
+        s = min(tw / w, th / h) if (w > 0 and h > 0) else 1.0
+        uniform = s if uniform is None else min(uniform, s)
+    print(f"uniform scale {uniform:.4f} for all facings")
+
     sizes = []
     for f, im in enumerate(cropped):
         w, h = im.size
-        tw, th = budget
-        if w > tw or h > th:                       # only ever shrink
-            s = min(tw / w, th / h)
+        if uniform < 1.0 or True:
+            s = uniform * 0.999                    # never exceed the budget
             im = im.resize((max(1, int(round(w * s))), max(1, int(round(h * s)))), Image.LANCZOS)
         w, h = im.size
         sizes.append((w, h))
