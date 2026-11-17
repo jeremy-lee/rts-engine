@@ -678,26 +678,82 @@ PLA_GREEN = "ra_olive"
 
 
 def p_type59():
-    """Type 59: T-54 derivative. Dome turret, 100mm, five road wheels, rounded glacis."""
+    """Type 59 with a full detail pass: layered dome turret, sloped armour, grilles.
+
+    The earlier version was a handful of plain boxes, so at 32x36 it carried little
+    structure - the user asked for more faces and more structural information. Nothing
+    here is small enough to vanish: every added element is at least ~0.06 thick and pairs
+    a light and a dark tone so it survives the quantiser. Detail is layered rather than
+    scattered: turret is built from four stacked cylinders of decreasing radius (a real
+    dome curve instead of one ring), the hull is split into glacis / fighting compartment /
+    engine deck at different heights, and the rear gets an engine grille.
+    """
     p = []
-    p.append(boxr((0.85, 0, 0.62), (0.9, 1.5, 0.46), BODY(), (0, math.radians(38), 0)))
-    p.append(box((-0.2, 0, 0.55), (2.6, 1.5, 0.52), BODY()))
-    p.append(box((0, 0, 0.32), (2.9, 1.56, 0.18), BODY_D()))
-    p += tracks(2.9, 0.86, 0.30, 0.34)
+    # ---- running gear: layered tracks, road wheels, drive sprockets, return rollers
+    p += tracks(2.95, 0.88, 0.30, 0.36)
     for side in (-1, 1):
         for i in range(5):
-            p.append(cyl((-1.05 + i * 0.52, side * 1.02, 0.30), 0.21, 0.10, METAL(),
-                         rot=(math.radians(90), 0, 0)))
-    # dome turret: the signature shape
-    p.append(cyl((0, 0, 0.94), 0.70, 0.16, BODY_D(), verts=18))
-    p.append(box((0, 0, 1.14), (1.06, 1.06, 0.30), BODY()))
-    p.append(cyl((0, 0, 1.32), 0.50, 0.14, BODY(), verts=16))
-    p.append(cyl((0, 0, 1.42), 0.22, 0.08, BODY_D(), verts=12))       # hatch
-    # long 100mm with a bore evacuator
-    p.append(cyl((0.80, 0, 1.14), 0.13, 1.55, METAL(), rot=(0, math.radians(90), 0), verts=8))
-    p.append(cyl((0.55, 0, 1.14), 0.19, 0.26, BODY_D(), rot=(0, math.radians(90), 0), verts=8))
-    p.append(cyl((1.58, 0, 1.14), 0.15, 0.22, BODY_D(), rot=(0, math.radians(90), 0), verts=8))
-    p.append(box((-0.55, 0.45, 1.30), (0.28, 0.24, 0.18), BODY_D()))  # AA MG
+            p.append(cyl((-1.08 + i * 0.52, side * 1.04, 0.30), 0.22, 0.12, METAL(),
+                         rot=(math.radians(90), 0, 0), verts=16))
+            p.append(cyl((-1.08 + i * 0.52, side * 1.04, 0.30), 0.09, 0.14, BODY_D(),
+                         rot=(math.radians(90), 0, 0), verts=10))
+        # drive sprocket and idler, larger and toothed via a ring
+        p.append(cyl((1.42, side * 1.04, 0.34), 0.26, 0.14, METAL(),
+                     rot=(math.radians(90), 0, 0), verts=14))
+        p.append(cyl((-1.62, side * 1.04, 0.34), 0.24, 0.14, METAL(),
+                     rot=(math.radians(90), 0, 0), verts=14))
+        # return rollers
+        for i in range(3):
+            p.append(cyl((-0.75 + i * 0.75, side * 1.02, 0.52), 0.10, 0.10, BODY_D(),
+                         rot=(math.radians(90), 0, 0), verts=10))
+        # side skirt: sloped plate over the top run, reads as a hard diagonal
+        p.append(boxr((0, side * 0.94, 0.60), (2.75, 0.16, 0.26), BODY(),
+                      (math.radians(18) * side, 0, 0)))
+        # stowage boxes on the sponsons
+        for i in range(2):
+            p.append(box((-1.05 + i * 0.72, side * 0.92, 0.78), (0.55, 0.20, 0.22), BODY_D()))
+
+    # ---- hull: three distinct blocks at different heights
+    p.append(box((-0.30, 0, 0.56), (2.05, 1.46, 0.50), BODY()))          # fighting compartment
+    p.append(box((-1.28, 0, 0.54), (0.60, 1.42, 0.44), BODY_D()))        # engine deck, lower
+    p.append(boxr((0.95, 0, 0.58), (1.05, 1.46, 0.48), BODY(),
+                  (0, math.radians(36), 0)))                             # glacis
+    p.append(box((0.30, 0, 0.80), (1.20, 1.30, 0.06), BODY()))           # deck plate lip
+    # engine grille: three dark slats, the classic rear-deck read
+    for i in range(3):
+        p.append(box((-1.45 + i * 0.22, 0, 0.77), (0.13, 1.24, 0.05), TRACK()))
+    # exhausts poking out the back
+    for dy in (-0.46, 0.46):
+        p.append(cyl((-1.62, dy, 0.52), 0.10, 0.34, BODY_D(),
+                     rot=(0, math.radians(90), 0), verts=10))
+    # front fenders over the tracks
+    for side in (-1, 1):
+        p.append(box((1.10, side * 0.92, 0.62), (0.55, 0.26, 0.08), BODY_D()))
+
+    # ---- turret: four stacked cylinders = a real dome curve
+    p.append(cyl((0, 0, 0.90), 0.76, 0.12, BODY_D(), verts=24))          # ring
+    p.append(cyl((0, 0, 1.02), 0.68, 0.16, BODY(), verts=24))
+    p.append(cyl((0, 0, 1.16), 0.58, 0.16, BODY(), verts=24))
+    p.append(cyl((0, 0, 1.30), 0.42, 0.14, BODY(), verts=20))
+    p.append(cyl((0, 0, 1.40), 0.24, 0.08, BODY_D(), verts=14))          # hatch
+    # turret cheek armour: two angled plates give the front a faceted look
+    for side in (-1, 1):
+        p.append(boxr((0.42, side * 0.30, 1.10), (0.42, 0.30, 0.26), BODY_D(),
+                      (0, 0, side * math.radians(32))))
+    # 100mm: barrel, bore evacuator, muzzle brake, mantlet
+    p.append(cyl((0.72, 0, 1.12), 0.15, 0.34, BODY_D(), rot=(0, math.radians(90), 0), verts=16))
+    p.append(cyl((0.95, 0, 1.12), 0.12, 1.45, METAL(), rot=(0, math.radians(90), 0), verts=12))
+    p.append(cyl((0.98, 0, 1.12), 0.17, 0.22, BODY_D(), rot=(0, math.radians(90), 0), verts=12))
+    p.append(cyl((1.62, 0, 1.12), 0.16, 0.24, BODY_D(), rot=(0, math.radians(90), 0), verts=12))
+    # AA machine gun on the roof
+    p.append(box((-0.52, 0.42, 1.32), (0.26, 0.22, 0.16), BODY_D()))
+    p.append(cyl((-0.40, 0.42, 1.36), 0.045, 0.60, METAL(),
+                 rot=(0, math.radians(70), 0), verts=6))
+    # lifting eyes / bolt heads along the turret ring
+    for i in range(8):
+        a = math.radians(45 * i)
+        p.append(box((0.74 * math.cos(a), 0.74 * math.sin(a), 1.00),
+                     (0.09, 0.09, 0.06), BODY_D()))
     return p
 
 
