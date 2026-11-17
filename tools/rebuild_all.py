@@ -84,7 +84,7 @@ def main():
             rc = run([PY, LOWRES, src, t, PAL, gdir, "--facings", facings,
                       "--max", size, "--dither", "0.5", "--grain", "0.35",
                       "--colours", "12", "--outline", "black",
-                      "--contrast", contrast])
+                      "--contrast", contrast, "--normalise", "1.6"])
             produced = 0
             if os.path.isdir(gdir):
                 produced = len([f for f in os.listdir(gdir) if f.endswith(".png")])

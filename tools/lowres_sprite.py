@@ -104,6 +104,46 @@ def stretch(rgba, amount):
     return a
 
 
+def normalize_brightness(frames, strength=1.0):
+    """Scale each facing so its mean luminance matches the sheet average.
+
+    Measured: the shipped RA tank holds its per-facing mean luma within 6% (133-140 across
+    eight facings), while ours swings 57% (87-136) because a fixed sun lights the tank
+    differently as it rotates - at some yaws the big top deck faces the light and the whole
+    sprite reads much brighter. RA's sprites are evidently normalised per facing, so the
+    unit does not visibly flash as it turns. This reproduces that: one common target mean,
+    each facing scaled toward it. Strength 0 keeps the raw render.
+    """
+    if strength <= 0.0 or not frames:
+        return frames
+    lums = []
+    for im in frames:
+        a = np.asarray(im)
+        m = a[:, :, 3] > 8
+        if not m.any():
+            lums.append(None)
+            continue
+        rgb = a[:, :, :3][m].astype(np.float32)
+        lums.append(float((0.299 * rgb[:, 0] + 0.587 * rgb[:, 1] + 0.114 * rgb[:, 2]).mean()))
+    valid = [l for l in lums if l is not None and l > 1.0]
+    if not valid:
+        return frames
+    target = float(np.mean(valid))
+    out = []
+    for im, l in zip(frames, lums):
+        if l is None or l <= 1.0:
+            out.append(im)
+            continue
+        gain = 1.0 + (target / l - 1.0) * strength
+        a = np.asarray(im).copy()
+        m = a[:, :, 3] > 8
+        rgb = a[:, :, :3].astype(np.float32)
+        rgb[m] = np.clip(rgb[m] * gain, 0, 255)
+        a[:, :, :3] = rgb.astype(np.uint8)
+        out.append(Image.fromarray(a, "RGBA"))
+    return out
+
+
 def grain_and_dither(rgba, pal, dither, grain, seed):
     a = rgba.copy()
     h, w, _ = a.shape
@@ -148,6 +188,7 @@ def main():
     facings = 32
     budget = (24, 32)
     dither, grain, colours, outline = 0.5, 0.35, 12, "black"
+    normalise = 1.6
     contrast = 1.0
     i = 5
     while i < len(sys.argv):
@@ -167,6 +208,8 @@ def main():
             outline = sys.argv[i + 1]; i += 2
         elif a == "--contrast" and i + 1 < len(sys.argv):
             contrast = float(sys.argv[i + 1]); i += 2
+        elif a == "--normalise" and i + 1 < len(sys.argv):
+            normalise = float(sys.argv[i + 1]); i += 2
         else:
             i += 1
 
@@ -203,16 +246,44 @@ def main():
         uniform = s if uniform is None else min(uniform, s)
     print(f"uniform scale {uniform:.4f} for all facings")
 
+    # PASS 1: crop-resize-stretch every facing. Brightness normalisation has to happen
+    # AFTER stretch, because stretch re-normalises each frame to its own 5-95 percentile
+    # and would otherwise wipe out any correction applied before it. My first attempt put
+    # the correction before stretch and the measured swing got WORSE (57% -> 62%).
+    staged = []
     sizes = []
     for f, im in enumerate(cropped):
         w, h = im.size
-        if uniform < 1.0 or True:
-            s = uniform * 0.999                    # never exceed the budget
-            im = im.resize((max(1, int(round(w * s))), max(1, int(round(h * s)))), Image.LANCZOS)
+        s = uniform * 0.999                        # never exceed the budget
+        im = im.resize((max(1, int(round(w * s))), max(1, int(round(h * s)))), Image.LANCZOS)
         w, h = im.size
         sizes.append((w, h))
-
         arr = stretch(np.asarray(im).copy(), contrast)
+        staged.append(arr)
+
+    if normalise > 0.0:
+        means = []
+        for arr in staged:
+            m = arr[:, :, 3] > 8
+            if m.any():
+                p = arr[:, :, :3][m].astype(np.float32)
+                means.append(float((0.299 * p[:, 0] + 0.587 * p[:, 1] + 0.114 * p[:, 2]).mean()))
+            else:
+                means.append(0.0)
+        valid = [x for x in means if x > 1.0]
+        if valid:
+            target = float(np.mean(valid))
+            for k, arr in enumerate(staged):
+                if means[k] <= 1.0:
+                    continue
+                gain = 1.0 + (target / means[k] - 1.0) * normalise
+                m = arr[:, :, 3] > 8
+                rgb = arr[:, :, :3].astype(np.float32)
+                rgb[m] = np.clip(rgb[m] * gain, 0, 255)
+                arr[:, :, :3] = rgb.astype(np.uint8)
+            print(f"normalised {len(valid)} facings to mean {target:.0f}")
+
+    for f, arr in enumerate(staged):
         arr = grain_and_dither(arr, pal, dither, grain, 1000 + f)
         if outline == "black":
             arr = hard_outline(arr, (0, 0, 0))
