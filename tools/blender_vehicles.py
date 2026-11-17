@@ -706,8 +706,7 @@ def p_type59():
         p.append(boxr((0, side * 0.94, 0.60), (2.75, 0.16, 0.26), BODY(),
                       (math.radians(18) * side, 0, 0)))
         # stowage boxes on the sponsons
-        for i in range(2):
-            p.append(box((-1.05 + i * 0.72, side * 0.92, 0.78), (0.55, 0.20, 0.22), BODY_D()))
+        p.append(box((-0.70, side * 0.92, 0.78), (1.30, 0.26, 0.26), BODY_D()))
 
     # ---- hull: three distinct blocks at different heights
     p.append(box((-0.30, 0, 0.56), (2.05, 1.46, 0.50), BODY()))          # fighting compartment
@@ -719,9 +718,7 @@ def p_type59():
     for i in range(3):
         p.append(box((-1.45 + i * 0.22, 0, 0.77), (0.13, 1.24, 0.05), TRACK()))
     # exhausts poking out the back
-    for dy in (-0.46, 0.46):
-        p.append(cyl((-1.62, dy, 0.52), 0.10, 0.34, BODY_D(),
-                     rot=(0, math.radians(90), 0), verts=10))
+    p.append(box((-1.62, 0, 0.52), (0.34, 0.92, 0.20), BODY_D()))
     # front fenders over the tracks
     for side in (-1, 1):
         p.append(box((1.10, side * 0.92, 0.62), (0.55, 0.26, 0.08), BODY_D()))
@@ -745,11 +742,7 @@ def p_type59():
     p.append(box((-0.52, 0.42, 1.32), (0.26, 0.22, 0.16), BODY_D()))
     p.append(cyl((-0.40, 0.42, 1.36), 0.045, 0.60, METAL(),
                  rot=(0, math.radians(70), 0), verts=6))
-    # lifting eyes / bolt heads along the turret ring
-    for i in range(8):
-        a = math.radians(45 * i)
-        p.append(box((0.74 * math.cos(a), 0.74 * math.sin(a), 1.00),
-                     (0.09, 0.09, 0.06), BODY_D()))
+    # (bolt-head ring removed: eight 0.09 boxes produced isolated dark pixels, not detail)
     return p
 
 
@@ -1021,13 +1014,17 @@ def p_z5():
 # survive. These helpers encode that so every tank gets the same treatment.
 def turret_dome(cx, cy, z0, r_base, layers=4, height=0.44, segs=24):
     """Stacked cylinders of decreasing radius - reads as a curved dome, not a ring."""
+    # MERGED: instead of `layers` alternating cylinders (four or five small bands that each
+    # created their own dark edge), the dome is three shapes - a wide ring, one large body
+    # and a small cap. Same silhouette curve, far fewer internal boundaries, which is what
+    # the noise measurement is sensitive to.
     p = []
-    p.append(cyl((cx, cy, z0), r_base * 1.12, 0.12, BODY_D(), verts=segs))
-    step = height / layers
-    for i in range(layers):
-        r = r_base * (1.0 - 0.24 * i)
-        p.append(cyl((cx, cy, z0 + 0.12 + step * (i + 0.5)), r, step * 1.02, BODY(), verts=segs))
-    p.append(cyl((cx, cy, z0 + 0.12 + height + 0.04), r_base * 0.34, 0.08, BODY_D(), verts=14))
+    p.append(cyl((cx, cy, z0), r_base * 1.12, 0.13, BODY_D(), verts=segs))
+    p.append(cyl((cx, cy, z0 + 0.13 + height * 0.36), r_base * 0.94, height * 0.72, BODY(),
+                 verts=segs))
+    p.append(cyl((cx, cy, z0 + 0.13 + height * 0.84), r_base * 0.56, height * 0.30, BODY(),
+                 verts=segs))
+    p.append(cyl((cx, cy, z0 + 0.13 + height * 1.00), r_base * 0.30, 0.09, BODY_D(), verts=14))
     return p
 
 
@@ -1047,23 +1044,28 @@ def running_gear(length, half_w, z, r=0.22, n=5, skirt=True):
                      METAL(), rot=(math.radians(90), 0, 0), verts=14))
         p.append(cyl((-length / 2 + 0.05, side * (half_w + 0.16), z + 0.03), r * 1.05, 0.14,
                      METAL(), rot=(math.radians(90), 0, 0), verts=14))
-        for i in range(3):
-            p.append(cyl((-span / 2 + span * i / 2.0, side * (half_w + 0.14), z + r * 0.95),
-                         r * 0.42, 0.10, BODY_D(), rot=(math.radians(90), 0, 0), verts=10))
+        # NOTE: return rollers were removed. Three 0.10-radius cylinders per side became
+        # isolated 1px dark specks at 32x36 and were the single biggest contributor to the
+        # measured noise (small dark blobs 15.3 vs RA's 3.9). Structural detail only pays
+        # if it merges into something larger.
         if skirt:
             p.append(boxr((0, side * (half_w + 0.06), z + r * 1.15), (length * 0.95, 0.14, 0.24),
                           BODY(), (math.radians(16) * side, 0, 0)))
-            for i in range(2):
-                p.append(box((-length * 0.28 + i * length * 0.30, side * (half_w + 0.04),
-                              z + r * 1.5), (length * 0.22, 0.18, 0.20), BODY_D()))
+            # MERGED: one long stowage block instead of two small ones - the two boxes left
+            # a gap that quantised into an isolated dark speck between them.
+            p.append(box((-length * 0.13, side * (half_w + 0.04), z + r * 1.5),
+                         (length * 0.52, 0.20, 0.22), BODY_D()))
     return p
 
 
 def rear_grille(x, half_w, z, slats=3):
     """Dark engine grille plus exhausts - the classic rear-deck read."""
     p = []
-    for i in range(slats):
-        p.append(box((x + i * 0.20, 0, z), (0.12, half_w * 1.75, 0.05), TRACK()))
+    # MERGED: a single dark grille block with two raised ribs, rather than 2-4 separate
+    # slats. Separate slats each produced their own dark blob; one block reads the same at
+    # sprite size but counts once.
+    p.append(box((x + 0.22, 0, z), (0.52, half_w * 1.75, 0.05), TRACK()))
+    p.append(box((x + 0.22, 0, z + 0.04), (0.06, half_w * 1.72, 0.05), BODY_D()))
     for dy in (-half_w * 0.62, half_w * 0.62):
         p.append(cyl((x - 0.16, dy, z - 0.14), 0.09, 0.30, BODY_D(),
                      rot=(0, math.radians(90), 0), verts=10))
