@@ -655,16 +655,34 @@ def p_type59():
 
 
 def p_type62():
-    """Type 62: light tank, smaller and boxier than the 59 with an 85mm."""
+    """Type 62: light tank.
+
+    The first pass was a bland slab because at 24px a 0.92-wide turret and a thin 1.15m gun
+    both vanish. It now borrows the Type 59's readable recipe - a raised turret with a
+    visible ring, a longer and fatter 85mm with a muzzle brake, fenders and spare track
+    links - so it still reads as light (shorter hull, fewer wheels) while having enough
+    structure to survive the downscale.
+    """
     p = []
-    p.append(boxr((0.62, 0, 0.50), (0.7, 1.15, 0.34), BODY(), (0, math.radians(34), 0)))
-    p.append(box((-0.15, 0, 0.46), (1.95, 1.15, 0.40), BODY()))
-    p.append(box((0, 0, 0.26), (2.1, 1.2, 0.14), BODY_D()))
-    p += tracks(2.1, 0.66, 0.24, 0.26)
-    p.append(box((0, 0, 0.76), (0.92, 0.92, 0.34), BODY()))
-    p.append(cyl((0, 0, 0.68), 0.56, 0.12, BODY_D(), verts=14))
-    p.append(cyl((0.62, 0, 0.76), 0.11, 1.15, METAL(), rot=(0, math.radians(90), 0), verts=8))
-    p.append(cyl((1.18, 0, 0.76), 0.13, 0.18, BODY_D(), rot=(0, math.radians(90), 0), verts=8))
+    p.append(boxr((0.68, 0, 0.50), (0.75, 1.20, 0.34), BODY(), (0, math.radians(34), 0)))
+    p.append(box((-0.15, 0, 0.46), (2.0, 1.20, 0.42), BODY()))
+    p.append(box((0, 0, 0.26), (2.2, 1.26, 0.16), BODY_D()))
+    p += tracks(2.2, 0.70, 0.26, 0.30)
+    # fenders: hard horizontal line over the tracks
+    for side in (-1, 1):
+        p.append(box((0, side * 0.71, 0.60), (2.35, 0.24, 0.09), BODY()))
+    # spare track links on the hull side
+    for side in (-1, 1):
+        for i in range(2):
+            p.append(box((-0.35 + i * 0.55, side * 0.64, 0.50), (0.38, 0.09, 0.22), BODY_D()))
+    # raised turret: ring, body, cupola
+    p.append(cyl((0, 0, 0.70), 0.62, 0.14, BODY_D(), verts=16))
+    p.append(box((0, 0, 0.88), (1.02, 1.02, 0.34), BODY()))
+    p.append(cyl((0, 0, 1.06), 0.26, 0.10, BODY_D(), verts=12))
+    # 85mm: longer and fatter, with a muzzle brake
+    p.append(cyl((0.78, 0, 0.88), 0.115, 1.75, METAL(), rot=(0, math.radians(90), 0), verts=8))
+    p.append(cyl((1.62, 0, 0.88), 0.155, 0.26, BODY_D(), rot=(0, math.radians(90), 0), verts=8))
+    p.append(box((-0.48, 0.42, 1.02), (0.26, 0.22, 0.16), BODY_D()))
     return p
 
 
@@ -728,18 +746,32 @@ def p_type63_aaa():
 
 
 def p_wz523():
-    """WZ-523 wheeled APC: 6x6, sloped nose, small turret."""
+    """WZ-523 wheeled APC.
+
+    Wheels were the problem: at 0.27 radius tucked inside a 1.42-wide body they were hidden
+    under the hull from an isometric camera and the vehicle read as a featureless box. The
+    wheels are now bigger, pushed OUTBOARD so they break the silhouette on both sides, and
+    each gets a bright hub cap so there is a light/dark pair. Chassis is lifted to give them
+    room, and the turret and gun are enlarged.
+    """
     p = []
-    p.append(boxr((1.15, 0, 0.60), (0.5, 1.3, 0.5), BODY(), (0, math.radians(30), 0)))
-    p.append(box((0, 0, 0.62), (2.7, 1.35, 0.58), BODY()))
-    p.append(box((0, 0, 0.20), (2.9, 1.42, 0.22), BODY_D()))
-    for i, x in enumerate((-1.0, 0.0, 0.95)):
+    p.append(boxr((1.18, 0, 0.76), (0.5, 1.32, 0.5), BODY(), (0, math.radians(30), 0)))
+    p.append(box((0, 0, 0.78), (2.7, 1.30, 0.58), BODY()))
+    p.append(box((0, 0, 0.36), (2.9, 1.36, 0.20), BODY_D()))
+    # big outboard wheels: radius 0.34, protruding past a 1.30-wide hull
+    for x in (-1.02, 0.02, 0.98):
         for side in (-1, 1):
-            p.append(cyl((x, side * 0.72, 0.28), 0.27, 0.20, RUBBER(),
-                         rot=(math.radians(90), 0, 0)))
-    p.append(cyl((-0.15, 0, 0.98), 0.34, 0.30, BODY(), verts=12))
-    p.append(cyl((0.15, 0, 0.98), 0.07, 0.6, METAL(), rot=(0, math.radians(90), 0), verts=6))
-    p.append(box((1.28, 0, 0.80), (0.3, 0.7, 0.18), GLASS()))
+            p.append(cyl((x, side * 0.78, 0.36), 0.34, 0.26, RUBBER(),
+                         rot=(math.radians(90), 0, 0), verts=12))
+            p.append(cyl((x, side * 0.92, 0.36), 0.15, 0.10, BODY_D(),
+                         rot=(math.radians(90), 0, 0), verts=8))
+    # fender line above the wheels - another hard horizontal
+    for side in (-1, 1):
+        p.append(box((0, side * 0.80, 0.66), (2.75, 0.36, 0.10), BODY_D()))
+    p.append(cyl((-0.15, 0, 1.16), 0.42, 0.30, BODY(), verts=14))
+    p.append(cyl((-0.15, 0, 1.02), 0.50, 0.12, BODY_D(), verts=14))
+    p.append(cyl((0.30, 0, 1.16), 0.075, 0.85, METAL(), rot=(0, math.radians(90), 0), verts=6))
+    p.append(box((1.32, 0, 0.94), (0.3, 0.72, 0.20), GLASS()))
     return p
 
 
@@ -854,19 +886,31 @@ def p_h6():
 
 
 def p_y5():
-    """Y-5 (An-2): biplane transport, radial cowl, boxy fuselage."""
+    """Y-5 (An-2) biplane: the two wings must be far enough apart to read as TWO wings.
+
+    Previously the gap was 0.58 in a 128px render that becomes about 1px at sprite size, so
+    it looked like a single thick wing with clutter. The gap is nearly doubled, the struts
+    are made thick enough to show, and the interplane struts are moved outboard where they
+    are not hidden behind the fuselage.
+    """
     p = []
-    p.append(box((0, 0, 0.58), (2.9, 0.62, 0.55), BODY()))
-    p.append(cyl((1.55, 0, 0.58), 0.30, 0.35, BODY_D(),
-                 rot=(0, math.radians(90), 0), verts=14))
-    p.append(box((0, 0, 0.96), (1.45, 4.0, 0.09), BODY_D()))
-    p.append(box((0, 0, 0.38), (1.45, 4.0, 0.09), BODY_D()))
+    p.append(box((0, 0, 0.62), (2.9, 0.62, 0.58), BODY()))
+    p.append(cyl((1.58, 0, 0.62), 0.34, 0.40, BODY_D(),
+                 rot=(0, math.radians(90), 0), verts=14))          # radial cowl
+    p.append(cyl((1.82, 0, 0.62), 0.16, 0.12, METAL(),
+                 rot=(0, math.radians(90), 0), verts=10))          # prop hub
+    # upper and lower wings, gap 1.05 (was 0.58), both thick enough to show
+    p.append(box((0.05, 0, 1.10), (1.50, 4.2, 0.13), BODY_D()))
+    p.append(box((0.05, 0, 0.22), (1.50, 4.2, 0.13), BODY_D()))
+    # inboard AND outboard interplane struts, thick
     for side in (-1, 1):
-        for x in (-0.55, 0.55):
-            p.append(box((x, side * 1.85, 0.67), (0.07, 0.07, 0.62), METAL()))
-    p.append(box((-1.50, 0, 0.62), (0.55, 1.70, 0.09), BODY_D()))
-    p.append(box((-1.72, 0, 1.02), (0.36, 0.09, 0.82), BODY_D()))
-    p.append(box((1.05, 0, 0.82), (0.55, 0.48, 0.22), GLASS()))
+        for x in (-0.60, 0.62):
+            p.append(box((x, side * 1.05, 0.66), (0.13, 0.13, 1.0), METAL()))
+            p.append(box((x, side * 1.95, 0.66), (0.13, 0.13, 1.0), METAL()))
+    p.append(box((-1.55, 0, 0.66), (0.60, 1.85, 0.12), BODY_D()))
+    p.append(box((-1.80, 0, 1.10), (0.42, 0.10, 0.95), BODY_D()))
+    p.append(box((1.05, 0, 0.88), (0.60, 0.50, 0.24), GLASS()))
+    p.append(box((0.15, 0, 0.42), (0.9, 0.5, 0.14), BODY_D()))    # belly fuel tank
     return p
 
 
