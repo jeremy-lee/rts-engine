@@ -257,75 +257,76 @@ def t_aa():
 
 # ------------------------------------------------------------------ aircraft
 def a_ww1_biplane():
-    """Wings thinned to 0.055 and pushed apart to a 1.06 gap.
-
-    At 0.1 thickness in a 128px render the two wings were roughly one pixel apart after
-    downscaling and merged into a single slab, which is why the biplane read as a pale box.
-    Struts are 0.14 so they survive, and outboard as well as inboard so the gap is visible
-    from the side.
-    """
+    """WW1 biplane: stepped fuselage, glazed cockpit, twin wings with struts, gear."""
     p = []
-    p.append(box((0, 0, 0.62), (2.5, 0.42, 0.44), BODY()))
-    p.append(box((0, 0, 1.18), (1.45, 3.1, 0.055), BODY_D()))
-    p.append(box((0, 0, 0.12), (1.45, 3.1, 0.055), BODY_D()))
+    p += fuselage3(-1.35, 1.30, 0.10, 0.24, 0.10, 0.62, segs=12)
+    p += canopy_glazed(0.10, 0.78, 0.40, 0.30, 0.22, frames=1)
+    p.append(box((0.05, 0, 1.18), (1.45, 3.10, 0.055), BODY_D()))
+    p.append(box((0.05, 0, 0.12), (1.45, 3.10, 0.055), BODY_D()))
     for side in (-1, 1):
         for x in (-0.55, 0.58):
             p.append(box((x, side * 1.00, 0.65), (0.14, 0.14, 1.06), METAL()))
             p.append(box((x, side * 1.42, 0.65), (0.14, 0.14, 1.06), METAL()))
-    p.append(box((-1.40, 0, 0.66), (0.55, 1.40, 0.07), BODY_D()))
-    p.append(box((-1.62, 0, 1.02), (0.40, 0.09, 0.62), BODY_D()))
-    p.append(cyl((1.32, 0, 0.62), 0.13, 0.26, BODY_D(), rot=(0, math.radians(90), 0), verts=10))
-    p.append(box((1.24, 0, 0.62), (0.05, 1.6, 0.18), BODY_D()))
+    p += tail_unit(-1.42, 0.66, 1.40, 0.55, chord=0.40)
+    p += propeller(1.36, 0.62, 0.78, blades=2, thickness=0.10)
+    p += landing_gear(0.10, 0.55, 0.42, strut=0.30, wheel_r=0.13)
     return p
 
 
 def a_ww2_fighter():
+    """WW2 fighter: tapered fuselage, bubble canopy, tapered wings, four-blade prop."""
     p = []
-    p.append(cyl((0, 0, 0.5), 0.26, 2.6, BODY(), rot=(0, math.radians(90), 0), verts=12))
-    p.append(cone((1.4, 0, 0.5), 0.26, 0.05, 0.5, BODY_D(), rot=(0, math.radians(90), 0), verts=12))
-    p.append(box((0.1, 0, 0.55), (0.9, 3.4, 0.1), BODY_D()))
-    p.append(box((-1.15, 0, 0.55), (0.5, 1.2, 0.08), BODY_D()))
-    p.append(box((-1.35, 0, 0.85), (0.35, 0.08, 0.6), BODY_D()))
-    p.append(box((0.9, 0, 0.78), (0.55, 0.5, 0.28), GLASS()))
-    p.append(cyl((1.55, 0, 0.5), 0.06, 0.1, METAL(), rot=(0, math.radians(90), 0)))
+    p += fuselage3(-1.45, 1.62, 0.12, 0.28, 0.10, 0.52, segs=14)
+    p += canopy_glazed(0.42, 0.74, 0.62, 0.38, 0.26, frames=2)
+    for side in (-1, 1):
+        p += wing(side, 0.10, 1.75, 0.98, 0.40, 0.50, 12.0, 0.09, BODY_D())
+        p += wing_root_fairing(side, 0.10, 0.30, 0.50, 0.70, 0.09)
+    p += tail_unit(-1.42, 0.56, 1.30, 0.72, chord=0.44)
+    p += propeller(1.70, 0.52, 0.86, blades=4)
+    p += landing_gear(0.05, 0.58, 0.38, strut=0.30, wheel_r=0.12)
+    for side in (-1, 1):
+        p.append(cyl((0.10, side * 1.30, 0.46), 0.09, 0.55, BODY_D(),
+                     rot=(0, math.radians(90), 0), verts=8))
     return p
 
 
 def a_jet():
+    """Early jet: pointed nose with intake, swept wings, bubble canopy, gear."""
     p = []
-    p.append(cyl((0, 0, 0.5), 0.3, 3.2, BODY(), rot=(0, math.radians(90), 0), verts=12))
-    p.append(cone((1.75, 0, 0.5), 0.3, 0.06, 0.6, BODY_D(), rot=(0, math.radians(90), 0), verts=12))
-    # swept wings
+    p += fuselage3(-1.70, 1.85, 0.10, 0.30, 0.12, 0.52, segs=16)
+    p += canopy_glazed(0.55, 0.76, 0.72, 0.42, 0.28, frames=2)
     for side in (-1, 1):
-        p += wing(side, -0.25, 1.75, 1.05, 0.48, 0.48, 22.0, 0.08, BODY_D())
-    p.append(box((-1.4, 0, 0.5), (0.45, 1.4, 0.08), BODY_D()))
-    p.append(box((-1.55, 0, 0.85), (0.3, 0.07, 0.7), BODY_D()))
-    p.append(box((1.0, 0, 0.78), (0.7, 0.42, 0.26), GLASS()))
-    p.append(cyl((-1.65, 0, 0.5), 0.2, 0.16, METAL(), rot=(0, math.radians(90), 0)))
+        p += wing(side, -0.20, 1.80, 1.05, 0.46, 0.48, 22.0, 0.08, BODY_D())
+        p += wing_root_fairing(side, -0.20, 0.32, 0.50, 0.80, 0.08)
+    p += tail_unit(-1.52, 0.54, 1.45, 0.82, chord=0.46)
+    p.append(cyl((-1.82, 0, 0.52), 0.20, 0.20, TRACK(), rot=(0, math.radians(90), 0), verts=12))
+    p += landing_gear(0.10, 0.60, 0.36, strut=0.30, wheel_r=0.12)
     return p
 
 
 def a_heli():
+    """Utility helicopter: boxy cabin, stepped boom, thick dark rotor, tail rotor."""
     p = []
-    p.append(box((0, 0, 0.62), (2.4, 0.85, 0.75), BODY()))
-    p.append(box((1.25, 0, 0.66), (0.7, 0.7, 0.6), GLASS()))
-    p.append(box((-1.9, 0, 0.66), (1.6, 0.22, 0.22), BODY()))
-    p.append(cyl((0, 0, 1.08), 0.11, 0.34, METAL()))
-    # rotor blades: 0.26 wide and DARK. At 0.16 x METAL they were a one-pixel line that
-    # read as a scratch rather than a rotor.
-    p.append(box((0, 0, 1.26), (0.26, 3.6, 0.14), TRACK()))
-    p.append(box((0, 0, 1.26), (3.6, 0.26, 0.14), TRACK()))
-    p.append(cyl((0, 0, 1.26), 0.16, 0.16, METAL(), verts=10))
-    # tail rotor, also thickened, mounted on a fin so it is not floating
-    p.append(box((-2.62, 0, 0.98), (0.10, 0.72, 0.72), BODY()))
-    p.append(box((-2.66, 0, 0.98), (0.12, 0.12, 0.95), TRACK()))
+    p.append(box((0.10, 0, 0.62), (2.30, 0.92, 0.72), BODY()))
+    p.append(box((1.30, 0, 0.70), (0.55, 0.72, 0.58), GLASS()))
+    p.append(box((1.34, 0, 1.02), (0.42, 0.66, 0.10), BODY_D()))
+    p.append(cyl((1.66, 0, 0.52), 0.26, 0.28, BODY_D(),
+                 rot=(0, math.radians(90), 0), verts=12))
+    p.append(cone((-1.85, 0, 0.66), 0.10, 0.26, 1.30, BODY(),
+                  rot=(0, math.radians(-90), 0), verts=12))
     for side in (-1, 1):
-        p.append(box((-0.3, side * 0.5, 0.35), (1.4, 0.1, 0.12), METAL()))
-        p.append(cyl((0.2, side * 0.5, 0.3), 0.14, 0.1, RUBBER(), rot=(math.radians(90), 0, 0)))
+        p.append(box((-0.25, side * 0.52, 0.34), (1.40, 0.10, 0.12), METAL()))
+    p.append(box((-1.20, 0, 0.94), (0.70, 0.10, 0.34), BODY_D()))
+    p.append(cyl((-0.10, 0, 1.08), 0.12, 0.32, METAL(), verts=10))
+    p.append(box((-0.10, 0, 1.26), (0.28, 3.60, 0.14), TRACK()))
+    p.append(box((-0.10, 0, 1.26), (3.60, 0.28, 0.14), TRACK()))
+    p.append(cyl((-0.10, 0, 1.26), 0.17, 0.16, METAL(), verts=10))
+    p.append(box((-2.62, 0, 0.98), (0.10, 0.74, 0.74), BODY()))
+    p.append(box((-2.66, 0, 0.98), (0.12, 0.12, 0.98), TRACK()))
+    p += landing_gear(-0.10, 0.55, 0.34, strut=0.26, wheel_r=0.13)
     return p
 
 
-# ------------------------------------------------------------------ soft / utility
 def v_truck():
     p = []
     p.append(box((0.7, 0, 0.55), (1.1, 1.1, 0.7), BODY()))
@@ -534,152 +535,142 @@ def t_command_car():
 
 # ------------------------------------------------------------------ aircraft set
 def a_heavy_bomber():
+    """Twin-engine bomber: long stepped fuselage, glazed nose, big podded engines."""
     p = []
-    p.append(cyl((0, 0, 0.62), 0.34, 4.6, BODY(), rot=(0, math.radians(90), 0), verts=12))
-    p.append(cone((2.45, 0, 0.62), 0.34, 0.06, 0.7, BODY_D(), rot=(0, math.radians(90), 0), verts=12))
-    p.append(box((0.1, 0, 0.66), (1.3, 5.6, 0.12), BODY_D()))
-    p.append(box((-1.75, 0, 0.66), (0.7, 2.0, 0.10), BODY_D()))
-    p.append(box((-2.05, 0, 1.05), (0.4, 0.10, 0.85), BODY_D()))
-    p.append(box((1.05, 0, 0.92), (0.8, 0.46, 0.28), GLASS()))
-    # engine nacelles: 0.36 radius, 1.0 long. At 0.20 they were lost under the wing and the
-    # bomber was indistinguishable from the transport.
+    p += fuselage3(-2.30, 2.40, 0.16, 0.36, 0.12, 0.66, segs=16)
+    p += canopy_glazed(1.55, 0.88, 0.72, 0.44, 0.26, frames=2)
     for side in (-1, 1):
-        p.append(cyl((-0.20, side * 1.45, 0.46), 0.36, 1.05, BODY_D(),
-                     rot=(0, math.radians(90), 0), verts=12))
-        p.append(cyl((0.36, side * 1.45, 0.46), 0.26, 0.18, TRACK(),
-                     rot=(0, math.radians(90), 0), verts=10))
-        p.append(box((-0.20, side * 1.45, 0.78), (0.60, 0.60, 0.12), BODY()))
+        p += wing(side, -0.10, 2.20, 1.30, 0.55, 0.60, 30.0, 0.11, BODY_D())
+        p += wing_root_fairing(side, -0.10, 0.40, 0.62, 0.95, 0.11)
+        p += engine_nacelle(-0.20, side * 1.45, 0.58, 0.34, 1.05)
+    p += tail_unit(-2.10, 0.70, 1.90, 0.95, chord=0.52)
+    p += landing_gear(0.30, 0.72, 0.44, strut=0.36, wheel_r=0.15)
     return p
 
 
 def a_recon_plane():
+    """Unarmed recon: slim fuselage, long glazed cabin, high aspect-ratio wing."""
     p = []
-    p.append(cyl((0, 0, 0.5), 0.22, 3.0, BODY(), rot=(0, math.radians(90), 0), verts=12))
-    p.append(cone((1.65, 0, 0.5), 0.22, 0.05, 0.5, BODY_D(), rot=(0, math.radians(90), 0), verts=12))
-    p.append(box((0.05, 0, 0.54), (0.75, 4.2, 0.08), BODY_D()))
-    p.append(box((-1.35, 0, 0.54), (0.45, 1.3, 0.07), BODY_D()))
-    p.append(box((-1.55, 0, 0.82), (0.32, 0.07, 0.55), BODY_D()))
-    p.append(box((0.75, 0, 0.76), (0.7, 0.4, 0.22), GLASS()))
-    p.append(cyl((1.75, 0, 0.5), 0.05, 0.08, METAL(), rot=(0, math.radians(90), 0), verts=6))
+    p += fuselage3(-1.60, 1.70, 0.10, 0.22, 0.08, 0.54, segs=14)
+    p += canopy_glazed(0.42, 0.74, 0.90, 0.34, 0.22, frames=3)
+    for side in (-1, 1):
+        p += wing(side, 0.10, 2.10, 0.80, 0.42, 0.50, 6.0, 0.07, BODY_D())
+        p += wing_root_fairing(side, 0.10, 0.26, 0.52, 0.60, 0.07)
+    p += tail_unit(-1.55, 0.58, 1.35, 0.70, chord=0.42)
+    p += propeller(1.76, 0.54, 0.70, blades=3)
+    p += landing_gear(0.10, 0.52, 0.36, strut=0.28, wheel_r=0.11)
     return p
 
 
 def a_seaplane():
+    """Floatplane: stepped fuselage, glazed canopy, big outboard floats on struts."""
     p = []
-    p.append(cyl((0, 0, 0.72), 0.26, 3.0, BODY(), rot=(0, math.radians(90), 0), verts=12))
-    p.append(cone((1.68, 0, 0.72), 0.26, 0.05, 0.5, BODY_D(), rot=(0, math.radians(90), 0), verts=12))
-    p.append(box((0.05, 0, 0.76), (0.9, 3.8, 0.09), BODY_D()))
-    p.append(box((-1.35, 0, 0.76), (0.45, 1.2, 0.08), BODY_D()))
-    p.append(box((-1.55, 0, 1.02), (0.32, 0.07, 0.55), BODY_D()))
-    p.append(box((0.8, 0, 0.96), (0.7, 0.42, 0.24), GLASS()))
-    # floats: 0.36 radius and pushed outboard to 1.15. At 0.18 radius tucked under the
-    # fuselage they were completely invisible once downscaled, so the seaplane looked like
-    # every other monoplane.
+    p += fuselage3(-1.60, 1.75, 0.12, 0.28, 0.10, 0.72, segs=14)
+    p += canopy_glazed(0.48, 0.94, 0.66, 0.38, 0.24, frames=2)
     for side in (-1, 1):
-        p.append(cyl((0.1, side * 1.15, 0.22), 0.36, 2.4, BODY_D(),
+        p += wing(side, 0.05, 1.85, 0.95, 0.44, 0.48, 10.0, 0.09, BODY_D())
+        p += wing_root_fairing(side, 0.05, 0.30, 0.70, 0.70, 0.09)
+        p.append(cyl((0.10, side * 1.15, 0.22), 0.36, 2.40, BODY_D(),
                      rot=(0, math.radians(90), 0), verts=12))
-        p.append(cone((1.35, side * 1.15, 0.22), 0.36, 0.10, 0.5, BODY_D(),
+        p.append(cone((1.35, side * 1.15, 0.22), 0.36, 0.10, 0.50, BODY_D(),
                       rot=(0, math.radians(90), 0), verts=12))
         p.append(box((0.45, side * 1.15, 0.58), (0.20, 0.20, 0.72), METAL()))
         p.append(box((-0.55, side * 1.15, 0.58), (0.20, 0.20, 0.72), METAL()))
+    p += tail_unit(-1.55, 0.78, 1.40, 0.72, chord=0.44)
+    p += propeller(1.82, 0.72, 0.76, blades=3)
     return p
 
 
 def a_transport_plane():
+    """Transport: deep slab fuselage, high wing, twin engines, loading ramp at the tail."""
     p = []
-    p.append(box((0, 0, 0.75), (3.6, 0.6, 0.7), BODY()))
-    p.append(box((1.85, 0, 0.75), (0.5, 0.5, 0.55), BODY_D()))
-    p.append(box((1.9, 0, 0.95), (0.4, 0.4, 0.2), GLASS()))
-    p.append(box((0.05, 0, 1.10), (1.2, 5.0, 0.10), BODY_D()))
-    p.append(box((-1.6, 0, 1.15), (0.5, 1.9, 0.09), BODY_D()))
-    p.append(box((-1.85, 0, 1.55), (0.35, 0.09, 0.8), BODY_D()))
+    p.append(box((0.10, 0, 0.78), (3.60, 0.70, 0.74), BODY()))
+    p.append(cone((2.05, 0, 0.78), 0.20, 0.35, 0.50, BODY_D(),
+                  rot=(0, math.radians(90), 0), verts=14))
+    p.append(box((2.10, 0, 1.00), (0.38, 0.44, 0.22), GLASS()))
+    p.append(box((-1.55, 0, 0.68), (0.55, 0.66, 0.50), BODY_D()))
+    p += canopy_glazed(1.72, 0.96, 0.34, 0.42, 0.18, frames=1)
     for side in (-1, 1):
-        p.append(cyl((0.25, side * 1.45, 0.62), 0.18, 0.5, BODY_D(),
-                     rot=(0, math.radians(90), 0), verts=10))
+        p += wing(side, 0.05, 2.40, 1.20, 0.50, 0.50, 4.0, 0.10, BODY_D())
+        p += engine_nacelle(0.15, side * 1.45, 0.62, 0.30, 0.90)
+    p += tail_unit(-1.60, 0.80, 2.10, 1.00, chord=0.50)
+    p += landing_gear(0.10, 0.70, 0.50, strut=0.40, wheel_r=0.16)
     return p
 
 
 def a_ground_attack():
+    """Ground-attack: armoured nose, chin gun, underwing stores, straight wing."""
     p = []
-    p.append(cyl((0, 0, 0.58), 0.34, 3.0, BODY(), rot=(0, math.radians(90), 0), verts=12))
-    p.append(cone((1.7, 0, 0.58), 0.34, 0.08, 0.6, BODY_D(), rot=(0, math.radians(90), 0), verts=12))
-    p.append(box((0.0, 0, 0.56), (1.0, 3.6, 0.12), BODY_D()))
-    p.append(box((-1.45, 0, 0.58), (0.5, 1.3, 0.09), BODY_D()))
-    p.append(box((-1.62, 0, 0.92), (0.34, 0.08, 0.7), BODY_D()))
-    p.append(box((1.0, 0, 0.88), (0.8, 0.44, 0.26), GLASS()))
-    # chin gun + underwing stores
-    p.append(cyl((1.9, 0, 0.42), 0.09, 0.9, METAL(), rot=(0, math.radians(90), 0), verts=6))
+    p += fuselage3(-1.60, 1.75, 0.20, 0.34, 0.12, 0.56, segs=14)
+    p += canopy_glazed(0.55, 0.82, 0.66, 0.40, 0.26, frames=2)
     for side in (-1, 1):
+        p += wing(side, -0.10, 1.90, 1.02, 0.48, 0.50, 12.0, 0.10, BODY_D())
+        p += wing_root_fairing(side, -0.10, 0.34, 0.54, 0.85, 0.10)
         for i in range(2):
-            p.append(cyl((0.1 - i * 0.55, side * 0.95, 0.40), 0.09, 0.6, BODY_D(),
-                         rot=(0, math.radians(90), 0), verts=6))
+            p.append(cyl((-0.20 - i * 0.55, side * 1.05, 0.40), 0.10, 0.60, BODY_D(),
+                         rot=(0, math.radians(90), 0), verts=8))
+    p.append(cyl((1.92, 0, 0.40), 0.11, 0.80, METAL(), rot=(0, math.radians(90), 0), verts=8))
+    p.append(box((1.55, 0, 0.34), (0.30, 0.24, 0.20), BODY_D()))
+    p += tail_unit(-1.55, 0.60, 1.35, 0.80, chord=0.46)
+    p += propeller(1.80, 0.56, 0.80, blades=4)
+    p += landing_gear(0.10, 0.58, 0.38, strut=0.30, wheel_r=0.12)
     return p
 
 
 def a_jet_bomber():
+    """Swept-wing jet bomber: slim fuselage, podded engines on the wing, glazed nose."""
     p = []
-    p.append(cyl((0, 0, 0.58), 0.32, 3.4, BODY(), rot=(0, math.radians(90), 0), verts=12))
-    p.append(cone((1.85, 0, 0.58), 0.32, 0.06, 0.6, BODY_D(), rot=(0, math.radians(90), 0), verts=12))
+    p += fuselage3(-2.10, 2.15, 0.14, 0.32, 0.12, 0.60, segs=16)
+    p += canopy_glazed(1.45, 0.86, 0.60, 0.40, 0.24, frames=2)
     for side in (-1, 1):
-        p += wing(side, -0.35, 1.85, 1.15, 0.50, 0.56, 30.0, 0.09, BODY_D())
-        p.append(cyl((-0.55, side * 1.35, 0.44), 0.14, 0.7, METAL(),
-                     rot=(0, math.radians(90), 0), verts=8))
-    p.append(box((-1.45, 0, 0.58), (0.5, 1.6, 0.09), BODY_D()))
-    p.append(box((-1.62, 0, 0.95), (0.32, 0.08, 0.7), BODY_D()))
-    p.append(box((1.1, 0, 0.88), (0.7, 0.42, 0.24), GLASS()))
+        p += wing(side, -0.30, 2.00, 1.20, 0.52, 0.58, 32.0, 0.10, BODY_D())
+        p += wing_root_fairing(side, -0.30, 0.40, 0.58, 0.95, 0.10)
+        p += engine_nacelle(-0.55, side * 1.35, 0.44, 0.24, 0.85)
+    p += tail_unit(-1.85, 0.64, 1.75, 0.88, chord=0.50)
+    p += landing_gear(0.20, 0.66, 0.42, strut=0.34, wheel_r=0.14)
     return p
 
 
 def a_vtol():
+    """Tilt-rotor VTOL: boxy fuselage, two tilt nacelles with thick dark rotors."""
     p = []
-    p.append(box((0, 0, 0.62), (2.8, 0.9, 0.6), BODY()))
-    p.append(box((1.45, 0, 0.68), (0.7, 0.7, 0.5), GLASS()))
-    p.append(box((0.1, 0, 0.98), (1.4, 0.32, 0.12), BODY_D()))
-    # two tilt rotors on stub wings
+    p.append(box((0.10, 0, 0.62), (2.60, 0.88, 0.62), BODY()))
+    p.append(box((1.45, 0, 0.70), (0.62, 0.70, 0.50), GLASS()))
+    p.append(box((0.05, 0, 0.98), (1.35, 0.34, 0.12), BODY_D()))
+    p.append(cone((-1.60, 0, 0.64), 0.14, 0.26, 0.75, BODY(),
+                  rot=(0, math.radians(-90), 0), verts=12))
     for side in (-1, 1):
-        p.append(box((0.25, side * 0.95, 0.66), (0.55, 1.1, 0.14), BODY_D()))
-        p.append(cyl((0.25, side * 1.35, 0.80), 0.10, 0.30, METAL(), verts=8))
-        p.append(box((0.25, side * 1.35, 0.98), (0.10, 1.5, 0.05), METAL()))
-    p.append(box((-1.35, 0, 0.72), (0.35, 1.5, 0.08), BODY_D()))
-    p.append(box((-1.5, 0, 1.0), (0.28, 0.06, 0.5), BODY_D()))
+        p.append(box((0.22, side * 0.95, 0.66), (0.55, 1.10, 0.14), BODY_D()))
+        p.append(cyl((0.22, side * 1.38, 0.80), 0.13, 0.32, METAL(), verts=10))
+        p.append(box((0.22, side * 1.38, 1.00), (0.16, 1.9, 0.12), TRACK()))
+        p.append(box((0.22, side * 1.38, 1.00), (1.9, 0.16, 0.12), TRACK()))
+    p += tail_unit(-1.60, 0.78, 1.55, 0.72, chord=0.44)
+    p += landing_gear(-0.10, 0.50, 0.34, strut=0.24, wheel_r=0.12)
     return p
 
 
 def a_zeppelin_air():
-    """Airship with a readable structure.
-
-    The first version was a bare cigar: hull plus tail fins that vanished at 24px. Now the
-    hull is banded with dark rings (so the cylinder reads as segmented rather than smooth),
-    the tail carries a large cruciform of four fins, two engine nacelles hang under the
-    centre where they break the silhouette, and the gondola is a proper glazed cabin.
-    """
+    """Airship: banded envelope, large cruciform tail, podded engines, glazed gondola."""
     p = []
-    p.append(cyl((0, 0, 0.95), 0.56, 4.4, BODY(), rot=(0, math.radians(90), 0), verts=18))
-    p.append(cone((2.60, 0, 0.95), 0.56, 0.12, 0.85, BODY_D(), rot=(0, math.radians(90), 0), verts=18))
-    p.append(cone((-2.60, 0, 0.95), 0.56, 0.10, 0.85, BODY(), rot=(0, math.radians(-90), 0), verts=18))
-    # dark bands: make the envelope read as segmented, not as a smooth tube
+    p.append(cyl((0, 0, 0.95), 0.56, 4.40, BODY(), rot=(0, math.radians(90), 0), verts=20))
+    p.append(cone((2.60, 0, 0.95), 0.12, 0.56, 0.85, BODY_D(),
+                  rot=(0, math.radians(90), 0), verts=20))
+    p.append(cone((-2.60, 0, 0.95), 0.10, 0.56, 0.85, BODY(),
+                  rot=(0, math.radians(-90), 0), verts=20))
     for x in (-1.75, -0.85, 0.05, 0.95, 1.85):
-        p.append(cyl((x, 0, 0.95), 0.585, 0.12, BODY_D(), rot=(0, math.radians(90), 0), verts=18))
-    # cruciform tail: four big fins, unmistakable from any facing
-    p.append(box((-2.05, 0, 0.95), (1.0, 3.4, 0.12), BODY_D()))
-    p.append(box((-2.05, 0, 0.95), (1.0, 0.12, 2.6), BODY_D()))
-    p.append(box((-2.55, 0, 0.95), (0.30, 1.5, 0.10), ACCENT()))
-    # engine nacelles under the hull
+        p.append(cyl((x, 0, 0.95), 0.59, 0.12, BODY_D(),
+                     rot=(0, math.radians(90), 0), verts=20))
+    p.append(box((-2.05, 0, 0.95), (1.00, 3.40, 0.12), BODY_D()))
+    p.append(box((-2.05, 0, 0.95), (1.00, 0.12, 2.60), BODY_D()))
+    p.append(box((-2.55, 0, 0.95), (0.30, 1.50, 0.10), ACCENT()))
     for dy in (-0.75, 0.75):
         p.append(box((-0.30, dy, 0.42), (0.85, 0.34, 0.30), BODY_D()))
         p.append(cyl((0.20, dy, 0.42), 0.15, 0.24, METAL(),
                      rot=(0, math.radians(90), 0), verts=8))
-    # gondola: glazed cabin with a nose
     p.append(box((0.55, 0, 0.30), (1.35, 0.60, 0.36), BODY_D()))
     p.append(box((0.95, 0, 0.34), (0.42, 0.52, 0.22), GLASS()))
-    p.append(box((0.55, 0, 0.10), (1.0, 0.45, 0.12), METAL()))
+    p.append(box((0.55, 0, 0.10), (1.00, 0.45, 0.12), METAL()))
     return p
-
-# ================================================================== PLA (1949-1991)
-# Cold-War People's Liberation Army inventory. Silhouette cues are what matter at 24px:
-# Type 59's dome turret + long 100mm gun, J-7's delta wing and nose shock cone, Q-5's
-# side intakes and pointed nose. Painted in olive (--paint ra_olive).
-PLA_GREEN = "ra_olive"
 
 
 def p_type59():
@@ -1093,6 +1084,92 @@ def gun_assembly(x, z, r_tube, length, muzzle=True, evacuator=True):
         p.append(cyl((x + 0.16 + length * 0.98, 0, z), r_tube * 1.35, 0.22, BODY_D(),
                      rot=(0, math.radians(90), 0), verts=12))
     return p
+
+# ------------------------------------------------------------------ aircraft structure
+# Aircraft need a different structural grammar from tanks. The layers that survive a
+# reduction to 32x36 are: a stepped nose/centre/tail fuselage, a contrasting glazed
+# canopy, a wing-root fairing, a proper tail unit, podded engines and landing gear. A
+# single long cylinder reads as a pipe, and a thin prop disc disappears completely.
+def fuselage3(x0, x1, r_nose, r_mid, r_tail, z, segs=14):
+    """Tapered nose + cylindrical centre + tapered tail, plus a dorsal spine."""
+    p = []
+    length = x1 - x0
+    ln, lm, lt = length * 0.26, length * 0.44, length * 0.30
+    p.append(cone((x1 - ln / 2, 0, z), r_nose, r_mid, ln, BODY(),
+                  rot=(0, math.radians(90), 0), verts=segs))
+    p.append(cyl((x1 - ln - lm / 2, 0, z), r_mid, lm, BODY(),
+                 rot=(0, math.radians(90), 0), verts=segs))
+    p.append(cone((x0 + lt / 2, 0, z), r_tail, r_mid, lt, BODY(),
+                  rot=(0, math.radians(-90), 0), verts=segs))
+    p.append(box((x0 + length * 0.40, 0, z + r_mid * 0.92),
+                 (length * 0.54, r_mid * 0.55, r_mid * 0.24), BODY_D()))
+    return p
+
+
+def canopy_glazed(x, z, length, width, height, frames=2):
+    """Glazed cockpit with dark framing bands, raised above the spine."""
+    p = []
+    p.append(box((x, 0, z + height * 0.5), (length, width, height * 0.55), GLASS()))
+    p.append(box((x, 0, z + height * 0.94), (length * 0.9, width * 0.86, height * 0.30),
+                 BODY_D()))
+    for i in range(frames):
+        p.append(box((x - length * 0.3 + i * length * 0.6, 0, z + height * 0.45),
+                     (length * 0.10, width * 1.03, height * 0.55), BODY_D()))
+    return p
+
+
+def tail_unit(x, z, span, fin_h, chord=0.42):
+    """Horizontal stabiliser plus vertical fin with a contrasting rudder."""
+    p = []
+    p.append(box((x, 0, z), (chord, span, 0.07), BODY_D()))
+    p.append(box((x - chord * 0.35, 0, z + fin_h * 0.5), (chord * 0.85, 0.08, fin_h), BODY_D()))
+    p.append(box((x - chord * 0.62, 0, z + fin_h * 0.55), (chord * 0.16, 0.09, fin_h * 0.8),
+                 BODY()))
+    return p
+
+
+def wing_root_fairing(side, x, y, z, chord, thick):
+    """Fairing at the wing/fuselage junction so the join is not a bare box corner."""
+    return [box((x, side * y, z), (chord, 0.34, thick * 1.5), BODY())]
+
+
+def landing_gear(x, y, z, strut=0.34, wheel_r=0.13, nose=True):
+    """Two main legs plus a nose leg; small dark stubs that still register at 32x36."""
+    p = []
+    for side in (-1, 1):
+        p.append(box((x, side * y, z - strut * 0.5), (0.07, 0.07, strut), METAL()))
+        p.append(cyl((x, side * y, z - strut), wheel_r, 0.10, TRACK(),
+                     rot=(math.radians(90), 0, 0), verts=10))
+    if nose:
+        p.append(box((x + 0.55, 0, z - strut * 0.4), (0.07, 0.07, strut * 0.85), METAL()))
+        p.append(cyl((x + 0.55, 0, z - strut * 0.85), wheel_r * 0.9, 0.10, TRACK(),
+                     rot=(math.radians(90), 0, 0), verts=10))
+    return p
+
+
+def engine_nacelle(x, y, z, r, length, intake=True):
+    """Podded engine with a dark intake ring and an exhaust stub."""
+    p = []
+    p.append(cyl((x, y, z), r, length, BODY_D(), rot=(0, math.radians(90), 0), verts=12))
+    if intake:
+        p.append(cyl((x + length * 0.5, y, z), r * 0.72, 0.10, TRACK(),
+                     rot=(0, math.radians(90), 0), verts=10))
+    p.append(cyl((x - length * 0.55, y, z), r * 0.62, 0.16, METAL(),
+                 rot=(0, math.radians(90), 0), verts=10))
+    return p
+
+
+def propeller(x, z, r, blades=4, thickness=0.07):
+    """Prop as thick dark blades; a thin disc disappears when downscaled."""
+    p = []
+    p.append(cyl((x, 0, z), r * 0.18, 0.16, BODY_D(), rot=(0, math.radians(90), 0), verts=8))
+    for i in range(blades):
+        a = math.pi * i / blades
+        p.append(box((x, 0, z), (0.07, r * 2.0 * abs(math.cos(a)) + thickness,
+                                 r * 2.0 * abs(math.sin(a)) + thickness), TRACK()))
+    return p
+
+
 VEHICLES = {
     "ww1_rhomboid": t_ww1_rhomboid,
     "ww2_medium": t_ww2_medium,
