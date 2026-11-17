@@ -260,17 +260,25 @@ def t_aa():
 
 # ------------------------------------------------------------------ aircraft
 def a_ww1_biplane():
+    """Wings thinned to 0.055 and pushed apart to a 1.06 gap.
+
+    At 0.1 thickness in a 128px render the two wings were roughly one pixel apart after
+    downscaling and merged into a single slab, which is why the biplane read as a pale box.
+    Struts are 0.14 so they survive, and outboard as well as inboard so the gap is visible
+    from the side.
+    """
     p = []
-    p.append(box((0, 0, 0.5), (2.4, 0.4, 0.4), BODY()))
-    p.append(box((0, 0, 0.92), (1.5, 3.0, 0.1), BODY_D()))
-    p.append(box((0, 0, 0.32), (1.5, 3.0, 0.1), BODY_D()))
+    p.append(box((0, 0, 0.62), (2.5, 0.42, 0.44), BODY()))
+    p.append(box((0, 0, 1.18), (1.45, 3.1, 0.055), BODY_D()))
+    p.append(box((0, 0, 0.12), (1.45, 3.1, 0.055), BODY_D()))
     for side in (-1, 1):
-        for x in (-0.6, 0.6):
-            p.append(box((x, side * 1.35, 0.62), (0.08, 0.08, 0.68), METAL()))
-    p.append(box((-1.35, 0, 0.6), (0.5, 1.3, 0.08), BODY_D()))
-    p.append(box((-1.5, 0, 0.94), (0.35, 0.1, 0.5), BODY_D()))
-    p.append(cyl((1.28, 0, 0.5), 0.1, 0.2, METAL(), rot=(0, math.radians(90), 0)))
-    p.append(box((1.22, 0, 0.5), (0.05, 1.5, 0.16), BODY_D()))
+        for x in (-0.55, 0.58):
+            p.append(box((x, side * 1.00, 0.65), (0.14, 0.14, 1.06), METAL()))
+            p.append(box((x, side * 1.42, 0.65), (0.14, 0.14, 1.06), METAL()))
+    p.append(box((-1.40, 0, 0.66), (0.55, 1.40, 0.07), BODY_D()))
+    p.append(box((-1.62, 0, 1.02), (0.40, 0.09, 0.62), BODY_D()))
+    p.append(cyl((1.32, 0, 0.62), 0.13, 0.26, BODY_D(), rot=(0, math.radians(90), 0), verts=10))
+    p.append(box((1.24, 0, 0.62), (0.05, 1.6, 0.18), BODY_D()))
     return p
 
 
@@ -305,9 +313,15 @@ def a_heli():
     p.append(box((0, 0, 0.62), (2.4, 0.85, 0.75), BODY()))
     p.append(box((1.25, 0, 0.66), (0.7, 0.7, 0.6), GLASS()))
     p.append(box((-1.9, 0, 0.66), (1.6, 0.22, 0.22), BODY()))
-    p.append(cyl((0, 0, 1.08), 0.09, 0.3, METAL()))
-    p.append(box((0, 0, 1.24), (0.16, 3.4, 0.06), METAL()))
-    p.append(box((-2.65, 0, 0.95), (0.06, 0.6, 0.6), METAL()))
+    p.append(cyl((0, 0, 1.08), 0.11, 0.34, METAL()))
+    # rotor blades: 0.26 wide and DARK. At 0.16 x METAL they were a one-pixel line that
+    # read as a scratch rather than a rotor.
+    p.append(box((0, 0, 1.26), (0.26, 3.6, 0.14), TRACK()))
+    p.append(box((0, 0, 1.26), (3.6, 0.26, 0.14), TRACK()))
+    p.append(cyl((0, 0, 1.26), 0.16, 0.16, METAL(), verts=10))
+    # tail rotor, also thickened, mounted on a fin so it is not floating
+    p.append(box((-2.62, 0, 0.98), (0.10, 0.72, 0.72), BODY()))
+    p.append(box((-2.66, 0, 0.98), (0.12, 0.12, 0.95), TRACK()))
     for side in (-1, 1):
         p.append(box((-0.3, side * 0.5, 0.35), (1.4, 0.1, 0.12), METAL()))
         p.append(cyl((0.2, side * 0.5, 0.3), 0.14, 0.1, RUBBER(), rot=(math.radians(90), 0, 0)))
@@ -522,10 +536,14 @@ def a_heavy_bomber():
     p.append(box((-1.75, 0, 0.66), (0.7, 2.0, 0.10), BODY_D()))
     p.append(box((-2.05, 0, 1.05), (0.4, 0.10, 0.85), BODY_D()))
     p.append(box((1.05, 0, 0.92), (0.8, 0.46, 0.28), GLASS()))
+    # engine nacelles: 0.36 radius, 1.0 long. At 0.20 they were lost under the wing and the
+    # bomber was indistinguishable from the transport.
     for side in (-1, 1):
-        p.append(cyl((-0.25, side * 1.55, 0.50), 0.20, 0.55, BODY_D(),
+        p.append(cyl((-0.20, side * 1.45, 0.46), 0.36, 1.05, BODY_D(),
+                     rot=(0, math.radians(90), 0), verts=12))
+        p.append(cyl((0.36, side * 1.45, 0.46), 0.26, 0.18, TRACK(),
                      rot=(0, math.radians(90), 0), verts=10))
-        p.append(box((-0.25, side * 1.55, 0.50), (0.06, 0.9, 0.16), BODY_D()))
+        p.append(box((-0.20, side * 1.45, 0.78), (0.60, 0.60, 0.12), BODY()))
     return p
 
 
@@ -549,11 +567,16 @@ def a_seaplane():
     p.append(box((-1.35, 0, 0.76), (0.45, 1.2, 0.08), BODY_D()))
     p.append(box((-1.55, 0, 1.02), (0.32, 0.07, 0.55), BODY_D()))
     p.append(box((0.8, 0, 0.96), (0.7, 0.42, 0.24), GLASS()))
-    # floats
+    # floats: 0.36 radius and pushed outboard to 1.15. At 0.18 radius tucked under the
+    # fuselage they were completely invisible once downscaled, so the seaplane looked like
+    # every other monoplane.
     for side in (-1, 1):
-        p.append(cyl((0.1, side * 0.85, 0.26), 0.18, 2.0, BODY_D(),
-                     rot=(0, math.radians(90), 0), verts=10))
-        p.append(box((0.5, side * 0.85, 0.5), (0.08, 0.08, 0.4), METAL()))
+        p.append(cyl((0.1, side * 1.15, 0.22), 0.36, 2.4, BODY_D(),
+                     rot=(0, math.radians(90), 0), verts=12))
+        p.append(cone((1.35, side * 1.15, 0.22), 0.36, 0.10, 0.5, BODY_D(),
+                      rot=(0, math.radians(90), 0), verts=12))
+        p.append(box((0.45, side * 1.15, 0.58), (0.20, 0.20, 0.72), METAL()))
+        p.append(box((-0.55, side * 1.15, 0.58), (0.20, 0.20, 0.72), METAL()))
     return p
 
 
