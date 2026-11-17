@@ -106,6 +106,31 @@ def cone(loc, r1, r2, d, material, rot=(0, 0, 0), verts=12):
     return ob
 
 
+def wing(side, root_x, span, chord_root, chord_tip, z, sweep_deg, thick, material, segs=4):
+    """Trapezoidal swept wing built from segmented boxes.
+
+    A single rotated box makes a RHOMBUS, not a wing: rotating a square by the sweep angle
+    leaves four equal edges and the silhouette is a diamond. A real wing tapers - wide at
+    the root, narrow at the tip - and sweeps back. This builds it as `segs` chordwise
+    strips whose chord shrinks linearly from chord_root to chord_tip and whose x offset
+    is shifted back by tan(sweep) * distance along the span, so the outline is a proper
+    tapered, swept planform. side = -1 / +1 mirrors it.
+    """
+    p = []
+    tan_sweep = math.tan(math.radians(sweep_deg))
+    for i in range(segs):
+        f0 = i / float(segs)
+        f1 = (i + 1) / float(segs)
+        fmid = 0.5 * (f0 + f1)
+        ya = side * span * f0
+        yb = side * span * f1
+        chord = chord_root + (chord_tip - chord_root) * fmid
+        xoff = -tan_sweep * span * fmid
+        p.append(box((root_x + xoff, 0.5 * (ya + yb), z),
+                     (chord, abs(yb - ya) + 0.02, thick), material))
+    return p
+
+
 def wheels(n, x0, y, z, r=0.28, step=0.55):
     out = []
     for i in range(n):
@@ -267,7 +292,7 @@ def a_jet():
     p.append(cone((1.75, 0, 0.5), 0.3, 0.06, 0.6, BODY_D(), rot=(0, math.radians(90), 0), verts=12))
     # swept wings
     for side in (-1, 1):
-        p.append(boxr((-0.25, side * 0.75, 0.48), (1.5, 1.5, 0.08), BODY_D(), (0, 0, side * math.radians(22))))
+        p += wing(side, -0.25, 1.75, 1.05, 0.48, 0.48, 22.0, 0.08, BODY_D())
     p.append(box((-1.4, 0, 0.5), (0.45, 1.4, 0.08), BODY_D()))
     p.append(box((-1.55, 0, 0.85), (0.3, 0.07, 0.7), BODY_D()))
     p.append(box((1.0, 0, 0.78), (0.7, 0.42, 0.26), GLASS()))
@@ -568,8 +593,7 @@ def a_jet_bomber():
     p.append(cyl((0, 0, 0.58), 0.32, 3.4, BODY(), rot=(0, math.radians(90), 0), verts=12))
     p.append(cone((1.85, 0, 0.58), 0.32, 0.06, 0.6, BODY_D(), rot=(0, math.radians(90), 0), verts=12))
     for side in (-1, 1):
-        p.append(boxr((-0.35, side * 0.95, 0.56), (1.5, 1.7, 0.09), BODY_D(),
-                      (0, 0, side * math.radians(30))))
+        p += wing(side, -0.35, 1.85, 1.15, 0.50, 0.56, 30.0, 0.09, BODY_D())
         p.append(cyl((-0.55, side * 1.35, 0.44), 0.14, 0.7, METAL(),
                      rot=(0, math.radians(90), 0), verts=8))
     p.append(box((-1.45, 0, 0.58), (0.5, 1.6, 0.09), BODY_D()))
@@ -800,8 +824,7 @@ def p_j5():
     p.append(cyl((1.46, 0, 0.52), 0.26, 0.22, BODY_D(), rot=(0, math.radians(90), 0), verts=14))
     p.append(cyl((1.58, 0, 0.52), 0.10, 0.12, METAL(), rot=(0, math.radians(90), 0), verts=8))
     for side in (-1, 1):
-        p.append(boxr((0.05, side * 0.62, 0.50), (1.25, 1.25, 0.09), BODY_D(),
-                      (0, 0, side * math.radians(35))))
+        p += wing(side, 0.05, 1.60, 0.95, 0.42, 0.50, 35.0, 0.09, BODY_D())
     p.append(box((-1.30, 0, 0.52), (0.55, 1.35, 0.08), BODY_D()))
     p.append(box((-1.55, 0, 0.92), (0.40, 0.09, 0.80), BODY_D()))
     p.append(box((0.55, 0, 0.76), (0.75, 0.44, 0.26), GLASS()))
@@ -815,8 +838,7 @@ def p_j6():
         p.append(cyl((0, dy, 0.52), 0.23, 3.1, BODY(), rot=(0, math.radians(90), 0), verts=12))
     p.append(cyl((1.58, 0, 0.52), 0.33, 0.20, BODY_D(), rot=(0, math.radians(90), 0), verts=16))
     for side in (-1, 1):
-        p.append(boxr((0.0, side * 0.72, 0.50), (1.45, 1.55, 0.09), BODY_D(),
-                      (0, 0, side * math.radians(38))))
+        p += wing(side, 0.0, 1.85, 1.05, 0.48, 0.50, 38.0, 0.09, BODY_D())
     p.append(box((-1.45, 0, 0.52), (0.65, 1.55, 0.08), BODY_D()))
     p.append(box((-1.75, 0, 0.98), (0.42, 0.09, 0.92), BODY_D()))
     p.append(box((0.50, 0, 0.78), (0.80, 0.44, 0.26), GLASS()))
@@ -830,8 +852,7 @@ def p_j7():
     p.append(cone((1.72, 0, 0.52), 0.28, 0.02, 0.75, BODY_D(),
                   rot=(0, math.radians(90), 0), verts=14))       # shock cone
     for side in (-1, 1):
-        p.append(boxr((-0.35, side * 0.55, 0.50), (1.60, 1.30, 0.08), BODY_D(),
-                      (0, 0, side * math.radians(52))))          # delta
+        p += wing(side, -0.35, 1.55, 1.85, 0.28, 0.50, 58.0, 0.08, BODY_D())   # delta
     p.append(box((-1.45, 0, 0.52), (0.55, 1.05, 0.08), BODY_D()))
     p.append(box((-1.70, 0, 0.88), (0.36, 0.08, 0.72), BODY_D()))
     p.append(box((0.60, 0, 0.78), (0.85, 0.40, 0.24), GLASS()))
@@ -846,8 +867,7 @@ def p_q5():
                   rot=(0, math.radians(90), 0), verts=14))
     for side in (-1, 1):
         p.append(box((0.95, side * 0.52, 0.52), (1.0, 0.30, 0.30), BODY_D()))
-        p.append(boxr((0.0, side * 0.65, 0.50), (1.30, 1.30, 0.09), BODY_D(),
-                      (0, 0, side * math.radians(36))))
+        p += wing(side, 0.0, 1.45, 0.95, 0.40, 0.50, 36.0, 0.09, BODY_D())
     p.append(box((-1.40, 0, 0.52), (0.55, 1.30, 0.08), BODY_D()))
     p.append(box((-1.62, 0, 0.90), (0.36, 0.08, 0.78), BODY_D()))
     p.append(box((0.52, 0, 0.76), (0.70, 0.42, 0.24), GLASS()))
@@ -876,8 +896,7 @@ def p_h6():
     p.append(cone((2.35, 0, 0.62), 0.38, 0.12, 0.65, GLASS(),
                   rot=(0, math.radians(90), 0), verts=16))
     for side in (-1, 1):
-        p.append(boxr((-0.10, side * 0.95, 0.60), (1.6, 2.2, 0.11), BODY_D(),
-                      (0, 0, side * math.radians(30))))
+        p += wing(side, -0.10, 2.20, 1.30, 0.55, 0.60, 30.0, 0.11, BODY_D())
         p.append(cyl((0.05, side * 0.62, 0.52), 0.19, 0.9, BODY_D(),
                      rot=(0, math.radians(90), 0), verts=10))
     p.append(box((-1.95, 0, 0.62), (0.7, 1.9, 0.10), BODY_D()))
