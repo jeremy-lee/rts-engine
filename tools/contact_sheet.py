@@ -5,16 +5,16 @@ import sys
 
 from PIL import Image, ImageDraw
 
-BASE = r"D:\rts-engine\artifacts\newgrit"
+BASE = r"D:\rts-engine\artifacts\plaBig"
 TYPES = [
-    "light_tank", "super_heavy", "spaag", "recon",
-    "engineer", "sam", "transport", "command_car",
-    "heavy_bomber", "recon_plane", "seaplane", "transport_plane",
-    "ground_attack", "jet_bomber", "vtol", "airship",
+    "type59", "type62", "type63_apc", "type70_spg",
+    "type89_spg", "type63_aaa", "wz523", "type83_152",
+    "j5", "j6", "j7", "q5",
+    "h5", "h6", "y5", "z5",
 ]
-OUT = r"D:\rts-engine\artifacts\new_vehicles.png"
-Z = 5
-CW, CH = 26 * Z, 33 * Z
+OUT = r"D:\rts-engine\artifacts\pla_big.png"
+Z = 4
+CW, CH = 42 * Z, 50 * Z
 BG = (58, 66, 58)
 LABEL_W = 130
 COLS = 6
