@@ -147,94 +147,91 @@ def tracks(length, y, z, h=0.3):
 
 # ------------------------------------------------------------------ tanks
 def t_ww1_rhomboid():
-    """British Mark IV: a lozenge that wraps around the tracks."""
+    """WW1 rhomboid - tracks wrap the whole lozenge, sponson guns on the sides."""
     p = []
-    p.append(box((0, 0, 0.62), (3.4, 1.5, 0.8), BODY()))
-    p.append(box((0, 0, 1.06), (2.6, 1.2, 0.5), BODY_D()))
+    p.append(box((0, 0, 0.66), (3.20, 1.50, 0.78), BODY()))
+    p.append(boxr((1.05, 0, 0.86), (1.10, 1.30, 0.50), BODY(), (0, math.radians(28), 0)))
+    p.append(box((-1.20, 0, 0.72), (0.90, 1.20, 0.44), BODY_D()))
+    p.append(box((0.30, 0, 1.06), (1.55, 1.10, 0.06), BODY()))
     for side in (-1, 1):
-        p.append(box((0, side * 0.95, 0.55), (3.9, 0.35, 0.9), TRACK()))
-    p.append(box((0.9, 0.45, 1.0), (0.5, 0.4, 0.35), BODY_D()))
-    p.append(cyl((1.15, 0.45, 1.0), 0.08, 0.7, METAL(), rot=(0, math.radians(90), 0)))
-    p.append(box((-0.6, -0.45, 1.05), (0.5, 0.4, 0.3), BODY_D()))
+        p.append(box((0, side * 1.02, 0.58), (3.90, 0.34, 0.94), TRACK()))
+        for i in range(7):
+            p.append(cyl((-1.55 + i * 0.52, side * 1.20, 0.36), 0.16, 0.10, METAL(),
+                         rot=(math.radians(90), 0, 0), verts=12))
+        for i in range(4):
+            p.append(box((-1.20 + i * 0.80, side * 1.06, 1.12), (0.34, 0.12, 0.14), BODY_D()))
+    for i in range(3):
+        p.append(box((-1.45 + i * 0.20, 0, 1.00), (0.12, 1.30, 0.05), TRACK()))
+    p.append(box((0.98, 0.62, 1.02), (0.52, 0.36, 0.34), BODY_D()))
+    p.append(cyl((1.28, 0.62, 1.02), 0.08, 0.72, METAL(), rot=(0, math.radians(90), 0), verts=8))
+    p.append(box((-0.60, -0.62, 1.06), (0.50, 0.34, 0.30), BODY_D()))
+    p.append(cyl((-0.86, -0.62, 1.06), 0.07, 0.60, METAL(), rot=(0, math.radians(90), 0), verts=8))
+    p.append(cyl((1.62, 0, 0.72), 0.10, 0.24, BODY_D(), rot=(0, math.radians(90), 0), verts=10))
     return p
 
 
 def t_ww2_medium():
-    """Features are deliberately EXAGGERATED for a 24px target.
-
-    At 24x32 a 0.07-radius gun barrel is well under one pixel and vanishes, which left a
-    featureless slab. RA art is drawn at the target size with chunky shapes, so this model
-    uses a thick barrel, a taller turret with a distinct ring, and dark trim that reads as
-    lines once downscaled. Real proportion accuracy is the wrong goal here - readability is.
-    """
+    """WW2 medium tank - cast turret, sloped glacis, full running gear."""
     p = []
-    p.append(box((0, 0, 0.5), (2.8, 1.5, 0.55), BODY()))
-    p.append(box((0, 0, 0.84), (2.3, 1.3, 0.22), BODY()))
-    # dark side skirt: gives a hard horizontal line along the hull
-    p.append(box((0, 0, 0.30), (2.9, 1.56, 0.16), BODY_D()))
-    p += tracks(2.8, 0.85, 0.32)
-    for i in range(5):
-        p.append(cyl((-1.0 + i * 0.5, 1.02, 0.32), 0.2, 0.1, METAL(), rot=(math.radians(90), 0, 0)))
-    # turret ring (wide, dark) then turret (bright, tall) - two distinct bands
-    p.append(cyl((0, 0, 0.98), 0.68, 0.18, BODY_D(), verts=16))
-    p.append(cyl((0, 0, 1.18), 0.58, 0.40, BODY(), verts=16))
-    p.append(cyl((0, 0, 1.40), 0.34, 0.10, BODY_D(), verts=12))      # hatch
-    # THICK gun: 0.16 radius survives the downscale
-    p.append(cyl((0.78, 0, 1.18), 0.16, 1.5, METAL(), rot=(0, math.radians(90), 0), verts=8))
-    p.append(cyl((1.50, 0, 1.18), 0.20, 0.22, BODY_D(), rot=(0, math.radians(90), 0), verts=8))
-
-    # ---- detail pass -------------------------------------------------------
-    # Everything here is deliberately chunky: at 24 px a feature under ~2 px does not
-    # survive, so these are structural elements, not surface texture.
-    #1 fenders: a hard horizontal band over each track, very readable in silhouette
+    p += running_gear(2.95, 0.70, 0.28, r=0.22, n=5)
+    p.append(boxr((0.98, 0, 0.56), (0.95, 1.40, 0.44), BODY(), (0, math.radians(38), 0)))
+    p.append(box((-0.28, 0, 0.52), (1.95, 1.38, 0.46), BODY()))
+    p.append(box((-1.28, 0, 0.50), (0.62, 1.34, 0.38), BODY_D()))
+    p.append(box((0.14, 0, 0.74), (1.45, 1.20, 0.05), BODY()))
+    p += rear_grille(-1.34, 0.62, 0.72, slats=3)
     for side in (-1, 1):
-        p.append(box((0, side * 0.86, 0.72), (3.05, 0.30, 0.10), BODY()))
-    #2 spare track links bolted to the hull side (alternating light/dark reads as a stripe)
+        p.append(boxr((0, side * 0.74, 0.58), (2.55, 0.14, 0.22), BODY(),
+                      (math.radians(16) * side, 0, 0)))
+    p += turret_dome(-0.08, 0, 0.76, 0.58, layers=4, height=0.40, segs=22)
     for side in (-1, 1):
-        for i in range(3):
-            p.append(box((-0.55 + i * 0.55, side * 0.78, 0.62), (0.42, 0.10, 0.26), BODY_D()))
-    #3 sloped glacis plate at the front - a lighter angled face
-    p.append(boxr((1.32, 0, 0.72), (0.30, 1.42, 0.52), BODY(),
-                  (0, math.radians(28), 0)))
-    #4 rear exhaust, sticking out so it breaks the silhouette
-    p.append(cyl((-1.48, 0.42, 0.62), 0.11, 0.42, BODY_D(), rot=(0, math.radians(90), 0), verts=8))
-    p.append(cyl((-1.48, -0.42, 0.62), 0.11, 0.42, BODY_D(), rot=(0, math.radians(90), 0), verts=8))
-    #5 turret machine gun: small but sits on top, catches the light
-    p.append(cyl((0.18, 0.34, 1.46), 0.055, 0.62, METAL(), rot=(0, math.radians(78), 0), verts=6))
-    #6 stowage box on the turret side
-    p.append(box((-0.34, 0.52, 1.16), (0.42, 0.22, 0.26), BODY_D()))
-    #7 commander's cupola rim
-    p.append(cyl((0.0, 0, 1.47), 0.20, 0.08, BODY(), verts=12))
-    #8 lifting eyes / bolt heads along the hull top edge
-    for side in (-1, 1):
-        for i in range(4):
-            p.append(box((-1.05 + i * 0.62, side * 0.62, 0.96), (0.12, 0.12, 0.08), BODY_D()))
-    #9 headlight, bright so it reads as a dot
-    p.append(cyl((1.42, -0.52, 0.86), 0.09, 0.10, ACCENT(), rot=(0, math.radians(90), 0), verts=6))
+        p.append(boxr((0.34, side * 0.28, 0.94), (0.36, 0.26, 0.22), BODY_D(),
+                      (0, 0, side * math.radians(34))))
+    p += gun_assembly(0.48, 0.94, 0.11, 1.70)
+    p.append(box((-0.46, 0.36, 1.10), (0.24, 0.20, 0.14), BODY_D()))
+    p.append(cyl((-0.40, 0.36, 1.14), 0.04, 0.50, METAL(), rot=(0, math.radians(70), 0), verts=6))
     return p
 
 
 def t_ww2_heavy():
+    """WW2 heavy tank - oversized turret, long 88, six wheels, heavy skirts."""
     p = []
-    p.append(box((0, 0, 0.6), (3.6, 1.9, 0.7), BODY()))
-    p.append(box((0, 0, 1.0), (3.0, 1.7, 0.25), BODY()))
-    p += tracks(3.6, 1.05, 0.36, 0.36)
-    p.append(cyl((0, 0, 1.3), 0.72, 0.5, BODY_D(), verts=14))
-    p.append(cyl((0.78, 0, 1.3), 0.08, 1.5, METAL(), rot=(0, math.radians(90), 0)))
-    p.append(box((0.62, 0, 1.3), (0.3, 0.26, 0.26), METAL()))
+    p += running_gear(3.60, 0.86, 0.32, r=0.24, n=6)
+    p.append(boxr((1.16, 0, 0.62), (1.05, 1.70, 0.52), BODY(), (0, math.radians(40), 0)))
+    p.append(box((-0.30, 0, 0.58), (2.30, 1.68, 0.52), BODY()))
+    p.append(box((-1.58, 0, 0.56), (0.70, 1.64, 0.44), BODY_D()))
+    p.append(box((0.20, 0, 0.84), (1.75, 1.46, 0.06), BODY()))
+    p += rear_grille(-1.62, 0.76, 0.82, slats=4)
+    for side in (-1, 1):
+        p.append(box((-0.10, side * 1.02, 0.86), (0.85, 0.22, 0.24), BODY_D()))
+        p.append(box((-1.30, side * 1.02, 0.86), (0.55, 0.22, 0.24), BODY_D()))
+    p += turret_dome(-0.10, 0, 0.86, 0.72, layers=4, height=0.48, segs=24)
+    for side in (-1, 1):
+        p.append(boxr((0.46, side * 0.34, 1.08), (0.44, 0.30, 0.26), BODY_D(),
+                      (0, 0, side * math.radians(36))))
+    p += gun_assembly(0.62, 1.08, 0.12, 2.05)
+    p.append(box((-0.56, 0.42, 1.26), (0.26, 0.22, 0.15), BODY_D()))
+    p.append(cyl((-0.50, 0.42, 1.30), 0.045, 0.55, METAL(), rot=(0, math.radians(70), 0), verts=6))
     return p
 
 
 def t_coldwar_mbt():
+    """Cold-war MBT - cast dome, long 105, seven wheels, ERA blocks on the hull."""
     p = []
-    p.append(box((0, 0, 0.55), (3.2, 1.8, 0.5), BODY()))
-    p.append(box((0, 0, 0.88), (2.8, 1.6, 0.3), BODY()))
-    p += tracks(3.2, 1.0, 0.34, 0.34)
-    p.append(cyl((0, 0, 1.16), 0.62, 0.34, BODY_D(), verts=16))
-    p.append(box((0.3, 0, 1.16), (1.0, 0.4, 0.28), BODY_D()))
-    p.append(cyl((0.95, 0, 1.16), 0.07, 1.6, METAL(), rot=(0, math.radians(90), 0)))
-    p.append(box((-0.6, 0, 1.32), (0.3, 0.3, 0.2), METAL()))
-    p.append(cyl((-0.9, 0.5, 1.3), 0.12, 0.3, ACCENT()))
+    p += running_gear(3.40, 0.78, 0.30, r=0.23, n=6)
+    p.append(boxr((1.05, 0, 0.58), (1.00, 1.58, 0.48), BODY(), (0, math.radians(42), 0)))
+    p.append(box((-0.32, 0, 0.54), (2.15, 1.54, 0.48), BODY()))
+    p.append(box((-1.48, 0, 0.52), (0.66, 1.50, 0.40), BODY_D()))
+    p.append(box((0.16, 0, 0.78), (1.60, 1.34, 0.05), BODY()))
+    p += rear_grille(-1.52, 0.70, 0.76, slats=3)
+    for side in (-1, 1):
+        for i in range(4):
+            p.append(box((-1.05 + i * 0.50, side * 0.82, 0.66), (0.40, 0.18, 0.20), BODY_D()))
+    p += turret_dome(-0.10, 0, 0.80, 0.66, layers=5, height=0.42, segs=24)
+    for side in (-1, 1):
+        p.append(box((0.30, side * 0.44, 0.98), (0.42, 0.20, 0.18), BODY_D()))
+    p += gun_assembly(0.52, 0.98, 0.115, 1.90)
+    p.append(cyl((-0.60, 0.40, 1.16), 0.10, 0.24, BODY_D(), verts=10))
+    p.append(box((-0.44, -0.40, 1.14), (0.26, 0.22, 0.16), BODY_D()))
     return p
 
 
@@ -393,32 +390,40 @@ def v_jeep():
 
 # ------------------------------------------------------------------ expansion set
 def t_light_tank():
+    """Light tank - compact dome, short 76, four wheels, no skirts."""
     p = []
-    p.append(box((0, 0, 0.42), (2.1, 1.2, 0.42), BODY()))
-    p.append(box((0, 0, 0.66), (1.8, 1.05, 0.14), BODY()))
-    p += tracks(2.1, 0.68, 0.26, 0.26)
-    p.append(cyl((0, 0, 0.86), 0.42, 0.32, BODY(), verts=12))
-    p.append(cyl((0, 0, 0.74), 0.50, 0.12, BODY_D(), verts=12))
-    p.append(cyl((0.58, 0, 0.86), 0.12, 1.05, METAL(), rot=(0, math.radians(90), 0), verts=8))
-    p.append(box((-0.32, 0, 1.06), (0.3, 0.26, 0.14), BODY_D()))
-    p.append(cyl((0.95, -0.42, 0.6), 0.07, 0.2, ACCENT(), rot=(0, math.radians(90), 0), verts=6))
+    p += running_gear(2.15, 0.54, 0.24, r=0.17, n=4, skirt=False)
+    p.append(boxr((0.66, 0, 0.44), (0.70, 1.06, 0.32), BODY(), (0, math.radians(32), 0)))
+    p.append(box((-0.28, 0, 0.42), (1.55, 1.06, 0.34), BODY()))
+    p.append(box((-0.94, 0, 0.40), (0.50, 1.02, 0.28), BODY_D()))
+    p.append(box((0.08, 0, 0.60), (1.15, 0.98, 0.04), BODY()))
+    p += rear_grille(-1.00, 0.50, 0.58, slats=2)
+    p += turret_dome(-0.06, 0, 0.60, 0.46, layers=3, height=0.30, segs=18)
+    p += gun_assembly(0.34, 0.74, 0.09, 1.25)
+    p.append(box((-0.36, 0.30, 0.88), (0.20, 0.16, 0.12), BODY_D()))
     return p
 
 
 def t_super_heavy():
+    """Super-heavy tank - huge turret, very long gun, eight wheels, twin exhausts."""
     p = []
-    p.append(box((0, 0, 0.72), (4.2, 2.2, 0.8), BODY()))
-    p.append(box((0, 0, 1.20), (3.8, 2.0, 0.22), BODY()))
-    p.append(box((0, 0, 0.36), (4.3, 2.26, 0.22), BODY_D()))
-    p += tracks(4.2, 1.20, 0.42, 0.42)
+    p += running_gear(4.30, 1.00, 0.36, r=0.27, n=7)
+    p.append(boxr((1.36, 0, 0.70), (1.15, 1.95, 0.60), BODY(), (0, math.radians(42), 0)))
+    p.append(box((-0.34, 0, 0.66), (2.70, 1.92, 0.60), BODY()))
+    p.append(box((-1.78, 0, 0.62), (0.80, 1.86, 0.48), BODY_D()))
+    p.append(box((0.26, 0, 0.96), (2.05, 1.66, 0.06), BODY()))
+    for i in range(4):
+        p.append(box((-1.90 + i * 0.22, 0, 0.92), (0.14, 1.40, 0.05), TRACK()))
+    for dy in (-0.62, 0.62):
+        p.append(cyl((-1.86, dy, 0.84), 0.11, 0.36, BODY_D(),
+                     rot=(0, math.radians(90), 0), verts=10))
+    p += turret_dome(-0.14, 0, 0.98, 0.86, layers=5, height=0.56, segs=26)
     for side in (-1, 1):
-        for i in range(6):
-            p.append(cyl((-1.5 + i * 0.6, side * 1.40, 0.42), 0.22, 0.1, METAL(), rot=(math.radians(90), 0, 0)))
-    p.append(cyl((0, 0, 1.42), 0.88, 0.22, BODY_D(), verts=16))
-    p.append(cyl((0, 0, 1.66), 0.76, 0.42, BODY(), verts=16))
-    p.append(cyl((0, 0, 1.90), 0.42, 0.10, BODY_D(), verts=12))
-    p.append(cyl((0.95, 0, 1.66), 0.19, 2.0, METAL(), rot=(0, math.radians(90), 0), verts=8))
-    p.append(cyl((1.92, 0, 1.66), 0.24, 0.26, BODY_D(), rot=(0, math.radians(90), 0), verts=8))
+        p.append(boxr((0.54, side * 0.40, 1.22), (0.52, 0.34, 0.30), BODY_D(),
+                      (0, 0, side * math.radians(34))))
+    p += gun_assembly(0.74, 1.24, 0.14, 2.40)
+    p.append(box((-0.68, 0.50, 1.44), (0.30, 0.24, 0.17), BODY_D()))
+    p.append(cyl((-0.60, 0.50, 1.48), 0.05, 0.60, METAL(), rot=(0, math.radians(70), 0), verts=6))
     return p
 
 
@@ -758,34 +763,22 @@ def p_type59():
 
 
 def p_type62():
-    """Type 62: light tank.
-
-    The first pass was a bland slab because at 24px a 0.92-wide turret and a thin 1.15m gun
-    both vanish. It now borrows the Type 59's readable recipe - a raised turret with a
-    visible ring, a longer and fatter 85mm with a muzzle brake, fenders and spare track
-    links - so it still reads as light (shorter hull, fewer wheels) while having enough
-    structure to survive the downscale.
-    """
+    """Type 62 light tank - dome turret, three-block hull, full running gear."""
     p = []
-    p.append(boxr((0.68, 0, 0.50), (0.75, 1.20, 0.34), BODY(), (0, math.radians(34), 0)))
-    p.append(box((-0.15, 0, 0.46), (2.0, 1.20, 0.42), BODY()))
-    p.append(box((0, 0, 0.26), (2.2, 1.26, 0.16), BODY_D()))
-    p += tracks(2.2, 0.70, 0.26, 0.30)
-    # fenders: hard horizontal line over the tracks
+    p += running_gear(2.30, 0.60, 0.26, r=0.19, n=4)
+    p.append(boxr((0.72, 0, 0.50), (0.80, 1.18, 0.38), BODY(), (0, math.radians(34), 0)))
+    p.append(box((-0.30, 0, 0.48), (1.70, 1.18, 0.40), BODY()))
+    p.append(box((-1.02, 0, 0.46), (0.55, 1.14, 0.34), BODY_D()))
+    p.append(box((0.10, 0, 0.68), (1.30, 1.10, 0.05), BODY()))
+    p += rear_grille(-1.10, 0.56, 0.66, slats=3)
     for side in (-1, 1):
-        p.append(box((0, side * 0.71, 0.60), (2.35, 0.24, 0.09), BODY()))
-    # spare track links on the hull side
+        p.append(box((0.92, side * 0.62, 0.52), (0.42, 0.20, 0.07), BODY_D()))
+    p += turret_dome(-0.05, 0, 0.70, 0.52, layers=4, height=0.34, segs=20)
     for side in (-1, 1):
-        for i in range(2):
-            p.append(box((-0.35 + i * 0.55, side * 0.64, 0.50), (0.38, 0.09, 0.22), BODY_D()))
-    # raised turret: ring, body, cupola
-    p.append(cyl((0, 0, 0.70), 0.62, 0.14, BODY_D(), verts=16))
-    p.append(box((0, 0, 0.88), (1.02, 1.02, 0.34), BODY()))
-    p.append(cyl((0, 0, 1.06), 0.26, 0.10, BODY_D(), verts=12))
-    # 85mm: longer and fatter, with a muzzle brake
-    p.append(cyl((0.78, 0, 0.88), 0.115, 1.75, METAL(), rot=(0, math.radians(90), 0), verts=8))
-    p.append(cyl((1.62, 0, 0.88), 0.155, 0.26, BODY_D(), rot=(0, math.radians(90), 0), verts=8))
-    p.append(box((-0.48, 0.42, 1.02), (0.26, 0.22, 0.16), BODY_D()))
+        p.append(boxr((0.28, side * 0.24, 0.86), (0.32, 0.24, 0.20), BODY_D(),
+                      (0, 0, side * math.radians(30))))
+    p += gun_assembly(0.42, 0.86, 0.10, 1.55)
+    p.append(box((-0.42, 0.34, 1.02), (0.22, 0.18, 0.13), BODY_D()))
     return p
 
 
@@ -1028,6 +1021,77 @@ def p_z5():
         p.append(box((-0.30, side * 0.52, 0.33), (1.5, 0.10, 0.12), METAL()))
         p.append(cyl((0.15, side * 0.52, 0.28), 0.13, 0.10, RUBBER(),
                      rot=(math.radians(90), 0, 0)))
+    return p
+
+# ------------------------------------------------------------------ structure helpers
+# Reusable sub-assemblies for the detail pass. The lesson from the Type 59 rework is that
+# structure has to be LAYERED, not scattered: small parts vanish at 32x36, but a stack of
+# decreasing radii, a hull split into blocks at different heights, and a hard dark grille
+# survive. These helpers encode that so every tank gets the same treatment.
+def turret_dome(cx, cy, z0, r_base, layers=4, height=0.44, segs=24):
+    """Stacked cylinders of decreasing radius - reads as a curved dome, not a ring."""
+    p = []
+    p.append(cyl((cx, cy, z0), r_base * 1.12, 0.12, BODY_D(), verts=segs))
+    step = height / layers
+    for i in range(layers):
+        r = r_base * (1.0 - 0.24 * i)
+        p.append(cyl((cx, cy, z0 + 0.12 + step * (i + 0.5)), r, step * 1.02, BODY(), verts=segs))
+    p.append(cyl((cx, cy, z0 + 0.12 + height + 0.04), r_base * 0.34, 0.08, BODY_D(), verts=14))
+    return p
+
+
+def running_gear(length, half_w, z, r=0.22, n=5, skirt=True):
+    """Road wheels with hubs, drive sprocket, idler, return rollers, skirt, stowage."""
+    p = []
+    p += tracks(length, half_w, z, r * 1.55)
+    span = length - 2.0 * r
+    for side in (-1, 1):
+        for i in range(n):
+            x = -span / 2 + span * i / float(n - 1)
+            p.append(cyl((x, side * (half_w + 0.16), z), r, 0.12, METAL(),
+                         rot=(math.radians(90), 0, 0), verts=16))
+            p.append(cyl((x, side * (half_w + 0.16), z), r * 0.40, 0.14, BODY_D(),
+                         rot=(math.radians(90), 0, 0), verts=10))
+        p.append(cyl((length / 2 - 0.05, side * (half_w + 0.16), z + 0.03), r * 1.15, 0.14,
+                     METAL(), rot=(math.radians(90), 0, 0), verts=14))
+        p.append(cyl((-length / 2 + 0.05, side * (half_w + 0.16), z + 0.03), r * 1.05, 0.14,
+                     METAL(), rot=(math.radians(90), 0, 0), verts=14))
+        for i in range(3):
+            p.append(cyl((-span / 2 + span * i / 2.0, side * (half_w + 0.14), z + r * 0.95),
+                         r * 0.42, 0.10, BODY_D(), rot=(math.radians(90), 0, 0), verts=10))
+        if skirt:
+            p.append(boxr((0, side * (half_w + 0.06), z + r * 1.15), (length * 0.95, 0.14, 0.24),
+                          BODY(), (math.radians(16) * side, 0, 0)))
+            for i in range(2):
+                p.append(box((-length * 0.28 + i * length * 0.30, side * (half_w + 0.04),
+                              z + r * 1.5), (length * 0.22, 0.18, 0.20), BODY_D()))
+    return p
+
+
+def rear_grille(x, half_w, z, slats=3):
+    """Dark engine grille plus exhausts - the classic rear-deck read."""
+    p = []
+    for i in range(slats):
+        p.append(box((x + i * 0.20, 0, z), (0.12, half_w * 1.75, 0.05), TRACK()))
+    for dy in (-half_w * 0.62, half_w * 0.62):
+        p.append(cyl((x - 0.16, dy, z - 0.14), 0.09, 0.30, BODY_D(),
+                     rot=(0, math.radians(90), 0), verts=10))
+    return p
+
+
+def gun_assembly(x, z, r_tube, length, muzzle=True, evacuator=True):
+    """Mantlet, tube, bore evacuator, muzzle brake."""
+    p = []
+    p.append(cyl((x + 0.16, 0, z), r_tube * 1.5, 0.32, BODY_D(),
+                 rot=(0, math.radians(90), 0), verts=16))
+    p.append(cyl((x + 0.16 + length * 0.5, 0, z), r_tube, length, METAL(),
+                 rot=(0, math.radians(90), 0), verts=12))
+    if evacuator:
+        p.append(cyl((x + 0.10 + length * 0.42, 0, z), r_tube * 1.45, length * 0.16, BODY_D(),
+                     rot=(0, math.radians(90), 0), verts=12))
+    if muzzle:
+        p.append(cyl((x + 0.16 + length * 0.98, 0, z), r_tube * 1.35, 0.22, BODY_D(),
+                     rot=(0, math.radians(90), 0), verts=12))
     return p
 VEHICLES = {
     "ww1_rhomboid": t_ww1_rhomboid,
