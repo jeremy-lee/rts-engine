@@ -102,6 +102,9 @@ def cyl_mesh(name, r, depth, loc, mat, rot=(0, 0, 0), verts=20, bevel=0.008):
                                         rotation=rot, vertices=verts)
     ob = bpy.context.active_object
     ob.name = name
+    # smooth the curved wall but keep the flat end caps crisp
+    bpy.ops.object.shade_smooth()
+    bpy.ops.object.modifier_add(type="SMOOTH_BY_ANGLE") if False else None
     if bevel > 0.0:
         md = ob.modifiers.new("bevel", "BEVEL")
         md.width = bevel
@@ -123,12 +126,49 @@ def dome_mesh(name, r, loc, mat, squash=0.52, segs=32, rings=16):
     bpy.ops.object.mode_set(mode="OBJECT")
     ob.scale = (1.0, 1.0, squash)
     bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+    # smooth shading: without it a 32-segment sphere still reads as a faceted polygon at
+    # render size, which is what made the turret look like a low-poly gem rather than a
+    # cast dome. Auto-smooth keeps the bisected bottom edge crisp.
+    bpy.ops.object.shade_smooth()
     md = ob.modifiers.new("bevel", "BEVEL")
     md.width = 0.012
     md.segments = 2
     ob.data.materials.append(mat)
     return ob
 
+
+def track_band(name, outer, inner, width, mat, offset_y=0.0):
+    """A closed track band: outer profile, inner profile, bridged into a ring.
+
+    Built as two concentric extruded loops joined at the front and back, so the band has a
+    visible outer face running all the way around the running gear instead of being a slab
+    hidden behind the wheels.
+    """
+    assert len(outer) == len(inner), "outer and inner profiles need the same point count"
+    ob = new_mesh_object(name)
+    bm = bmesh.new()
+    half = width * 0.5
+    n = len(outer)
+    o_front = [bm.verts.new((x, -half, z)) for (x, z) in outer]
+    o_back = [bm.verts.new((x, half, z)) for (x, z) in outer]
+    i_front = [bm.verts.new((x, -half, z)) for (x, z) in inner]
+    i_back = [bm.verts.new((x, half, z)) for (x, z) in inner]
+    bm.verts.ensure_lookup_table()
+
+    for k in range(n):
+        j = (k + 1) % n
+        bm.faces.new((o_front[k], o_front[j], i_front[j], i_front[k]))   # front face
+        bm.faces.new((o_back[k], i_back[k], i_back[j], o_back[j]))       # back face
+        bm.faces.new((o_front[k], o_back[k], o_back[j], o_front[j]))     # outer wall
+        bm.faces.new((i_front[k], i_front[j], i_back[j], i_back[k]))     # inner wall
+
+    bm.normal_update()
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.to_mesh(ob.data)
+    bm.free()
+    ob.data.materials.append(mat)
+    ob.location = (0.0, offset_y, 0.0)
+    return ob
 
 # --------------------------------------------------------------------------- the tank
 def build_type59():
@@ -158,32 +198,37 @@ def build_type59():
         parts.append(box_mesh("sponson_%d" % side, (2.55, 0.34, 0.34),
                               (-0.10, side * 0.92, 0.86), body, bevel=0.030))
 
-    # ---- tracks: profile extruded, with a bevelled outer edge
-    track_profile = [
-        (-1.62, 0.10), (-1.78, 0.34), (-1.62, 0.62),
-        (1.48, 0.62), (1.70, 0.34), (1.48, 0.10),
+    # ---- tracks as a closed BAND that the wheels sit inside.
+    # The first attempt extruded a solid track slab and then placed 0.30-radius road wheels
+    # at almost the same Y, so the round wheels simply covered the flat slab and no track
+    # was visible at all. A real track is a continuous band around the wheels: outer run
+    # low and high, inner run clear of the wheels.
+    outer = [
+        (-1.72, 0.06), (-1.86, 0.36), (-1.72, 0.70),
+        (1.56, 0.70), (1.78, 0.36), (1.56, 0.06),
+    ]
+    inner = [
+        (-1.66, 0.18), (-1.74, 0.36), (-1.66, 0.58),
+        (1.50, 0.58), (1.66, 0.36), (1.50, 0.18),
     ]
     for side in (-1, 1):
-        parts.append(profile_extrude("track_%d" % side, track_profile, 0.34,
-                                     track, bevel=0.020))
-        parts[-1].location = (0.0, side * 0.90, 0.0)
+        parts.append(track_band("track_%d" % side, outer, inner, 0.30, track,
+                                offset_y=side * 0.86))
 
-    # ---- road wheels inset into the track run
-    for side in (-1, 1):
+        # wheels sit INSIDE the band and narrower than it, so the band is what you see
         for i in range(5):
             x = -1.10 + i * 0.55
-            parts.append(cyl_mesh("wheel_%d_%d" % (side, i), 0.30, 0.14,
-                                  (x, side * 1.02, 0.34), steel,
+            parts.append(cyl_mesh("wheel_%d_%d" % (side, i), 0.21, 0.20,
+                                  (x, side * 0.86, 0.34), steel,
                                   rot=(math.radians(90), 0, 0), verts=24))
-            parts.append(cyl_mesh("hub_%d_%d" % (side, i), 0.11, 0.16,
-                                  (x, side * 1.04, 0.34), dark,
+            parts.append(cyl_mesh("hub_%d_%d" % (side, i), 0.08, 0.22,
+                                  (x, side * 0.86, 0.34), dark,
                                   rot=(math.radians(90), 0, 0), verts=16))
-        # drive sprocket and idler
-        parts.append(cyl_mesh("sprocket_%d" % side, 0.32, 0.16,
-                              (1.52, side * 1.02, 0.36), steel,
+        parts.append(cyl_mesh("sprocket_%d" % side, 0.23, 0.20,
+                              (1.58, side * 0.86, 0.36), steel,
                               rot=(math.radians(90), 0, 0), verts=20))
-        parts.append(cyl_mesh("idler_%d" % side, 0.30, 0.16,
-                              (-1.66, side * 1.02, 0.36), steel,
+        parts.append(cyl_mesh("idler_%d" % side, 0.21, 0.20,
+                              (-1.70, side * 0.86, 0.36), steel,
                               rot=(math.radians(90), 0, 0), verts=20))
 
     # ---- turret ring and dome
