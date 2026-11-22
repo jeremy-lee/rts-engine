@@ -183,89 +183,103 @@ def build_type59():
 
     # ---- hull as a side profile: rear plate, deck, sloped glacis, belly
     # (x forward, z up) - this produces genuinely sloped armour
+    # PROPORTIONS FROM PUBLISHED DATA, not from impression. Type 59 / WZ-120: hull 6.04 m
+    # long, 3.27 m wide, 2.59 m tall overall; turret about 2.0 m across and 1.09 m tall;
+    # glacis sloped roughly 60 degrees from vertical. My first attempt was 1.51 m tall with
+    # a 0.43 m turret, i.e. vertically compressed by about 40%, which is the main reason it
+    # did not read as a Type 59 - that and using a bare sphere for a turret that actually
+    # has vertical sides with a domed roof.
+    #
+    # Vertical stack: track top 0.78, hull deck 1.50, turret base 1.50, turret roof 2.59.
     hull_profile = [
-        (-1.52, 0.18),   # rear bottom
-        (-1.52, 0.92),   # rear plate
-        (-1.14, 1.05),   # engine deck step
-        (0.86, 1.05),    # fighting compartment deck
-        (1.62, 0.62),    # glacis slope down to the nose
-        (1.62, 0.18),    # nose bottom
+        (-3.02, 0.42),   # rear bottom
+        (-3.02, 1.30),   # rear plate
+        (-2.55, 1.50),   # engine deck
+        (1.55, 1.50),    # fighting compartment deck
+        (2.95, 0.86),    # glacis: 60 deg from vertical, drops 0.64 over 1.40
+        (3.02, 0.42),    # nose bottom
     ]
-    parts.append(profile_extrude("hull", hull_profile, 1.62, body, bevel=0.035))
+    parts.append(profile_extrude("hull", hull_profile, 2.30, body, bevel=0.045))
 
-    # ---- side sponsons that give the hull its width over the tracks
+    # ---- sponsons: the hull overhangs the tracks, width 3.27 total
     for side in (-1, 1):
-        parts.append(box_mesh("sponson_%d" % side, (2.55, 0.34, 0.34),
-                              (-0.10, side * 0.92, 0.86), body, bevel=0.030))
+        parts.append(box_mesh("sponson_%d" % side, (5.60, 0.50, 0.46),
+                              (-0.05, side * 1.32, 1.34), body, bevel=0.040))
 
     # ---- tracks as a closed BAND that the wheels sit inside.
     # The first attempt extruded a solid track slab and then placed 0.30-radius road wheels
     # at almost the same Y, so the round wheels simply covered the flat slab and no track
     # was visible at all. A real track is a continuous band around the wheels: outer run
     # low and high, inner run clear of the wheels.
+    # ---- tracks: 5 road wheels per side with UNEVEN spacing (the 1-2 gap on a Type 59 is
+    # visibly wider than the rest). Wheel radius 0.39 to match a 0.78 m track height.
     outer = [
-        (-1.72, 0.06), (-1.86, 0.36), (-1.72, 0.70),
-        (1.56, 0.70), (1.78, 0.36), (1.56, 0.06),
+        (-2.95, 0.06), (-3.14, 0.39), (-2.95, 0.76),
+        (2.62, 0.76), (2.90, 0.39), (2.62, 0.06),
     ]
     inner = [
-        (-1.66, 0.18), (-1.74, 0.36), (-1.66, 0.58),
-        (1.50, 0.58), (1.66, 0.36), (1.50, 0.18),
+        (-2.86, 0.22), (-3.00, 0.39), (-2.86, 0.62),
+        (2.54, 0.62), (2.76, 0.39), (2.54, 0.22),
     ]
+    wheel_x = [-2.10, -1.22, -0.42, 0.38, 1.18]
     for side in (-1, 1):
-        parts.append(track_band("track_%d" % side, outer, inner, 0.30, track,
-                                offset_y=side * 0.86))
-
-        # wheels sit INSIDE the band and narrower than it, so the band is what you see
-        for i in range(5):
-            x = -1.10 + i * 0.55
-            parts.append(cyl_mesh("wheel_%d_%d" % (side, i), 0.21, 0.20,
-                                  (x, side * 0.86, 0.34), steel,
+        parts.append(track_band("track_%d" % side, outer, inner, 0.44, track,
+                                offset_y=side * 1.42))
+        for i, x in enumerate(wheel_x):
+            parts.append(cyl_mesh("wheel_%d_%d" % (side, i), 0.39, 0.30,
+                                  (x, side * 1.42, 0.40), steel,
                                   rot=(math.radians(90), 0, 0), verts=24))
-            parts.append(cyl_mesh("hub_%d_%d" % (side, i), 0.08, 0.22,
-                                  (x, side * 0.86, 0.34), dark,
+            parts.append(cyl_mesh("hub_%d_%d" % (side, i), 0.15, 0.32,
+                                  (x, side * 1.42, 0.40), dark,
                                   rot=(math.radians(90), 0, 0), verts=16))
-        parts.append(cyl_mesh("sprocket_%d" % side, 0.23, 0.20,
-                              (1.58, side * 0.86, 0.36), steel,
+        parts.append(cyl_mesh("sprocket_%d" % side, 0.42, 0.30,
+                              (2.55, side * 1.42, 0.42), steel,
                               rot=(math.radians(90), 0, 0), verts=20))
-        parts.append(cyl_mesh("idler_%d" % side, 0.21, 0.20,
-                              (-1.70, side * 0.86, 0.36), steel,
+        parts.append(cyl_mesh("idler_%d" % side, 0.40, 0.30,
+                              (-2.88, side * 1.42, 0.42), steel,
                               rot=(math.radians(90), 0, 0), verts=20))
 
-    # ---- turret ring and dome
-    parts.append(cyl_mesh("turret_ring", 0.86, 0.10, (-0.16, 0, 1.05), dark, verts=32))
-    parts.append(dome_mesh("turret", 0.86, (-0.16, 0, 1.08), body, squash=0.50))
-    # mantlet: a short bevelled block at the front of the dome
-    parts.append(box_mesh("mantlet", (0.34, 0.62, 0.40), (0.62, 0, 1.22), dark, bevel=0.030))
-    # commander's cupola on top
-    parts.append(cyl_mesh("cupola", 0.24, 0.14, (-0.30, 0.16, 1.50), body, verts=20))
-    parts.append(cyl_mesh("hatch", 0.18, 0.05, (-0.30, 0.16, 1.58), dark, verts=16))
+    # ---- turret: vertical-sided body plus a domed roof, not a bare sphere.
+    # Real Type 59 turret is about 2.0 m across and 1.09 m tall from the deck (1.50) to the
+    # roof (2.59): a 0.55 m vertical wall carrying a 0.54 m dome.
+    parts.append(cyl_mesh("turret_ring", 1.06, 0.16, (-0.20, 0, 1.58), dark, verts=40))
+    parts.append(cyl_mesh("turret_body", 1.02, 0.56, (-0.20, 0, 1.78), body, verts=40))
+    parts.append(dome_mesh("turret_roof", 1.02, (-0.20, 0, 2.04), body, squash=0.54))
+    # mantlet: the cast block the gun passes through
+    parts.append(box_mesh("mantlet", (0.44, 0.86, 0.56), (0.74, 0, 2.00), dark, bevel=0.040))
+    # commander's cupola and loader's hatch on the roof
+    parts.append(cyl_mesh("cupola", 0.30, 0.20, (-0.42, 0.30, 2.52), body, verts=24))
+    parts.append(cyl_mesh("hatch", 0.22, 0.06, (-0.42, 0.30, 2.64), dark, verts=20))
 
     # ---- 100mm gun: barrel, bore evacuator, muzzle brake
-    parts.append(cyl_mesh("barrel", 0.075, 2.60, (1.72, 0, 1.22), steel,
-                          rot=(0, math.radians(90), 0), verts=20))
-    parts.append(cyl_mesh("evacuator", 0.115, 0.42, (1.62, 0, 1.22), dark,
-                          rot=(0, math.radians(90), 0), verts=20))
-    parts.append(cyl_mesh("muzzle", 0.105, 0.30, (2.92, 0, 1.22), dark,
-                          rot=(0, math.radians(90), 0), verts=20))
+    # 100mm Type 59 rifled gun. Bore evacuator sits about a third of the way along, as on
+    # the real weapon; barrel is 0.10 radius (real 100 mm bore plus wall) and reaches to the
+    # 9.0 m overall length.
+    parts.append(cyl_mesh("barrel", 0.10, 3.30, (2.55, 0, 2.00), steel,
+                          rot=(0, math.radians(90), 0), verts=24))
+    parts.append(cyl_mesh("evacuator", 0.155, 0.55, (2.30, 0, 2.00), dark,
+                          rot=(0, math.radians(90), 0), verts=24))
+    parts.append(cyl_mesh("muzzle", 0.135, 0.36, (4.05, 0, 2.00), dark,
+                          rot=(0, math.radians(90), 0), verts=24))
 
     # ---- rear engine deck: grille block and exhausts
-    parts.append(box_mesh("grille", (0.52, 1.20, 0.05), (-1.30, 0, 1.07), track, bevel=0.010))
+    parts.append(box_mesh("grille", (0.90, 1.90, 0.06), (-2.40, 0, 1.52), track, bevel=0.012))
     for side in (-1, 1):
-        parts.append(cyl_mesh("exhaust_%d" % side, 0.075, 0.34, (-1.60, side * 0.42, 0.80),
+        parts.append(cyl_mesh("exhaust_%d" % side, 0.10, 0.46, (-2.90, side * 0.66, 1.14),
                               dark, rot=(0, math.radians(90), 0), verts=16))
 
     # ---- stowage boxes on the sponsons
     for side in (-1, 1):
-        parts.append(box_mesh("stow_%d" % side, (1.30, 0.24, 0.24),
-                              (-0.70, side * 0.96, 1.00), dark, bevel=0.020))
+        parts.append(box_mesh("stow_%d" % side, (1.90, 0.30, 0.34),
+                              (-1.00, side * 1.52, 1.42), dark, bevel=0.026))
 
     # ---- fenders over the tracks
     for side in (-1, 1):
-        parts.append(box_mesh("fender_%d" % side, (3.10, 0.40, 0.06),
-                              (0.0, side * 0.92, 1.02), body, bevel=0.012))
+        parts.append(box_mesh("fender_%d" % side, (6.00, 0.56, 0.08),
+                              (0.0, side * 1.42, 1.48), body, bevel=0.014))
 
     # ---- headlight
-    parts.append(cyl_mesh("light", 0.075, 0.10, (1.60, -0.62, 0.92), glass,
+    parts.append(cyl_mesh("light", 0.10, 0.14, (2.86, -1.20, 1.18), glass,
                           rot=(0, math.radians(90), 0), verts=12))
     return parts
 
