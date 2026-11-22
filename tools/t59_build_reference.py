@@ -1,20 +1,35 @@
-"""Replacement build_type59() derived from the reference photograph.
+"""build_type59() rebuilt from the three-view drawing.
 
-Measurements read off the Baidu Baike museum photo of a Type 59 (3/4 front-left):
-  hull 6.04 x 3.27 x 2.59 m
-  track run: top at 0.80, width 0.58 (photo shows wide links, clearly chunky)
-  glacis: from the deck at 1.50 sloping steeply forward and down to the nose at ~0.85
-  turret: OVAL in plan - about 2.5 m fore-aft by 2.0 m across - sitting slightly aft of
-          centre, with a LOW roof only ~0.85 m above the deck
-  gun: thick tube with a grey canvas dust cover over its base at the mantlet, a bore
-       evacuator a third of the way along, and a muzzle cap
-  extras visible in the photo: front fender stowage boxes, tow hooks, a cylindrical
-       stowage tube across the rear plate, a large two-leaf roof hatch.
+Measured off the drawing (side view is the top panel, plan view the middle, front view the
+lower left). Everything below is read as a FRACTION of hull length L = 6.04 m, which is the
+only way to compare a drawing to a model reliably.
+
+  side view
+    turret front edge     0.28 L from the nose
+    turret rear edge      0.68 L
+    turret roof           ~0.88 of total height
+    glacis starts         ~0.30 L back from the nose, sloping down to the nose
+    barrel protrudes      ~0.55 L beyond the turret front
+    five road wheels, roughly even spacing, driver's hatch at the front left
+
+  plan view
+    turret is an OVAL - long fore-aft, narrower across - with a flat-ish front where the
+    mantlet sits and a tapered rear. NOT a circle, and not a bulbous loaf.
+    rear hull carries a large louvred engine grille; stowage boxes run along both sides.
+
+  front view
+    turret section is a truncated wedge: narrow at the roof, wider at the ring.
+    The mantlet is a distinct raised block, not the full width of the turret.
+
+Those three observations are exactly what the previous two attempts got wrong: first a
+circle that was too small, then a sphere that was too round. This version builds the turret
+as a swept oval whose cross-section narrows with height, which matches all three views at
+once.
 """
 
 BUILD = '''
 def build_type59():
-    """Type 59 built to the reference photo's proportions."""
+    """Type 59 built from the three-view drawing, dimensioned off hull length."""
     body = material("t59_body", (0.70, 0.74, 0.38))
     dark = material("t59_dark", (0.42, 0.45, 0.21))
     track = material("t59_track", (0.22, 0.21, 0.20), rough=0.92)
@@ -22,100 +37,131 @@ def build_type59():
     glass = material("t59_glass", (0.20, 0.28, 0.36), rough=0.25)
     canvas = material("t59_canvas", (0.46, 0.44, 0.36), rough=0.95)
 
+    L = 6.04            # hull length
+    W = 3.27            # overall width
+    H = 2.59            # overall height
+    NOSE = L * 0.5      # x = +3.02 is the nose
+    DECK = 1.50         # hull roof height
+    TRACK_TOP = 0.80
+    TURRET_FRONT = NOSE - 0.28 * L      # +1.33
+    TURRET_REAR = NOSE - 0.68 * L       # -1.09
+    TURRET_LEN = TURRET_FRONT - TURRET_REAR   # 2.42
+    TURRET_CX = 0.5 * (TURRET_FRONT + TURRET_REAR)  # +0.12
+    ROOF = H * 0.88     # 2.28
+
     parts = []
 
-    # ---- hull: steeply sloped glacis running down to the nose, as in the photo
+    # ---- hull: steep glacis from the deck down to the nose, per the side view
     hull_profile = [
-        (-3.02, 0.44),   # rear bottom
-        (-3.02, 1.34),   # rear plate
-        (-2.62, 1.50),   # engine deck
-        (1.42, 1.50),    # fighting compartment deck
-        (2.86, 0.86),    # glacis: 0.64 drop over 1.44 run = very steep
-        (2.98, 0.44),    # nose bottom
+        (-NOSE, 0.44),
+        (-NOSE, 1.34),
+        (-L * 0.44, DECK),
+        (L * 0.20, DECK),          # glacis begins about 0.30 L back from the nose
+        (NOSE, 0.84),
+        (NOSE, 0.44),
     ]
-    parts.append(profile_extrude("hull", hull_profile, 2.34, body, bevel=0.045))
+    parts.append(profile_extrude("hull", hull_profile, 2.60, body, bevel=0.045))
 
     # ---- sponsons over the tracks
     for side in (-1, 1):
-        parts.append(box_mesh("sponson_%d" % side, (5.55, 0.54, 0.44),
-                              (-0.10, side * 1.33, 1.32), body, bevel=0.040))
+        parts.append(box_mesh("sponson_%d" % side, (5.40, 0.42, 0.44),
+                              (-0.30, side * 1.24, 1.30), body, bevel=0.040))
 
-    # ---- tracks: wide links (0.58) with a low, rounded run
-    outer = [
-        (-2.92, 0.06), (-3.14, 0.40), (-2.92, 0.78),
-        (2.62, 0.78), (2.92, 0.40), (2.62, 0.06),
-    ]
-    inner = [
-        (-2.82, 0.22), (-3.00, 0.40), (-2.82, 0.62),
-        (2.54, 0.62), (2.78, 0.40), (2.54, 0.22),
-    ]
-    wheel_x = [-2.05, -1.20, -0.40, 0.40, 1.20]
+    # ---- running gear: five road wheels, idler forward, sprocket aft
+    outer = [(-2.90, 0.06), (-3.12, 0.40), (-2.90, 0.78),
+             (2.60, 0.78), (2.90, 0.40), (2.60, 0.06)]
+    inner = [(-2.80, 0.22), (-2.98, 0.40), (-2.80, 0.62),
+             (2.52, 0.62), (2.76, 0.40), (2.52, 0.22)]
+    wheel_x = [-2.02, -1.18, -0.36, 0.44, 1.24]
     for side in (-1, 1):
-        parts.append(track_band("track_%d" % side, outer, inner, 0.58, track,
-                                offset_y=side * 1.40))
+        parts.append(track_band("track_%d" % side, outer, inner, 0.56, track,
+                                offset_y=side * 1.36))
         for i, x in enumerate(wheel_x):
-            parts.append(cyl_mesh("wheel_%d_%d" % (side, i), 0.38, 0.34,
-                                  (x, side * 1.40, 0.40), steel,
+            parts.append(cyl_mesh("wheel_%d_%d" % (side, i), 0.38, 0.32,
+                                  (x, side * 1.36, 0.40), steel,
                                   rot=(math.radians(90), 0, 0), verts=24))
-            parts.append(cyl_mesh("hub_%d_%d" % (side, i), 0.15, 0.36,
-                                  (x, side * 1.40, 0.40), dark,
+            parts.append(cyl_mesh("hub_%d_%d" % (side, i), 0.14, 0.34,
+                                  (x, side * 1.36, 0.40), dark,
                                   rot=(math.radians(90), 0, 0), verts=16))
-        parts.append(cyl_mesh("sprocket_%d" % side, 0.42, 0.34,
-                              (2.62, side * 1.40, 0.42), steel,
+        parts.append(cyl_mesh("sprocket_%d" % side, 0.40, 0.32,
+                              (2.62, side * 1.36, 0.42), steel,
                               rot=(math.radians(90), 0, 0), verts=20))
-        parts.append(cyl_mesh("idler_%d" % side, 0.40, 0.34,
-                              (-2.92, side * 1.40, 0.42), steel,
+        parts.append(cyl_mesh("idler_%d" % side, 0.38, 0.32,
+                              (-2.90, side * 1.36, 0.42), steel,
                               rot=(math.radians(90), 0, 0), verts=20))
 
-    # ---- turret: OVAL in plan and LOW. Photo shows roughly 2.5 m fore-aft by 2.0 m across
-    # with the roof only about 0.85 m above the deck, sitting a little aft of centre.
-    parts.append(cyl_mesh("turret_ring", 1.02, 0.14, (-0.28, 0, 1.57), dark, verts=40))
-    t_body = cyl_mesh("turret_body", 0.98, 0.44, (-0.28, 0, 1.79), body, verts=40)
-    t_body.scale = (1.22, 1.00, 1.0)          # fore-aft stretch = oval plan
-    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
-    parts.append(t_body)
-
-    roof = dome_mesh("turret_roof", 0.98, (-0.28, 0, 2.01), body, squash=0.40)
-    roof.scale = (1.22, 1.00, 1.0)
+    # ---- turret: swept oval, cross-section narrowing with height (front view is a wedge).
+    # Built as three stacked elliptical rings: ring -> shoulder -> roof, each smaller.
+    parts.append(cyl_mesh("turret_ring", 1.14, 0.16, (TURRET_CX, 0, DECK + 0.08), dark,
+                          verts=44))
+    for i, (rx, ry, z, h) in enumerate([
+            (1.18, 0.94, 1.66, 0.34),   # widest, just above the ring
+            (1.12, 0.88, 1.98, 0.30)]): # tapers toward the roof
+        seg = cyl_mesh("turret_%d" % i, 1.0, h, (TURRET_CX, 0, z), body, verts=44)
+        seg.scale = (rx, ry, 1.0)
+        bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+        parts.append(seg)
+    roof = dome_mesh("turret_roof", 1.0, (TURRET_CX, 0, ROOF - 0.34), body, squash=0.34)
+    roof.scale = (1.10, 0.86, 1.0)
     bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
     parts.append(roof)
 
-    # two-leaf roof hatch (photo shows a large oval hatch offset to the right)
-    parts.append(cyl_mesh("hatch_a", 0.30, 0.07, (-0.30, 0.34, 2.30), dark, verts=24))
-    parts.append(cyl_mesh("hatch_b", 0.22, 0.06, (-0.44, -0.30, 2.28), dark, verts=20))
-    # commander's cupola
-    parts.append(cyl_mesh("cupola", 0.24, 0.16, (-0.46, 0.34, 2.36), body, verts=20))
+    # front slope of the turret: a distinctly raised mantlet block, not the turret's full
+    # width - the plan view shows it as a narrow nose on the turret front
+    GZ = 1.86
+    parts.append(box_mesh("mantlet", (0.58, 0.98, 0.66), (TURRET_FRONT - 0.10, 0, GZ), dark,
+                          bevel=0.050))
 
-    # ---- mantlet and gun
-    parts.append(box_mesh("mantlet", (0.40, 0.92, 0.54), (0.62, 0, 2.00), dark, bevel=0.045))
-    # canvas dust cover where the barrel leaves the mantlet (grey, clearly visible in photo)
-    parts.append(cyl_mesh("canvas_cover", 0.155, 0.62, (0.92, 0, 2.00), canvas,
+    # commander's cupola plus AA machine gun on the roof - both clearly drawn in the side view
+    parts.append(cyl_mesh("cupola", 0.30, 0.22, (TURRET_CX - 0.30, 0.30, ROOF - 0.10), body,
+                          verts=24))
+    parts.append(cyl_mesh("cupola_hatch", 0.22, 0.06, (TURRET_CX - 0.30, 0.30, ROOF + 0.04),
+                          dark, verts=20))
+    parts.append(box_mesh("aamg_mount", (0.26, 0.22, 0.10), (TURRET_CX - 0.30, 0.30, ROOF + 0.08),
+                          dark, bevel=0.015))
+    parts.append(cyl_mesh("aamg_barrel", 0.045, 0.85, (TURRET_CX + 0.10, 0.30, ROOF + 0.20),
+                          steel, rot=(0, math.radians(72), 0), verts=10))
+    # loader's hatch, offset the other side
+    parts.append(cyl_mesh("hatch_load", 0.24, 0.06, (TURRET_CX - 0.10, -0.34, ROOF - 0.02),
+                          dark, verts=20))
+
+    # ---- gun: protrudes about 0.55 L beyond the turret front, thick, with canvas cover
+    BX = TURRET_FRONT
+    parts.append(cyl_mesh("canvas_cover", 0.20, 0.66, (BX + 0.16, 0, GZ), canvas,
                           rot=(0, math.radians(90), 0), verts=20))
-    parts.append(cyl_mesh("barrel", 0.105, 3.20, (2.72, 0, 2.00), steel,
+    parts.append(cyl_mesh("barrel", 0.128, 3.10, (BX + 1.90, 0, GZ), steel,
                           rot=(0, math.radians(90), 0), verts=24))
-    parts.append(cyl_mesh("evacuator", 0.150, 0.52, (2.42, 0, 2.00), dark,
+    parts.append(cyl_mesh("evacuator", 0.176, 0.54, (BX + 1.55, 0, GZ), dark,
                           rot=(0, math.radians(90), 0), verts=24))
-    parts.append(cyl_mesh("muzzle_cap", 0.135, 0.34, (4.24, 0, 2.00), canvas,
+    parts.append(cyl_mesh("muzzle_cap", 0.160, 0.38, (BX + 3.30, 0, GZ), canvas,
                           rot=(0, math.radians(90), 0), verts=24))
 
-    # ---- rear: engine grille, exhausts, and the cylindrical stowage tube on the back plate
-    parts.append(box_mesh("grille", (0.95, 1.95, 0.06), (-2.45, 0, 1.52), track, bevel=0.012))
+    # ---- rear: large louvred grille per the plan view, exhausts, rear stowage
+    parts.append(box_mesh("grille", (1.10, 2.05, 0.06), (-2.35, 0, DECK + 0.03), track,
+                          bevel=0.012))
+    for i in range(3):
+        parts.append(box_mesh("grille_rib_%d" % i, (1.06, 0.10, 0.05),
+                              (-2.35, -0.62 + i * 0.62, DECK + 0.09), dark, bevel=0.008))
     for side in (-1, 1):
-        parts.append(cyl_mesh("exhaust_%d" % side, 0.10, 0.46, (-2.95, side * 0.62, 1.16),
+        parts.append(cyl_mesh("exhaust_%d" % side, 0.10, 0.44, (-2.92, side * 0.58, 1.10),
                               dark, rot=(0, math.radians(90), 0), verts=16))
-    parts.append(cyl_mesh("rear_tube", 0.20, 2.10, (-3.10, 0, 1.20), dark,
-                          rot=(math.radians(90), 0, 0), verts=20))
 
-    # ---- front fender stowage boxes (clearly visible in the photo)
+    # ---- fenders fore and aft with the track exposed between them, as drawn
     for side in (-1, 1):
-        parts.append(box_mesh("fender_%d" % side, (5.95, 0.58, 0.09),
-                              (0.0, side * 1.40, 1.50), body, bevel=0.014))
-        parts.append(box_mesh("fbox_%d" % side, (0.90, 0.54, 0.30),
-                              (2.10, side * 1.40, 1.66), dark, bevel=0.024))
-        # tow hook on the nose
+        parts.append(box_mesh("fender_f_%d" % side, (1.55, 0.60, 0.07),
+                              (2.10, side * 1.36, 1.48), body, bevel=0.012))
+        parts.append(box_mesh("fender_r_%d" % side, (1.35, 0.60, 0.07),
+                              (-2.30, side * 1.36, 1.48), body, bevel=0.012))
+        parts.append(box_mesh("mudflap_%d" % side, (0.55, 0.58, 0.30),
+                              (2.78, side * 1.36, 1.26), body, bevel=0.018,
+                              rot=(0, math.radians(22), 0)))
+        # side stowage boxes along the sponson
+        for i in range(2):
+            parts.append(box_mesh("stow_%d_%d" % (side, i), (0.95, 0.28, 0.30),
+                                  (-1.45 + i * 1.20, side * 1.30, 1.20), dark, bevel=0.020))
         parts.append(box_mesh("hook_%d" % side, (0.26, 0.16, 0.14),
-                              (2.96, side * 0.70, 0.92), steel, bevel=0.020))
-    parts.append(cyl_mesh("light", 0.11, 0.14, (2.90, -1.10, 1.30), glass,
+                              (NOSE - 0.14, side * 0.66, 0.92), steel, bevel=0.020))
+    parts.append(cyl_mesh("light", 0.11, 0.14, (NOSE - 0.18, -0.98, 1.30), glass,
                           rot=(0, math.radians(90), 0), verts=14))
     return parts
 '''
