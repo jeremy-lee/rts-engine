@@ -170,6 +170,46 @@ def track_band(name, outer, inner, width, mat, offset_y=0.0):
     ob.location = (0.0, offset_y, 0.0)
     return ob
 
+def loft_ellipse(name, rings, mat, segs=44, cap_top=True, bevel=0.02):
+    """Loft a solid through a list of (z, rx, ry) elliptical rings, bottom to top.
+
+    This is what a cast turret actually is: a truncated wedge whose plan section is an oval
+    that shrinks and narrows toward the roof. The previous turret was three separate
+    elliptical cylinders stacked on a dome, which read as too tall and too bulbous?the
+    front view of the drawing is a clean trapezoid with flat sloped sides, and only a very
+    shallow crown on top.
+    """
+    ob = new_mesh_object(name)
+    bm = bmesh.new()
+    loops = []
+    for (z, rx, ry) in rings:
+        loop = []
+        for i in range(segs):
+            a = 2.0 * math.pi * i / segs
+            loop.append(bm.verts.new((math.cos(a) * rx, math.sin(a) * ry, z)))
+        loops.append(loop)
+    bm.verts.ensure_lookup_table()
+
+    bm.faces.new(loops[0][::-1])                      # bottom cap
+    for k in range(len(loops) - 1):
+        lo, hi = loops[k], loops[k + 1]
+        for i in range(segs):
+            j = (i + 1) % segs
+            bm.faces.new((lo[i], lo[j], hi[j], hi[i]))
+    if cap_top:
+        bm.faces.new(loops[-1])                       # top cap
+
+    bm.normal_update()
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    if bevel > 0.0:
+        bmesh.ops.bevel(bm, geom=list(bm.edges), offset=bevel, segments=2, affect="EDGES",
+                        clamp_overlap=True)
+    bm.to_mesh(ob.data)
+    bm.free()
+    ob.data.materials.append(mat)
+    return ob
+
+
 # --------------------------------------------------------------------------- the tank
 def build_type59():
     """Type 59 built from the three-view drawing, dimensioned off hull length."""
@@ -235,19 +275,38 @@ def build_type59():
 
     # ---- turret: swept oval, cross-section narrowing with height (front view is a wedge).
     # Built as three stacked elliptical rings: ring -> shoulder -> roof, each smaller.
-    parts.append(cyl_mesh("turret_ring", 1.14, 0.16, (TURRET_CX, 0, DECK + 0.08), dark,
+    # ONE lofted wedge. The front view of the drawing is a trapezoid: wide at the ring,
+    # narrower at the roof, with flat sloped sides and only a shallow crown. Height is set
+    # to TURRET_H = 0.30 * H = 0.78 m, against the 1.42 m of stacked rings it replaces.
+    TURRET_H = 0.30 * H
+    parts.append(cyl_mesh("turret_ring", 1.16, 0.14, (TURRET_CX, 0, DECK + 0.07), dark,
                           verts=44))
-    for i, (rx, ry, z, h) in enumerate([
-            (1.18, 0.94, 1.66, 0.34),   # widest, just above the ring
-            (1.12, 0.88, 1.98, 0.30)]): # tapers toward the roof
-        seg = cyl_mesh("turret_%d" % i, 1.0, h, (TURRET_CX, 0, z), body, verts=44)
-        seg.scale = (rx, ry, 1.0)
-        bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
-        parts.append(seg)
-    roof = dome_mesh("turret_roof", 1.0, (TURRET_CX, 0, ROOF - 0.34), body, squash=0.34)
-    roof.scale = (1.10, 0.86, 1.0)
-    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
-    parts.append(roof)
+    z0 = DECK + 0.14
+    z_top = z0 + TURRET_H
+    wedge = loft_ellipse("turret", [
+        (z0,                 1.21, 0.96),      # ring, widest
+        (z0 + TURRET_H * 0.55, 1.18, 0.90),    # nearly vertical lower wall
+        (z_top - 0.06,       1.06, 0.74),      # shoulders pull in
+        (z_top,              0.94, 0.62),      # roof ring
+    ], body, segs=44, bevel=0.02)
+    wedge.location = (TURRET_CX, 0, 0)
+    bpy.ops.object.select_all(action="DESELECT")
+    wedge.select_set(True)
+    bpy.context.view_layer.objects.active = wedge
+    bpy.ops.object.transform_apply(location=True, rotation=False, scale=False)
+    parts.append(wedge)
+    # shallow crown over the roof ring so it is a dome, not a flat lid
+    crown = loft_ellipse("turret_crown", [
+        (z_top,      0.94, 0.62),
+        (z_top + 0.06, 0.80, 0.50),
+        (z_top + 0.09, 0.58, 0.34),
+    ], body, segs=44, cap_top=True, bevel=0.012)
+    crown.location = (TURRET_CX, 0, 0)
+    bpy.ops.object.select_all(action="DESELECT")
+    crown.select_set(True)
+    bpy.context.view_layer.objects.active = crown
+    bpy.ops.object.transform_apply(location=True, rotation=False, scale=False)
+    parts.append(crown)
 
     # front slope of the turret: a distinctly raised mantlet block, not the turret's full
     # width - the plan view shows it as a narrow nose on the turret front
@@ -256,16 +315,16 @@ def build_type59():
                           bevel=0.050))
 
     # commander's cupola plus AA machine gun on the roof - both clearly drawn in the side view
-    parts.append(cyl_mesh("cupola", 0.30, 0.22, (TURRET_CX - 0.30, 0.30, ROOF - 0.10), body,
+    ROOFZ = z_top + 0.09
+    parts.append(cyl_mesh("cupola", 0.30, 0.20, (TURRET_CX - 0.26, 0.28, ROOFZ + 0.02), body,
                           verts=24))
-    parts.append(cyl_mesh("cupola_hatch", 0.22, 0.06, (TURRET_CX - 0.30, 0.30, ROOF + 0.04),
+    parts.append(cyl_mesh("cupola_hatch", 0.22, 0.06, (TURRET_CX - 0.26, 0.28, ROOFZ + 0.14),
                           dark, verts=20))
-    parts.append(box_mesh("aamg_mount", (0.26, 0.22, 0.10), (TURRET_CX - 0.30, 0.30, ROOF + 0.08),
+    parts.append(box_mesh("aamg_mount", (0.26, 0.22, 0.10), (TURRET_CX - 0.26, 0.28, ROOFZ + 0.18),
                           dark, bevel=0.015))
-    parts.append(cyl_mesh("aamg_barrel", 0.045, 0.85, (TURRET_CX + 0.10, 0.30, ROOF + 0.20),
+    parts.append(cyl_mesh("aamg_barrel", 0.045, 0.85, (TURRET_CX + 0.14, 0.28, ROOFZ + 0.30),
                           steel, rot=(0, math.radians(72), 0), verts=10))
-    # loader's hatch, offset the other side
-    parts.append(cyl_mesh("hatch_load", 0.24, 0.06, (TURRET_CX - 0.10, -0.34, ROOF - 0.02),
+    parts.append(cyl_mesh("hatch_load", 0.24, 0.06, (TURRET_CX - 0.06, -0.30, ROOFZ + 0.05),
                           dark, verts=20))
 
     # ---- gun: protrudes about 0.55 L beyond the turret front, thick, with canvas cover
